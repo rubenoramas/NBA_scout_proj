@@ -224,7 +224,7 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | Collection | Holds | Written by |
 | --- | --- | --- |
 | `teams` | Team info and the style fingerprint | Seed loader |
-| `players` | Bio, headshot link, role, play type and tracking stats | Seed loader |
+| `players` | Bio, headshot link, role, play type and tracking stats. Injured players who have not played yet get a basic document with `has_stats` false | Seed loader |
 | `schedule` | Games for the calendar, with results | Seed loader |
 | `game_logs` | Per-game player lines, for last game and form | Seed loader |
 | `shots` | One document per shot: location, shot type, zone, result | Seed loader |
@@ -308,6 +308,10 @@ Made on Nov 16, 2026.
 - **Play-by-play and game lineups are boiled down in R.** The pull scripts turn them into small tables (lost-ball steals, assist pairs, most common fives). The raw rows never enter the repo or MongoDB. The R stays simple, and one player's steal total is checked against his game logs to prove the aggregation.
 - **Matchups come from the per-game file.** Pair totals for both seasons are sums of per-game rows. No live pull is needed for the matchup model. Last season keeps the regular season, the play-in, the playoffs and the NBA Cup final, and drops preseason.
 - **Graded CRUD lands early.** Lineup and report create, read, update and delete (reports with notes only) are done by Nov 24. The AI text is added on Nov 27.
+- **Seed files are JSON Lines.** One document per line, one file per collection, so each line maps straight to a MongoDB document and git diffs stay readable.
+- **The loader is its own Compose service.** It runs once after MongoDB is healthy, swaps each changed collection in whole, skips files whose SHA-256 fingerprint has not changed, and exits. `web` waits for it.
+- **Injury status comes from each team's latest report.** A player who dropped off his team's latest report counts as available.
+- **"Data as of" is the date of the latest game in the game logs.** The time of the pull is stored separately.
 - **Badge names live in one config file.** Renaming a badge is one edit.
 - **The cut list is the real rule.** The order is in the Timeline section.
 

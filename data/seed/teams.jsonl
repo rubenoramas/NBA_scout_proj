@@ -1,0 +1,30 @@
+{"_id":1610612737,"team_id":1610612737,"city":"Atlanta","name":"Hawks","full_name":"Atlanta Hawks","slug":"hawks","conference":"East","division":"Southeast","abbreviation":"ATL"}
+{"_id":1610612738,"team_id":1610612738,"city":"Boston","name":"Celtics","full_name":"Boston Celtics","slug":"celtics","conference":"East","division":"Atlantic","abbreviation":"BOS"}
+{"_id":1610612751,"team_id":1610612751,"city":"Brooklyn","name":"Nets","full_name":"Brooklyn Nets","slug":"nets","conference":"East","division":"Atlantic","abbreviation":"BKN"}
+{"_id":1610612766,"team_id":1610612766,"city":"Charlotte","name":"Hornets","full_name":"Charlotte Hornets","slug":"hornets","conference":"East","division":"Southeast","abbreviation":"CHA"}
+{"_id":1610612741,"team_id":1610612741,"city":"Chicago","name":"Bulls","full_name":"Chicago Bulls","slug":"bulls","conference":"East","division":"Central","abbreviation":"CHI"}
+{"_id":1610612739,"team_id":1610612739,"city":"Cleveland","name":"Cavaliers","full_name":"Cleveland Cavaliers","slug":"cavaliers","conference":"East","division":"Central","abbreviation":"CLE"}
+{"_id":1610612742,"team_id":1610612742,"city":"Dallas","name":"Mavericks","full_name":"Dallas Mavericks","slug":"mavericks","conference":"West","division":"Southwest","abbreviation":"DAL"}
+{"_id":1610612743,"team_id":1610612743,"city":"Denver","name":"Nuggets","full_name":"Denver Nuggets","slug":"nuggets","conference":"West","division":"Northwest","abbreviation":"DEN"}
+{"_id":1610612765,"team_id":1610612765,"city":"Detroit","name":"Pistons","full_name":"Detroit Pistons","slug":"pistons","conference":"East","division":"Central","abbreviation":"DET"}
+{"_id":1610612744,"team_id":1610612744,"city":"Golden State","name":"Warriors","full_name":"Golden State Warriors","slug":"warriors","conference":"West","division":"Pacific","abbreviation":"GSW"}
+{"_id":1610612745,"team_id":1610612745,"city":"Houston","name":"Rockets","full_name":"Houston Rockets","slug":"rockets","conference":"West","division":"Southwest","abbreviation":"HOU"}
+{"_id":1610612754,"team_id":1610612754,"city":"Indiana","name":"Pacers","full_name":"Indiana Pacers","slug":"pacers","conference":"East","division":"Central","abbreviation":"IND"}
+{"_id":1610612746,"team_id":1610612746,"city":"LA","name":"Clippers","full_name":"LA Clippers","slug":"clippers","conference":"West","division":"Pacific","abbreviation":"LAC"}
+{"_id":1610612747,"team_id":1610612747,"city":"Los Angeles","name":"Lakers","full_name":"Los Angeles Lakers","slug":"lakers","conference":"West","division":"Pacific","abbreviation":"LAL"}
+{"_id":1610612763,"team_id":1610612763,"city":"Memphis","name":"Grizzlies","full_name":"Memphis Grizzlies","slug":"grizzlies","conference":"West","division":"Southwest","abbreviation":"MEM"}
+{"_id":1610612748,"team_id":1610612748,"city":"Miami","name":"Heat","full_name":"Miami Heat","slug":"heat","conference":"East","division":"Southeast","abbreviation":"MIA"}
+{"_id":1610612749,"team_id":1610612749,"city":"Milwaukee","name":"Bucks","full_name":"Milwaukee Bucks","slug":"bucks","conference":"East","division":"Central","abbreviation":"MIL"}
+{"_id":1610612750,"team_id":1610612750,"city":"Minnesota","name":"Timberwolves","full_name":"Minnesota Timberwolves","slug":"timberwolves","conference":"West","division":"Northwest","abbreviation":"MIN"}
+{"_id":1610612740,"team_id":1610612740,"city":"New Orleans","name":"Pelicans","full_name":"New Orleans Pelicans","slug":"pelicans","conference":"West","division":"Southwest","abbreviation":"NOP"}
+{"_id":1610612752,"team_id":1610612752,"city":"New York","name":"Knicks","full_name":"New York Knicks","slug":"knicks","conference":"East","division":"Atlantic","abbreviation":"NYK"}
+{"_id":1610612760,"team_id":1610612760,"city":"Oklahoma City","name":"Thunder","full_name":"Oklahoma City Thunder","slug":"thunder","conference":"West","division":"Northwest","abbreviation":"OKC"}
+{"_id":1610612753,"team_id":1610612753,"city":"Orlando","name":"Magic","full_name":"Orlando Magic","slug":"magic","conference":"East","division":"Southeast","abbreviation":"ORL"}
+{"_id":1610612755,"team_id":1610612755,"city":"Philadelphia","name":"76ers","full_name":"Philadelphia 76ers","slug":"sixers","conference":"East","division":"Atlantic","abbreviation":"PHI"}
+{"_id":1610612756,"team_id":1610612756,"city":"Phoenix","name":"Suns","full_name":"Phoenix Suns","slug":"suns","conference":"West","division":"Pacific","abbreviation":"PHX"}
+{"_id":1610612757,"team_id":1610612757,"city":"Portland","name":"Trail Blazers","full_name":"Portland Trail Blazers","slug":"blazers","conference":"West","division":"Northwest","abbreviation":"POR"}
+{"_id":1610612758,"team_id":1610612758,"city":"Sacramento","name":"Kings","full_name":"Sacramento Kings","slug":"kings","conference":"West","division":"Pacific","abbreviation":"SAC"}
+{"_id":1610612759,"team_id":1610612759,"city":"San Antonio","name":"Spurs","full_name":"San Antonio Spurs","slug":"spurs","conference":"West","division":"Southwest","abbreviation":"SAS"}
+{"_id":1610612761,"team_id":1610612761,"city":"Toronto","name":"Raptors","full_name":"Toronto Raptors","slug":"raptors","conference":"East","division":"Atlantic","abbreviation":"TOR"}
+{"_id":1610612762,"team_id":1610612762,"city":"Utah","name":"Jazz","full_name":"Utah Jazz","slug":"jazz","conference":"West","division":"Northwest","abbreviation":"UTA"}
+{"_id":1610612764,"team_id":1610612764,"city":"Washington","name":"Wizards","full_name":"Washington Wizards","slug":"wizards","conference":"East","division":"Southeast","abbreviation":"WAS"}

@@ -13,6 +13,20 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+      loader:
+        condition: service_completed_successfully
+
+  loader:
+    build: .
+    command: ["python", "-m", "app.loader"]
+    environment:
+      MONGO_URI: mongodb://mongo:27017/opponent_scout
+    volumes:
+      - ./app:/code/app
+      - ./data/seed:/code/data/seed:ro
+    depends_on:
+      mongo:
+        condition: service_healthy
 
   mongo:
     image: mongo:8.0.38

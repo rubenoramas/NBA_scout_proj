@@ -37,3 +37,8 @@ What I learned: (yours to fill in)
 What happened: the On-Ball Pest badge needs steals on lost-ball turnovers, but the NBA stats play-by-play file has no steal rows and never names the stealer.
 What fixed it: ESPN's play-by-play names the stealer on each turnover ("(Anthony Black steals)"). ESPN names were matched to NBA ids by name, which worked for 404 of 405 players. A check on one player gave 19 steals in both ESPN play-by-play and the NBA game logs.
 What I learned: (yours to fill in)
+
+## 2026-11-17: the latest injury row was the wrong answer
+What happened: the plan was to take each player's latest row in the injury report. But a player who recovers just stops appearing on the report, so his latest row would say Out forever. Also, 51 injured players had not played yet and were missing from the player bio file, so they would not show on rosters at all.
+What fixed it: use each team's most recent report, and treat players not on it as available. Players on the report but missing from the bio file get a basic player document marked has_stats false.
+What I learned: (yours to fill in)

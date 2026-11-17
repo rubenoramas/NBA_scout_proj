@@ -1,0 +1,180 @@
+# Video and README study notes
+
+Everything you need to explain Opponent Scout in the demo video and to write the four README answers. Each section ends with a few questions. If you can answer them out loud without looking, you know that part.
+
+Claude Code adds a section here after each feature it builds (see CLAUDE.md).
+
+## The 30-second version
+
+Opponent Scout builds a pregame scouting report on an NBA opponent. You pick your team, click an upcoming game on its calendar, and get how the opponent plays, where each player scores from, ratings and trait badges for every player, and a suggested defensive matchup for each of their scorers. An AI writes a coach-style report from the numbers, and you can save, edit and delete reports and lineups.
+
+Under the hood: R scripts pull NBA data onto my laptop and save it as seed files. When the app starts, a loader puts those files into MongoDB. A Flask API reads MongoDB, and a vanilla JavaScript page calls the API with fetch. Docker Compose runs it all with one command.
+
+Questions:
+- Who is the app for, and what decision does it help them make?
+- Trace one click (choosing an opponent) from the browser to the database and back.
+
+## Suggested video plan (2 to 3 minutes)
+
+| Time | Show | Say |
+| --- | --- | --- |
+| 0:00 | The landing page | What the app is, in one sentence |
+| 0:15 | Pick a team, click a game on the calendar | Any team against any team |
+| 0:35 | Game context header, team profile | Records, streaks, how the opponent plays |
+| 1:00 | A player one-pager: ratings, badges, shot chart | Ratings are league percentiles. Badges catch traits numbers hide |
+| 1:30 | Matchups, then change a lineup | Matchups recompute without a page reload (AJAX). Lineups are saved in MongoDB |
+| 2:00 | Generate the AI report, then edit and delete it | Loading state, CRUD, and the AI only uses our numbers |
+| 2:30 | Terminal: `docker-compose up --build` | The stack: Docker, Flask, MongoDB, vanilla JS |
+| 2:50 | Close | One thing that makes it different |
+
+Before recording:
+- Rerun the pulls so the data is current, and check the "data as of" date on screen.
+- Put a real API key in `.env` so the AI report works.
+- Pick a matchup that tells a good story (a star scorer, a badge that stands out).
+- Zoom the browser so text is readable in the recording.
+
+## Docker and Docker Compose
+
+Docker packages each part of the app with everything it needs, so it runs the same on any computer. Docker Compose starts several containers together from one file, `docker-compose.yml`.
+
+The app has three services:
+- **web**: the Flask app, run by gunicorn. Built from our Dockerfile.
+- **mongo**: the database, from the official MongoDB image at a pinned version (8.0.38).
+- **loader**: starts, fills MongoDB from the seed files, and exits. `docker compose ps -a` shows it as "Exited (0)", which means it finished normally.
+
+Key lines in `docker-compose.yml`:
+- `ports: "8000:8000"` connects port 8000 on the laptop to port 8000 in the container. The app is at http://localhost:8000. Not 5000, because macOS uses 5000 for AirPlay.
+- `env_file` with `required: false` loads the API key from `.env` if it exists. A fresh clone with no `.env` still starts.
+- `MONGO_URI: mongodb://mongo:27017/opponent_scout` tells Flask where the database is. `mongo` works as a hostname because Compose puts the services on a private network where each service name is an address.
+- `depends_on` with `condition: service_healthy` makes web wait until MongoDB actually answers, not just until its container starts.
+- The **healthcheck** pings MongoDB every 5 seconds. That ping is what "healthy" means.
+- `mongo-data:/data/db` keeps the database files in a **named volume**. Containers are meant to be thrown away and rebuilt, so the data lives outside them and survives `docker-compose down`. Only `docker-compose down -v` deletes it.
+- `./app:/code/app` is a **bind mount** for development. With gunicorn's `--reload`, saving a Python file restarts the app in a few seconds.
+- MongoDB has no `ports` entry, so it is not reachable from the laptop, only from inside the Docker network. To look inside: `docker compose exec mongo mongosh`.
+
+Why gunicorn: Flask's built-in server is meant for development only. Gunicorn is a real web server.
+
+Versions: Python 3.13.18, Flask 3.1.3, pymongo 4.20.0, gunicorn 27.0.1, MongoDB 8.0.38.
+
+Useful commands:
+- `docker-compose up --build`: build and start everything
+- `docker compose ps`: check what is running
+- `docker-compose down`: stop everything (data kept)
+
+Questions:
+- Why does web wait for mongo, and what would go wrong without it?
+- Why does the database live in a volume and not inside the container?
+- What is the difference between a named volume and a bind mount?
+- Why can the app find the database at the hostname `mongo`?
+
+## Flask and the health check
+
+Flask is the backend: it receives HTTP requests and returns JSON. The first endpoint, `GET /api/health`, reports whether the API is up, whether MongoDB answered, and whether an AI key is set. It returns HTTP 200 when everything works and 503 when the database cannot be reached. The page shows a loading state, then green or red, with a "Try again" button on failure.
+
+Questions:
+- What does HTTP 503 mean, and why is it the right code when the database is down?
+- What are the three states the health page can show?
+
+## MongoDB
+
+- A **database** (ours is `opponent_scout`) holds **collections**.
+- A **collection** is a group of similar records, like `players` or `schedule`. It is roughly a table, but documents in it do not all need the same fields.
+- A **document** is one record, stored like a JSON object. One player is one document.
+- Every document has an **`_id`** that must be unique. We use the NBA's own ids (player id, team id, game id), so loading the same data twice can never create duplicates.
+- An **index** lets MongoDB find documents without scanning the whole collection. We index the fields the app searches by, such as players by team and games by date. `_id` is indexed automatically.
+- The database does not need to be created ahead of time. MongoDB creates it the first time something is written.
+
+How the loader works:
+- Each collection loads into a temporary collection, which is then renamed over the old one in one step. Rows that disappeared from the data, such as a cleared injury, are removed.
+- It computes a fingerprint (a SHA-256 hash) of each seed file and stores it. If a file has not changed, it skips that file, so restarts stay fast.
+- A bad or missing file is reported in plain words and skipped. The rest still loads.
+
+Collections: teams, players, standings, schedule, game_logs, injuries, meta, plus shots, matchups, attributes, opponent_lineups, and the two the user edits, lineups and reports.
+
+Questions:
+- Why does using the NBA's ids as `_id` prevent duplicates?
+- What does an index speed up, and what does it cost?
+- How does the loader avoid reloading data that has not changed?
+
+## Where the data comes from
+
+The running app never calls an outside data source. It reads only MongoDB, which is filled from seed files committed to the repo. That way grading never depends on a website being up.
+
+R scripts in `pulls/` use the hoopR package, part of the SportsDataverse project. There are three routes:
+
+1. **Pre-pulled NBA stats files** (the main route). hoopR publishes copies of NBA stats tables as files, one per season, updated daily. Each loads in about a second.
+2. **ESPN play-by-play**, used for one thing: who made each steal.
+3. **The live NBA stats site**, optional. It gave no answer from campus Wi-Fi, so the app does not depend on it.
+
+Other decisions:
+- NBA ids everywhere. Headshots come from the NBA's image site by player id.
+- Injuries come from the NBA's official injury report. A player who dropped off his team's latest report counts as available, because taking each player's latest row would leave long-recovered players marked Out.
+- "Data as of" is the date of the latest game in the data.
+- Seed files are JSON Lines: one JSON document per line. Each line is already a MongoDB document, types are kept, and git diffs stay readable.
+- This season is blended with last season, because a month into a season the samples are small.
+
+Gotchas worth mentioning:
+- Season numbers differ by function: the NBA stats files use the start year (2026 for 2026-27), ESPN uses the end year (2027), and the live functions default to last season.
+- Most files are Parquet and need R's arrow package. Without it they load as empty tables.
+
+What public data cannot tell us:
+- Which way a player drives or dribbles. The app shows where shots come from, not which way he was moving.
+- Named set plays. The app shows play types, such as isolation and pick and roll.
+
+Questions:
+- Why does the app read from MongoDB instead of calling the data sources directly?
+- Why did the campus network push the project toward pre-pulled files?
+- Why can't the app say "he likes to drive left"?
+
+## The first data slice: pull_core.R and the loader
+
+What it does: `pulls/pull_core.R` downloads this season's teams, players, standings, schedule, player game logs and injury report, and writes one seed file per collection into `data/seed/`. When the stack starts, the loader puts those files into MongoDB. On Nov 17 that was 30 teams, 522 players, 30 standings rows, 1,207 games, 4,618 game log lines and 154 injury entries, about 2 MB in all.
+
+How it works, in plain words:
+- The R script loads each season-long file with one hoopR call, keeps only the columns the app needs, renames them to plain names, and writes them as JSON Lines. It prints the row count of each file and the total size.
+- Every row gets an `_id` from the NBA's own ids: team id, player id, game id, and game id plus player id for a game log line.
+- The loader is a third container. It waits for MongoDB to be healthy, loads every seed file that changed, and exits. The web app waits for it to finish.
+- To skip unchanged files, the loader stores a fingerprint (SHA-256 hash) of each file. Same fingerprint next time means nothing to do.
+- Each changed collection loads into a temporary collection, gets its indexes, and is renamed over the old one in one step.
+
+Design decision worth mentioning: injuries. The official report comes out many times a day, and a player who recovers just stops appearing on it. Taking each player's latest row would leave him marked Out forever. So the script finds each team's most recent report and uses only the players on it. A second decision: 51 injured players had not played yet, so they were missing from the player list. They get a basic player document marked "no stats yet", so they still show on the roster with their injury tag.
+
+R ideas used: `filter()` keeps rows that match a condition, `transmute()` picks and renames columns, `group_by()` plus `summarise()` makes one row per group (the latest report per team), `left_join()` adds columns from another table by a shared key, and `bind_rows()` stacks two tables.
+
+Look at the data yourself:
+- `docker compose exec mongo mongosh opponent_scout` opens the MongoDB shell
+- `show collections` lists the collections
+- `db.players.countDocuments()` counts documents
+- `db.teams.findOne({abbreviation: "BOS"})` shows one document
+- `db.players.find({team_id: 1610612738}, {player_name: 1, height: 1})` lists one roster with two fields
+
+Questions:
+- Why does the injury rule look at each team's latest report instead of each player's latest row?
+- What happens on the second `docker-compose up` if no seed file has changed, and how does the loader know?
+- Why load into a temporary collection and rename it, instead of inserting into the real one?
+
+## AI in the project
+
+AI shows up in three places:
+- **Our own matchup model** picks which defender should guard which scorer.
+- **The Claude API** writes the team report and the "how to guard him" lines. It receives only numbers the app computed and is told to use nothing else. The page shows the same numbers beside the text, so every claim can be checked.
+- **Claude Code** wrote most of the code from my prompts, logged word for word in `docs/PROMPTS.md`. I used Claude chat for planning, data research and writing those prompts.
+
+Questions:
+- How do we stop the AI from inventing stats?
+- What does the app do when no API key is set?
+
+## Challenges so far (for the README)
+
+Full notes are in `docs/NOTES.md`. Write the README answers in your own words.
+
+- The NBA stats site would not answer from campus Wi-Fi, so the data plan switched to pre-pulled files.
+- A timeout in the test script crashed it instead of failing cleanly. The fix was to put the timeout on the request itself.
+- Most data files loaded empty until the arrow package was installed.
+- The NBA play-by-play file does not record who made a steal, so steals come from ESPN, matched to NBA players by name.
+- Taking each player's latest injury row would have marked recovered players as Out.
+- 51 injured players had not played yet, so they were missing from the player bio file and from rosters.
+
+## Still to come
+
+Sections for these get added as they are built: shot charts and zones, ratings, trait badges, the matchup model, the lineup editor, the player one-pager, rotation scouting, the AI report, and tests.

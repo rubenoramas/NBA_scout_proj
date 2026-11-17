@@ -114,3 +114,32 @@ Prompt (approval):
 >
 > Port 8000 and keeping MongoDB off the host are fine. Go ahead and build it, run your five checks, then do the docker-compose.yml walkthrough. After it all works, commit and push.
 Result: built the Docker skeleton (Flask 3.1.3 on gunicorn 27.0.1 with reload, pymongo 4.20.0, mongo:8.0.38, Python 3.13.18), GET /api/health, a status page with loading, success and error states, and a placeholder headshot; recorded the play-in and name matching answers in the docs
+
+## 2026-11-17: first seed pull and the loader
+Tool: Claude Code
+Prompt:
+> Plan, then build the first slice of the data pipeline. Use only sources verified in docs/DATA_SOURCES.md, and follow the season rules in CLAUDE.md.
+>
+> 1. pulls/pull_core.R writes these to data/seed/ and prints the row count of each:
+>    - teams: id, city, name, abbreviation, conference and division, from the standings file
+>    - players: bio with height and weight, plus the headshot URL built from the NBA player id
+>    - standings: record, seed, current streak and last ten
+>    - schedule: the NBA stats schedule, with results for games already played
+>    - player game logs for the current season
+>    - injuries: the latest official report per player, skipping "NOT YET SUBMITTED" rows
+>    - a meta file with the "data as of" date
+> 2. A loader that runs when the stack starts and fills MongoDB from data/seed/. Running it twice must not create duplicates, and it skips reloading when the seed files have not changed.
+> 3. Indexes that match how the app will look things up, such as players by team and games by date.
+> 4. Pick a seed file format and tell me why. Check the total size of data/seed/.
+>
+> I am new to R and MongoDB. Explain the R script section by section. Explain collections, documents and indexes using our own data, and show me how to look at the loaded data with mongosh inside the container. Then commit and push.
+
+Prompt (approval):
+> Approved, with two additions:
+>
+> 1. Players who are on the injury report but missing from player_bio should still appear. Create a basic player document for each from the injury report (id, name, team), marked as having no stats yet, so they show on the roster with their injury tag. Tell me how many there are.
+>
+> 2. I added docs/VIDEO_NOTES.md, my study guide for the demo video and README. Commit it. Add this rule to CLAUDE.md under "Working agreements": "After each feature, add a short section to docs/VIDEO_NOTES.md: what it does, how it works in plain words, one design decision worth mentioning, and two or three self-check questions. Keep the existing format." Then add a section for this step, the loader and pull_core.R.
+>
+> Go ahead and build, then commit and push.
+Result: built pulls/pull_core.R (six JSON Lines seed files plus meta.json, 2.07 MB, 51 injured players without stats added), a loader service that swaps in changed collections and skips unchanged files by SHA-256 fingerprint, and indexes; added the VIDEO_NOTES rule to CLAUDE.md and a section for this step
