@@ -67,9 +67,10 @@ SCHEDULE = [
 ]
 
 
-def log(gid, date, pid, team, pts=10, reb=4, ast=2, name=None):
+def log(gid, date, pid, team, pts=10, reb=4, ast=2, mins=30, name=None):
     return {"_id": f"{gid}_{pid}", "game_id": gid, "game_date": date, "player_id": pid,
-            "player_name": name or f"Player {pid}", "team_id": team, "pts": pts, "reb": reb, "ast": ast}
+            "player_name": name or f"Player {pid}", "team_id": team, "pts": pts, "reb": reb, "ast": ast,
+            "min": mins}
 
 
 def build_logs():

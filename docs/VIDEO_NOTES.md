@@ -164,7 +164,7 @@ How it works, in plain words:
 - The last meeting searches this season and last season, so it can say "2025-26 season, Playoffs" when the teams have not met yet this year.
 - Your team is stored in the browser's localStorage, so the calendar opens straight away on the next visit.
 
-Design decision worth mentioning: the last game standout rule. A player stands out when, in his team's last game, he beat his own average by at least 10 points, 6 rebounds or 5 assists, and by at least 1.5 times, with at least 5 earlier games behind the average. When several qualify, the biggest jump relative to the average wins. The card shows the numbers and the rule, so nobody has to trust it blindly, and it says "Small sample" when the average rests on fewer than 10 games. On Nov 17 it found a standout for 20 of 30 teams. A second decision: team abbreviations in styled badges instead of logos, because logos are trademarks and the repo is public.
+Design decision worth mentioning: the last game standout rule. A player stands out when, in his team's last game, he beat his own average by at least 10 points, 6 rebounds or 5 assists, and by at least 1.5 times, with at least 5 earlier games behind the average. He also has to be a real rotation player: at least 15 minutes a game before, and at least 20 minutes in the last game. When several qualify, the biggest jump relative to the average wins. The card shows the numbers and the rule, so nobody has to trust it blindly, and it says "Small sample" when the average rests on fewer than 10 games. On Nov 17 it found a standout for 18 of 30 teams. A second decision: team abbreviations in styled badges instead of logos, because logos are trademarks and the repo is public.
 
 Tests: `docker compose run --rm web pytest` runs 14 tests against a separate test database filled with three made-up teams, so the results never depend on the day's real data.
 
@@ -194,7 +194,7 @@ Full notes are in `docs/NOTES.md`. Write the README answers in your own words.
 - The NBA play-by-play file does not record who made a steal, so steals come from ESPN, matched to NBA players by name.
 - Taking each player's latest injury row would have marked recovered players as Out.
 - 51 injured players had not played yet, so they were missing from the player bio file and from rosters.
-- The first standout rule favored bench players: a small average makes any good night look huge. The card shows the sample size and the rule so the reader can judge it.
+- The first standout rule favored bench players: a small average makes any good night look huge. A minutes floor (15 a game before, 20 in the last game) fixed it, and the card shows the sample size and the rule so the reader can judge it.
 
 ## Still to come
 

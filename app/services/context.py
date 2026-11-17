@@ -8,7 +8,10 @@ from app.db import db
 # Last game standout rule. A player stands out when, in his team's last game,
 # a stat beat his average from his earlier games this season by at least
 # `min_jump`, and was at least `min_ratio` times that average. He needs at
-# least MIN_EARLIER_GAMES earlier games so the average means something.
+# least MIN_EARLIER_GAMES earlier games so the average means something, and
+# real minutes: an average of MIN_AVG_MINUTES over the earlier games and at
+# least MIN_LAST_GAME_MINUTES in the last game. The minutes floor stops a
+# deep bench player's one good night from beating a starter's big game.
 STANDOUT_RULES = [
     {"stat": "pts", "label": "points", "min_jump": 10},
     {"stat": "reb", "label": "rebounds", "min_jump": 6},
@@ -16,6 +19,8 @@ STANDOUT_RULES = [
 ]
 MIN_RATIO = 1.5
 MIN_EARLIER_GAMES = 5
+MIN_AVG_MINUTES = 15
+MIN_LAST_GAME_MINUTES = 20
 
 
 def current_season():
@@ -122,6 +127,9 @@ def find_standout(last_lines, earlier_by_player):
         earlier = earlier_by_player.get(line["player_id"], [])
         if len(earlier) < MIN_EARLIER_GAMES:
             continue
+        avg_minutes = sum(g.get("min") or 0 for g in earlier) / len(earlier)
+        if avg_minutes < MIN_AVG_MINUTES or (line.get("min") or 0) < MIN_LAST_GAME_MINUTES:
+            continue
         for rule in STANDOUT_RULES:
             stat = rule["stat"]
             value = line.get(stat)
@@ -143,6 +151,8 @@ def find_standout(last_lines, earlier_by_player):
                     "value": value,
                     "average": round(average, 1),
                     "earlier_games": len(earlier),
+                    "minutes": line.get("min"),
+                    "avg_minutes": round(avg_minutes, 1),
                     "relative_jump": round(relative, 2),
                 }
     return best
@@ -189,5 +199,7 @@ def game_context(us_id, them_id):
             "rules": STANDOUT_RULES,
             "min_ratio": MIN_RATIO,
             "min_earlier_games": MIN_EARLIER_GAMES,
+            "min_avg_minutes": MIN_AVG_MINUTES,
+            "min_last_game_minutes": MIN_LAST_GAME_MINUTES,
         },
     }

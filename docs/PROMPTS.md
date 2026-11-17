@@ -175,3 +175,9 @@ Prompt (approval):
 >
 > The next meeting, pytest in requirements.txt, and everything else are approved as planned. Build it, run your checks, then commit and push and add the VIDEO_NOTES section.
 Result: built the three endpoints, the landing page (team picker, month calendar, search) and the scouting page with the game context header (standout on points, rebounds or assists; last meeting from this season or last; next meeting), added last season's schedule to the pull, and added pytest with 14 passing tests
+
+## 2026-11-17: minutes floor for the standout rule
+Tool: Claude Code
+Prompt:
+> Add a minimum to the standout rule: the player must average at least 15 minutes a game over the earlier games, and play at least 20 minutes in the last game. Show me the new count of teams with a standout and a few examples.
+Result: added the minutes floor to the standout rule, the card text and the tests (15 passing); 18 of 30 teams now have a standout

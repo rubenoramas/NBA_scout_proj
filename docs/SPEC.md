@@ -45,7 +45,7 @@ The top of the scouting page sets the scene before any analysis.
 | Records and seeds | Each team's win-loss record and conference seed |
 | Streak | Current win or loss streak, and the last ten games |
 | Last game, both teams | Opponent, score, result and date |
-| Last game standout | The player whose last game beat his own average by the most. Rule: at least 5 earlier games, and in the last game at least 10 more points, 6 more rebounds or 5 more assists than his average, and at least 1.5 times it. The biggest jump relative to the average wins |
+| Last game standout | The player whose last game beat his own average by the most. Rule: at least 5 earlier games averaging at least 15 minutes, at least 20 minutes in the last game, and in the last game at least 10 more points, 6 more rebounds or 5 more assists than his average, and at least 1.5 times it. The biggest jump relative to the average wins |
 | Last meeting | The most recent game between the two teams, with date and score. Falls back to last season, labeled with the season and marked when it was a playoff or play-in game |
 | Next meeting | The next scheduled game between the two teams this season |
 | Game type icon | A marker when the game is an NBA Cup game or a playoff game |

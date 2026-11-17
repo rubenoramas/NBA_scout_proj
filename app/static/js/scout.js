@@ -89,10 +89,11 @@ function standoutCard(standout, ctx) {
       el("span", { class: "standout-value" },
         el("strong", { text: standout.value }), ` ${standout.stat_label}`)),
     el("p", { class: "standout-detail" },
-      `Season average ${standout.average} over ${standout.earlier_games} earlier games.`,
+      `Season average ${standout.average} over ${standout.earlier_games} earlier games. ${standout.minutes} minutes, against ${standout.avg_minutes} a game.`,
       small ? el("span", { class: "tag tag-small", text: "Small sample" }) : null),
     el("p", { class: "standout-rule muted",
-      text: `Rule: at least ${rule.min_jump} more ${rule.label} than his average and ${ctx.standout_rule.min_ratio} times it.` }));
+      text: `Rule: at least ${rule.min_jump} more ${rule.label} than his average and ${ctx.standout_rule.min_ratio} times it, `
+        + `averaging ${ctx.standout_rule.min_avg_minutes}+ minutes and playing ${ctx.standout_rule.min_last_game_minutes}+ in the last game.` }));
 }
 
 function teamPanel(side, label, ctx) {

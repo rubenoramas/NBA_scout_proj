@@ -125,42 +125,56 @@ def test_context_validation(client_app):
 
 
 def lines(n, **stats):
-    base = {"pts": 10, "reb": 4, "ast": 2}
+    base = {"pts": 10, "reb": 4, "ast": 2, "min": 30}
     base.update(stats)
     return [dict(base) for _ in range(n)]
 
 
 def test_standout_just_below_threshold_is_none():
-    last = [{"player_id": 1, "player_name": "A", "pts": 19, "reb": 4, "ast": 2}]
+    last = [{"player_id": 1, "player_name": "A", "pts": 19, "reb": 4, "ast": 2, "min": 30}]
     assert find_standout(last, {1: lines(5)}) is None
 
 
 def test_standout_needs_ratio_too():
     # +10 points, and 30 is exactly 1.5 times a 20 average, so it qualifies.
-    last = [{"player_id": 1, "player_name": "A", "pts": 30, "reb": 4, "ast": 2}]
+    last = [{"player_id": 1, "player_name": "A", "pts": 30, "reb": 4, "ast": 2, "min": 30}]
     assert find_standout(last, {1: lines(5, pts=20)})["stat"] == "pts"
     # +10 points on a 25 average is only 1.4x, so it does not.
-    last = [{"player_id": 1, "player_name": "A", "pts": 35, "reb": 4, "ast": 2}]
+    last = [{"player_id": 1, "player_name": "A", "pts": 35, "reb": 4, "ast": 2, "min": 30}]
     assert find_standout(last, {1: lines(5, pts=25)}) is None
 
 
 def test_standout_rebounds_and_assists():
-    last = [{"player_id": 1, "player_name": "A", "pts": 10, "reb": 10, "ast": 2}]
+    last = [{"player_id": 1, "player_name": "A", "pts": 10, "reb": 10, "ast": 2, "min": 30}]
     found = find_standout(last, {1: lines(5, reb=4)})
     assert (found["stat"], found["stat_label"], found["value"]) == ("reb", "rebounds", 10)
 
-    last = [{"player_id": 1, "player_name": "A", "pts": 10, "reb": 4, "ast": 7}]
+    last = [{"player_id": 1, "player_name": "A", "pts": 10, "reb": 4, "ast": 7, "min": 30}]
     assert find_standout(last, {1: lines(5, ast=2)})["stat"] == "ast"
-    last = [{"player_id": 1, "player_name": "A", "pts": 10, "reb": 4, "ast": 6}]
+    last = [{"player_id": 1, "player_name": "A", "pts": 10, "reb": 4, "ast": 6, "min": 30}]
     assert find_standout(last, {1: lines(5, ast=2)}) is None  # only +4
 
 
 def test_standout_picks_biggest_relative_jump():
     # Player 1: 20 pts vs 10 avg (+100%). Player 2: 10 reb vs 4 avg (+150%).
     last = [
-        {"player_id": 1, "player_name": "Scorer", "pts": 20, "reb": 4, "ast": 2},
-        {"player_id": 2, "player_name": "Rebounder", "pts": 10, "reb": 10, "ast": 2},
+        {"player_id": 1, "player_name": "Scorer", "pts": 20, "reb": 4, "ast": 2, "min": 30},
+        {"player_id": 2, "player_name": "Rebounder", "pts": 10, "reb": 10, "ast": 2, "min": 30},
     ]
     found = find_standout(last, {1: lines(5), 2: lines(5)})
     assert found["player_name"] == "Rebounder"
     assert found["relative_jump"] == 1.5
+
+
+def test_standout_minutes_floor():
+    big_night = [{"player_id": 1, "player_name": "A", "pts": 25, "reb": 4, "ast": 2, "min": 20}]
+    # Exactly 15 minutes a game before and 20 in the last game qualifies.
+    assert find_standout(big_night, {1: lines(5, min=15)})["minutes"] == 20
+    # A 14.8 minute average does not.
+    earlier = lines(4, min=15) + lines(1, min=14)
+    assert find_standout(big_night, {1: earlier}) is None
+    # 19 minutes in the last game does not.
+    short = [dict(big_night[0], min=19)]
+    assert find_standout(short, {1: lines(5, min=30)}) is None
+    # Missing minutes count as zero.
+    assert find_standout([dict(big_night[0], min=None)], {1: lines(5)}) is None
