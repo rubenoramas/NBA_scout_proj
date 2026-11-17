@@ -1,0 +1,13 @@
+# Keep secrets, git history and laptop-only files out of the image.
+.env
+.env.*
+.git
+.gitignore
+.DS_Store
+**/__pycache__
+**/*.pyc
+pulls/
+docs/
+tests/
+data/
+README.md

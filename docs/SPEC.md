@@ -303,10 +303,10 @@ Made on Nov 16, 2026.
 - **NBA stats ids everywhere.** Every team and player id in MongoDB and the API is the NBA stats id. The calendar uses the NBA stats schedule.
 - **Headshots from the NBA image CDN.** The link is built from the NBA player id. A test link loaded on Nov 16. A placeholder image shows when a headshot fails to load.
 - **Injuries from the NBA stats injury report.** It uses NBA ids, so no name matching. The latest report per player is used, and rows with reason "NOT YET SUBMITTED" are skipped. (Changed Nov 17. ESPN injuries are no longer used.)
-- **ESPN only for steals.** ESPN play-by-play names the stealer on lost-ball turnovers. Stealers are matched to NBA ids by name, with team as a tie-breaker. No full ESPN id crosswalk is built. (Changed Nov 17.)
+- **ESPN only for steals.** ESPN play-by-play names the stealer on lost-ball turnovers. Stealers are matched to NBA ids by name, with team as a tie-breaker. Before matching, names drop accents, punctuation, case and suffixes (Jr., Sr., II, III, IV). Names that still miss go in a small manual override table in `pulls/`, starting with Bobby Portis, and the pull prints every stealer name it could not match. No full ESPN id crosswalk is built. (Changed Nov 17.)
 - **Assist pairs from shot descriptions.** The passer's last name in "(Robinson 1 AST)" is matched to the four teammates on the floor.
 - **Play-by-play and game lineups are boiled down in R.** The pull scripts turn them into small tables (lost-ball steals, assist pairs, most common fives). The raw rows never enter the repo or MongoDB. The R stays simple, and one player's steal total is checked against his game logs to prove the aggregation.
-- **Matchups come from the per-game file.** Pair totals for both seasons are sums of per-game rows. No live pull is needed for the matchup model. Last season keeps the regular season, the playoffs and the NBA Cup final, and drops preseason.
+- **Matchups come from the per-game file.** Pair totals for both seasons are sums of per-game rows. No live pull is needed for the matchup model. Last season keeps the regular season, the play-in, the playoffs and the NBA Cup final, and drops preseason.
 - **Graded CRUD lands early.** Lineup and report create, read, update and delete (reports with notes only) are done by Nov 24. The AI text is added on Nov 27.
 - **Badge names live in one config file.** Renaming a badge is one edit.
 - **The cut list is the real rule.** The order is in the Timeline section.
@@ -320,8 +320,7 @@ None of these blocks the build.
 - Headshot usage terms: check before any public hosted demo.
 - Seed file size: check after the first full shot pull, and compress or trim if the repo gets heavy.
 - NBA Cup group games: find a source for the icon, such as a note in the ESPN schedule.
-- Stealer name matching: handle the few ESPN names that do not match (Bobby Portis on Nov 17), and build the ESPN to NBA team abbreviation map.
-- Play-in games in last season's matchups (6 games) were not covered by the season type decision. They are kept for now.
+- ESPN to NBA team abbreviation map for the stealer tie-breaker.
 
 ## Timeline
 

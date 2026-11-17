@@ -86,3 +86,31 @@ Prompt:
 >
 > github url: https://github.com/rubenoramas/NBA_scout_proj
 Result: confirmed ESPN play-by-play names the stealer (1,299 of 1,327 lost-ball turnovers), recorded injuries, steals, assist pairs and matchup season types in the docs, added injury report and ESPN play-by-play tests, reran the pull test, and committed
+
+## 2026-11-17: name matching answers and Docker skeleton
+Tool: Claude Code
+Prompt:
+> Two quick answers first: keep last season's play-in games. For the ESPN to NBA name match, strip suffixes like Jr., Sr., II and III before matching, and add a small manual override table for any names that still miss, starting with Bobby Portis. Log any unmatched stealer names when the pull runs.
+>
+> ran the git commands
+>
+> Plan, then build the smallest working version of the stack:
+>
+> - docker-compose.yml with two services: the Flask app and MongoDB, with a named volume for the database
+> - A Dockerfile for the Flask app with pinned versions in requirements.txt
+> - GET /api/health that returns JSON saying whether Flask can reach MongoDB
+> - One static page with vanilla JS that calls /api/health with fetch and shows the result, including a loading state and an error state
+> - .env loaded for configuration, with the app still starting when ANTHROPIC_API_KEY is missing
+> - app/static/img/ with a simple placeholder headshot image for players without a photo
+>
+> Then walk me through docker-compose.yml line by line. I need to be able to explain it in my demo video. Also tell me the command to check that the containers are running.
+
+Prompt (approval):
+> Approved, with three additions:
+>
+> 1. Keep gunicorn. For development, mount ./app into the container and run gunicorn with --reload so code changes show up without a rebuild. A fresh clone must still start with one command.
+> 2. Check whether "docker-compose up --build" (hyphen) works on this Mac, since that is the exact command in the assignment. If only "docker compose" works, tell me, and make sure the README gives a command that works.
+> 3. If any pinned version does not exist when you build, switch to the nearest real release and tell me which.
+>
+> Port 8000 and keeping MongoDB off the host are fine. Go ahead and build it, run your five checks, then do the docker-compose.yml walkthrough. After it all works, commit and push.
+Result: built the Docker skeleton (Flask 3.1.3 on gunicorn 27.0.1 with reload, pymongo 4.20.0, mongo:8.0.38, Python 3.13.18), GET /api/health, a status page with loading, success and error states, and a placeholder headshot; recorded the play-in and name matching answers in the docs

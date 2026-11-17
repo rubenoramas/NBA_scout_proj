@@ -52,7 +52,7 @@ Freshness: the player game logs ran through Nov 15, 2026 when pulled on Nov 16, 
 
 ### What the labels look like
 
-- **Matchup season types kept:** regular season (2), playoffs (4) and the NBA Cup final (6). Preseason is dropped. The file holds no preseason rows, so in practice the filter is a guard.
+- **Matchup season types kept:** regular season (2), playoffs (4), play-in (5) and the NBA Cup final (6). Preseason is dropped. The file holds no preseason rows, so in practice the filter is a guard.
 - **Matchups** come one row per offensive player, defensive player and game. There is no season-totals file for 2026-27, so pair totals for both seasons are built by summing the per-game rows by `off_person_id` and `def_person_id`. `season_type_id` is 2 for the regular season (1,230 games last season), 4 for the playoffs (85), 5 for the play-in (6) and 6 for the NBA Cup final (1), checked by joining to the schedule file. Every 2026-27 row so far is 2. The types kept are in the line above.
 - **Every leaguedash table is season totals.** All the tables checked carry `season_type` "Regular Season" and `per_mode` "Totals", one row per player or team. Per-game numbers are totals divided by `gp`.
 - **Play types and hustle hold each row twice.** Both files have `per_mode` values `pergame` and `totals`, and only `season_type` `regular-season`. Pull scripts filter to one `per_mode`. The season matchup totals file is doubled the same way.
@@ -84,7 +84,7 @@ Checked Nov 16, 2026 from campus Wi-Fi. `https://cdn.nba.com/headshots/nba/lates
 
 ESPN ids and NBA stats ids are different numbering systems. The app uses NBA stats ids everywhere. ESPN is needed only for steals, from its play-by-play.
 
-Matching ESPN stealers to NBA ids, checked Nov 17: after dropping accents, punctuation and case, 404 of 405 stealer names matched a name in the NBA player bio table, and no two bio players share a name key. The one miss was Bobby Portis. Team is a tie-breaker, but ESPN and NBA team abbreviations differ (only 79% agreed as raw text), so team matching needs a small abbreviation map.
+Matching ESPN stealers to NBA ids, checked Nov 17: after dropping accents, punctuation and case, 404 of 405 stealer names matched a name in the NBA player bio table, and no two bio players share a name key. The one miss was Bobby Portis. The pull also strips suffixes (Jr., Sr., II, III, IV), uses a manual override table for names that still miss, and prints any unmatched stealer names. Team is a tie-breaker, but ESPN and NBA team abbreviations differ (only 79% agreed as raw text), so team matching needs a small abbreviation map.
 
 Aggregation check: Anthony Black has 19 steals in ESPN play-by-play and 19 in the NBA game logs over his 10 games.
 

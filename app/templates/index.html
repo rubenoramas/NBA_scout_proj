@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Opponent Scout</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <main>
+    <h1>Opponent Scout</h1>
+    <p class="lede">Pregame scouting reports on any NBA opponent.</p>
+
+    <section class="card" aria-live="polite">
+      <h2>System status</h2>
+      <p id="status" class="status loading">Checking the API and database...</p>
+      <ul id="details" class="details" hidden></ul>
+      <button id="retry" type="button" hidden>Try again</button>
+    </section>
+
+    <section class="card">
+      <h2>Headshot placeholder</h2>
+      <p>Shown when a player photo cannot load.</p>
+      <img class="headshot" src="{{ url_for('static', filename='img/headshot-placeholder.svg') }}"
+           alt="Placeholder headshot" width="130" height="95">
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='js/health.js') }}"></script>
+</body>
+</html>
