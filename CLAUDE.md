@@ -61,6 +61,7 @@ Changing any item in this list breaks the assignment. If a task seems to need a 
 - Ask before adding a new dependency.
 - Verify changes by running the app with `docker-compose up --build`, not only by reading the code.
 - Written text in the README and the UI uses plain sentences with no em dashes.
+- All UI follows docs/DESIGN.md. New screens reuse its components and colors.
 - After each feature, add a short section to docs/VIDEO_NOTES.md: what it does, how it works in plain words, one design decision worth mentioning, and two or three self-check questions. Keep the existing format.
 
 ## Honesty rules for the product

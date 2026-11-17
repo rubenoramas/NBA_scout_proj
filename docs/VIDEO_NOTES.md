@@ -173,6 +173,25 @@ Questions:
 - What does the standout rule require, and why does it need at least 5 earlier games?
 - Why do the tests use their own database and made-up teams instead of the real data?
 
+## The front office console design
+
+What it does: every screen now follows one design guide, `docs/DESIGN.md`, built from three mockups in `docs/design/`. The look is a dense analytics tool, like software a team's staff would use: a dark top bar on every page, tables instead of cards, small uppercase labels, numbers that line up, and one blue accent color. First visit shows a team selection screen grouped by conference and division, with a filter box. After that, the landing page is the season schedule as a table with the margin and running record of every game, beside a sidebar with the next game, a team snapshot and a mini month view. The scouting page has a matchup band with both teams and the game date, section tabs, and three panels: Head to head, Recent results and Last game standouts.
+
+How it works, in plain words:
+- All 21 colors live as variables at the top of `style.css`, so a color change is one edit and no screen can drift off the palette.
+- The top bar is shared code (`topbar.js`): the team switcher, the main navigation, the team search (press `/` to jump to it) and the "Data as of" date.
+- The running record is counted over the whole season in date order, so November starts from the record before Nov 1. LAC reads 1-5 after Nov 1 and 4-8 after Nov 15, which matches the official standings. The NBA Cup final is skipped because it does not count in the standings.
+- Tabs and buttons for features that are not built yet are disabled and marked "Soon". Nothing on screen pretends to work.
+- The Inter font is stored in the app itself, with its open font license, so the app looks the same with no internet.
+- No API or test changed. Only the look and layout did.
+
+Design decision worth mentioning: the divider between played and upcoming games says "Data as of Mon, Nov 16" instead of "Today". The data is pulled the morning after games, so calling that line "today" would be wrong on most days.
+
+Questions:
+- Why keep every color in one set of variables instead of writing colors where they are used?
+- How is the running record worked out, and why does it start from the first game of the season instead of the first game of the month?
+- Why are unfinished features shown as disabled "Soon" items instead of placeholder panels?
+
 ## AI in the project
 
 AI shows up in three places:

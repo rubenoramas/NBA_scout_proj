@@ -181,3 +181,29 @@ Tool: Claude Code
 Prompt:
 > Add a minimum to the standout rule: the player must average at least 15 minutes a game over the earlier games, and play at least 20 minutes in the last game. Show me the new count of teams with a standout and a few examples.
 Result: added the minutes floor to the standout rule, the card text and the tests (15 passing); 18 of 30 teams now have a standout
+
+## 2026-11-17: front office console restyle
+Tool: Claude Code
+Prompt:
+> Restyle the whole app to match the new design. Read docs/DESIGN.md first, then the three mockups in docs/design/ (TeamSelect.html, Schedule.html, Scout.html) for exact styles, spacing and structure.
+>
+> 1. Put the colors from DESIGN.md in :root in style.css as variables, and rebuild the stylesheet around them.
+> 2. Rebuild the three existing screens to match the mockups:
+>    - First visit: the team selection screen, with teams grouped by conference and division and a filter box.
+>    - Landing: the schedule as a table with margin and running record, plus the sidebar with Next game, team snapshot and the mini month view. Upcoming games stay clickable to scout.
+>    - Scouting page: the top bar, matchup band and section tabs, then Head to head, Recent results and Last game standouts.
+> 3. Keep all existing behavior, API calls and tests working. Only the look and layout change.
+> 4. Tabs and buttons for features that are not built yet are disabled and marked "Soon". Do not ship the dashed placeholder panels from the mockup.
+> 5. Add a rule to CLAUDE.md under "Working agreements": "All UI follows docs/DESIGN.md. New screens reuse its components and colors."
+>
+> Show me the plan first. After building, check every screen in the browser, including the loading, empty and error states, then commit and push, and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> Approved. Answers:
+> 1. Use "Data as of Mon, Nov 16" on the divider, not "Today".
+> 2. Self-host Inter: download the font files into app/static/fonts/ and include Inter's license file (OFL.txt) next to them. Only the weights we use: 400, 500, 600, 700.
+>
+> One check: compute the running record over the whole season from the first game, not only the visible month, so November starts from the record before Nov 1. Verify LAC shows 1-5 after Nov 1 and 4-8 after Nov 15.
+>
+> Go ahead and build, then run your checks, commit and push.
+Result: rebuilt the stylesheet on the DESIGN.md color tokens with self-hosted Inter 4.1; rebuilt team selection, the schedule table with running record and sidebar, and the scouting page with matchup band, tabs and three panels; unfinished features marked "Soon"; added the DESIGN.md rule to CLAUDE.md

@@ -47,3 +47,8 @@ What I learned: (yours to fill in)
 What happened: after editing a template, the browser still showed the old page, even though gunicorn's --reload was on.
 What fixed it: --reload only watches Python files, and Flask keeps templates in memory. Setting TEMPLATES_AUTO_RELOAD makes Flask re-read a template when it changes.
 What I learned: (yours to fill in)
+
+## 2026-11-17: table rows rendered as "[object HTMLDivElement]"
+What happened: after the redesign, the Recent results panel showed the text "[object HTMLDivElement]" instead of its rows.
+What fixed it: the helper that builds page elements flattened nested lists only one level deep, so a list of rows inside a list was turned into text. Flattening all the way down (flat(Infinity)) fixed it.
+What I learned: (yours to fill in)

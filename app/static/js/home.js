@@ -1,271 +1,422 @@
-// Landing page: team picker, month calendar of the team's schedule, and a
-// search box to scout any team.
+// Landing page. First visit: choose your team. After that: the season
+// schedule as a table, plus a sidebar with the next game, a team snapshot
+// and a mini month view.
 
-import { badge, el, emptyBox, errorBox, getJSON, parseDay, showAsOf, skeleton, store } from "./api.js";
+import {
+  MY_TEAM_KEY, SEASON_TYPE_LABEL, chevron, chip, el, emptyLine, errorLine, fill, formatDay, getJSON,
+  parseDay, resultChip, scoutUrl, seedText, shortStreak, skeletonRows, store, streakClass, tag,
+} from "./api.js";
+import { loadTeams, matchTeams, setScoutNav, setSwitcher } from "./topbar.js";
 
-const MY_TEAM_KEY = "opponentScout.myTeam";
+const loadView = document.getElementById("load-view");
+const selectView = document.getElementById("select-view");
+const scheduleView = document.getElementById("schedule-view");
 
-const pickerSection = document.getElementById("picker");
-const pickerBody = document.getElementById("picker-body");
-const scheduleSection = document.getElementById("schedule");
-const calendarBody = document.getElementById("calendar");
+let teams = [];
+let teamsById = new Map();
+let asOf = null;
+let myTeam = null;
+
+function showView(view) {
+  loadView.hidden = view !== loadView;
+  selectView.hidden = view !== selectView;
+  scheduleView.hidden = view !== scheduleView;
+}
+
+async function start() {
+  showView(loadView);
+  fill(loadView, skeletonRows(6, [38, 220, 160]));
+  try {
+    const data = await loadTeams();
+    teams = data.teams;
+    asOf = data.data_as_of;
+    teamsById = new Map(teams.map((t) => [t.team_id, t]));
+  } catch (err) {
+    fill(loadView, errorLine(err.message, start));
+    return;
+  }
+  if (!teams.length) {
+    fill(loadView, emptyLine("No teams are loaded yet. Run the data pull and restart the app."));
+    return;
+  }
+  const params = new URLSearchParams(window.location.search);
+  const saved = teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY));
+  if (saved && !params.has("choose")) {
+    showSchedule(saved);
+  } else {
+    showSelect(saved);
+  }
+}
+
+// ---- Team selection ---------------------------------------------------
+
+const filterInput = document.getElementById("team-filter");
+const selectBody = document.getElementById("select-body");
+
+function showSelect(current) {
+  myTeam = null;
+  setSwitcher(current || null);
+  setScoutNav(null);
+  document.getElementById("nav-schedule").setAttribute("aria-current", "page");
+  showView(selectView);
+  renderSelect();
+  filterInput.focus();
+}
+
+function renderSelect() {
+  const shown = new Set(matchTeams(teams, filterInput.value).map((t) => t.team_id));
+  if (shown.size === 0) {
+    fill(selectBody, emptyLine(`No team matches "${filterInput.value.trim()}".`));
+    return;
+  }
+  const conferences = ["East", "West"].map((conf) => {
+    const confTeams = teams.filter((t) => t.conference === conf);
+    const divisions = [...new Set(confTeams.map((t) => t.division))].sort();
+    return el("div", { class: "conf" },
+      el("div", { class: "conf-head", text: `${conf}ern Conference` }),
+      el("div", { class: "divisions" },
+        divisions.map((division) => {
+          const rows = confTeams
+            .filter((t) => t.division === division && shown.has(t.team_id))
+            .sort((a, b) => a.city.localeCompare(b.city))
+            .map((t) =>
+              el("button", { type: "button", class: "team-row", onclick: () => chooseTeam(t) },
+                chip(t.abbreviation, { fixed: true }),
+                el("span", { class: "team-row-name" },
+                  el("span", { class: "muted", text: t.city }),
+                  el("span", { class: "strong", text: ` ${t.name}` }))));
+          return el("div", { class: "division" },
+            el("div", { class: "division-name", text: division }),
+            rows.length ? rows : el("div", { class: "division-empty", text: "No match" }));
+        })));
+  });
+  fill(selectBody, el("div", { class: "conf-wrap" }, conferences));
+}
+
+filterInput.addEventListener("input", renderSelect);
+filterInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    const found = matchTeams(teams, filterInput.value);
+    if (found.length === 1) chooseTeam(found[0]);
+  }
+});
+
+function chooseTeam(team) {
+  store.set(MY_TEAM_KEY, team.abbreviation);
+  window.history.replaceState(null, "", "/");
+  filterInput.value = "";
+  showSchedule(team);
+}
+
+// ---- Schedule ---------------------------------------------------------
+
+const rowsBody = document.getElementById("schedule-rows");
 const monthLabel = document.getElementById("month-label");
 const prevBtn = document.getElementById("prev-month");
 const nextBtn = document.getElementById("next-month");
+const segButtons = [...document.querySelectorAll(".seg button")];
 
-let teams = [];
-let myTeam = null;
 let games = [];
-let month = null; // Date set to the first day of the shown month
+let recordAfter = new Map(); // game_id -> "W-L" after that game
+let nextGame = null;
+let month = null;
 let firstMonth = null;
 let lastMonth = null;
-let asOf = null;
+let filter = "all";
 
-function scoutUrl(us, them) {
-  const params = new URLSearchParams({ us: us.abbreviation, them: them.abbreviation });
-  return `/scout?${params}`;
-}
-
-// ---- Teams and picker -------------------------------------------------
-
-async function loadTeams() {
-  pickerBody.replaceChildren(skeleton(3, "Loading teams"));
-  try {
-    const data = await getJSON("/api/teams");
-    teams = data.teams;
-    asOf = data.data_as_of;
-    showAsOf(asOf);
-    if (teams.length === 0) {
-      pickerBody.replaceChildren(emptyBox("No teams are loaded yet. Run the data pull and restart the app."));
-      return;
-    }
-    const saved = store.get(MY_TEAM_KEY);
-    const savedTeam = teams.find((t) => t.abbreviation === saved);
-    if (savedTeam) {
-      chooseTeam(savedTeam);
-    } else {
-      renderPicker();
-    }
-  } catch (err) {
-    pickerBody.replaceChildren(errorBox(err.message, loadTeams));
-  }
-}
-
-function renderPicker() {
-  pickerSection.hidden = false;
-  scheduleSection.hidden = true;
-  const columns = ["East", "West"].map((conf) =>
-    el("div", { class: "conf-col" },
-      el("h3", { class: "conf-title", text: `${conf}ern Conference` }),
-      el("div", { class: "team-grid" },
-        teams
-          .filter((t) => t.conference === conf)
-          .map((t) =>
-            el("button", { class: "team-tile", type: "button", onclick: () => chooseTeam(t) },
-              badge(t.abbreviation, { conference: t.conference }),
-              el("span", { class: "team-tile-name" },
-                el("span", { class: "team-city", text: t.city }),
-                el("span", { class: "team-name", text: t.name })))))));
-  pickerBody.replaceChildren(el("div", { class: "conf-cols" }, columns));
-}
-
-function chooseTeam(team) {
+function showSchedule(team) {
   myTeam = team;
-  store.set(MY_TEAM_KEY, team.abbreviation);
-  pickerSection.hidden = true;
-  scheduleSection.hidden = false;
-  document.getElementById("my-badge").replaceChildren(badge(team.abbreviation, { conference: team.conference, size: "lg" }));
-  document.getElementById("schedule-title").textContent = team.full_name;
-  document.getElementById("schedule-sub").textContent = `${team.conference}ern Conference, ${team.division} Division`;
+  setSwitcher(team);
+  document.getElementById("nav-schedule").setAttribute("aria-current", "page");
+  document.getElementById("snapshot-title").textContent = `${team.abbreviation} snapshot`;
+  showView(scheduleView);
   loadSchedule();
-}
-
-document.getElementById("change-team").addEventListener("click", () => {
-  store.remove(MY_TEAM_KEY);
-  myTeam = null;
-  renderPicker();
-  pickerSection.scrollIntoView({ behavior: "smooth", block: "start" });
-});
-
-// ---- Schedule and calendar --------------------------------------------
-
-async function loadSchedule() {
-  const team = myTeam;
-  monthLabel.textContent = "";
-  calendarBody.replaceChildren(skeleton(5, "Loading schedule"));
-  prevBtn.disabled = nextBtn.disabled = true;
-  try {
-    const data = await getJSON(`/api/teams/${team.team_id}/schedule`);
-    if (team !== myTeam) return; // the user switched teams meanwhile
-    games = data.games;
-    const played = games.filter((g) => g.played);
-    const wins = played.filter((g) => g.result === "W").length;
-    document.getElementById("schedule-sub").textContent =
-      `${data.season} season. ${wins}-${played.length - wins} so far, ${games.length - played.length} games to play.`;
-    if (games.length === 0) {
-      calendarBody.replaceChildren(emptyBox("No games are scheduled for this team."));
-      return;
-    }
-    firstMonth = monthStart(parseDay(games[0].date));
-    lastMonth = monthStart(parseDay(games[games.length - 1].date));
-    // Open on the month of the "data as of" date, inside the season.
-    let start = asOf ? monthStart(parseDay(asOf)) : firstMonth;
-    if (start < firstMonth) start = firstMonth;
-    if (start > lastMonth) start = lastMonth;
-    month = start;
-    renderCalendar();
-  } catch (err) {
-    calendarBody.replaceChildren(errorBox(err.message, loadSchedule));
-  }
 }
 
 function monthStart(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function dayKey(date) {
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${m}-${d}`;
+// Running record over the whole season, in date order, so any month starts
+// from the record before its first game. The NBA Cup final does not count in
+// the standings, so it is skipped.
+function computeRecords(list) {
+  const map = new Map();
+  let wins = 0;
+  let losses = 0;
+  for (const g of list) {
+    if (!g.played) continue;
+    if (g.season_type !== "nba-cup") {
+      if (g.result === "W") wins++;
+      else if (g.result === "L") losses++;
+    }
+    map.set(g.game_id, `${wins}-${losses}`);
+  }
+  return { map, record: `${wins}-${losses}` };
 }
 
-function renderCalendar() {
+async function loadSchedule() {
+  const team = myTeam;
+  monthLabel.textContent = "";
+  prevBtn.disabled = nextBtn.disabled = true;
+  fill(rowsBody, skeletonRows(8, [88, 200, 24, 64, 40, 40]));
+  fill(document.getElementById("next-body"), skeletonRows(3, [60, 120, 60]));
+  fill(document.getElementById("snapshot-body"), skeletonRows(2, [60, 60, 60]));
+  fill(document.getElementById("mini-body"), skeletonRows(4, [220]));
+  document.getElementById("next-note").textContent = "";
+  try {
+    const data = await getJSON(`/api/teams/${team.team_id}/schedule`);
+    if (team !== myTeam) return; // the user switched teams meanwhile
+    games = data.games;
+    document.getElementById("schedule-note").textContent = `${data.season} season`;
+  } catch (err) {
+    fill(rowsBody, errorLine(err.message, loadSchedule));
+    for (const id of ["next-body", "snapshot-body", "mini-body"]) {
+      fill(document.getElementById(id), emptyLine("Waiting for the schedule."));
+    }
+    return;
+  }
+
+  const { map, record } = computeRecords(games);
+  recordAfter = map;
+  setSwitcher(team, record);
+  nextGame = games.find((g) => !g.played) || null;
+  setScoutNav(nextGame ? scoutUrl(team.abbreviation, nextGame.opponent.abbreviation) : null);
+
+  if (!games.length) {
+    fill(rowsBody, emptyLine("No games are scheduled for this team."));
+    fill(document.getElementById("mini-body"), emptyLine("No games scheduled."));
+  } else {
+    firstMonth = monthStart(parseDay(games[0].date));
+    lastMonth = monthStart(parseDay(games[games.length - 1].date));
+    let start = asOf ? monthStart(parseDay(asOf)) : firstMonth;
+    if (start < firstMonth) start = firstMonth;
+    if (start > lastMonth) start = lastMonth;
+    month = start;
+    renderMonth();
+  }
+  loadSide();
+}
+
+function oppTeam(game) {
+  return teamsById.get(game.opponent.team_id) || { abbreviation: game.opponent.abbreviation, name: game.opponent.abbreviation };
+}
+
+function scheduleRow(game) {
+  const opp = oppTeam(game);
+  const isNext = nextGame && game.game_id === nextGame.game_id;
+  const oppCell = el("span", { class: "opp" },
+    el("span", { class: "ha", text: game.home ? "vs" : "@" }),
+    chip(opp.abbreviation),
+    el("span", { class: "text-2", text: opp.name }),
+    game.season_type === "nba-cup" ? tag("NBA Cup", "gold") : null,
+    isNext ? tag("Next", "accent") : null);
+  if (game.played) {
+    const margin = game.team_pts - game.opp_pts;
+    return el("div", { class: "trow cols-schedule" },
+      el("span", { class: "text-2", text: formatDay(game.date) }),
+      oppCell,
+      el("span", {}, resultChip(game.result)),
+      el("span", { class: "strong", text: `${game.team_pts}-${game.opp_pts}` }),
+      el("span", { class: "num text-2", text: margin > 0 ? `+${margin}` : String(margin) }),
+      el("span", { class: "num text-2", text: recordAfter.get(game.game_id) || "–" }),
+      el("span"));
+  }
+  return el("div", { class: "trow cols-schedule" },
+    el("span", { class: "text-2", text: formatDay(game.date) }),
+    oppCell,
+    el("span", { class: "muted", text: "–" }),
+    el("span", { class: "muted", text: "–" }),
+    el("span", { class: "num muted", text: "–" }),
+    el("span", { class: "num muted", text: "–" }),
+    el("a", {
+      class: "scout-link",
+      href: scoutUrl(myTeam.abbreviation, opp.abbreviation),
+      "aria-label": `Scout ${opp.full_name || opp.abbreviation}, ${formatDay(game.date)}`,
+    }, "Scout", chevron()));
+}
+
+function dividerRow() {
+  return el("div", { class: "divider-row" },
+    `Data as of ${formatDay(asOf, { weekday: "short", month: "short", day: "numeric" })}`,
+    el("span", { class: "divider-note", text: "Games below have not been played yet" }));
+}
+
+function inMonth(dateText) {
+  const d = parseDay(dateText);
+  return d.getFullYear() === month.getFullYear() && d.getMonth() === month.getMonth();
+}
+
+function renderMonth() {
   monthLabel.textContent = month.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   prevBtn.disabled = month <= firstMonth;
   nextBtn.disabled = month >= lastMonth;
 
-  const byDay = new Map(games.map((g) => [g.date, g]));
-  const year = month.getFullYear();
-  const mon = month.getMonth();
-  const daysInMonth = new Date(year, mon + 1, 0).getDate();
-  const leadingBlanks = month.getDay(); // 0 = Sunday
-
-  const cells = [];
-  for (let i = 0; i < leadingBlanks; i++) cells.push(el("div", { class: "cal-cell blank", "aria-hidden": "true" }));
-
-  let gamesThisMonth = 0;
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, mon, day);
-    const key = dayKey(date);
-    const game = byDay.get(key);
-    if (game) gamesThisMonth++;
-    const isAsOf = key === asOf;
-    cells.push(el("div", { class: `cal-cell${game ? " has-game" : ""}${isAsOf ? " is-asof" : ""}` },
-      el("span", { class: "cal-day", text: day }),
-      game ? gameChip(game) : null));
+  const shown = games.filter((g) => inMonth(g.date) &&
+    (filter === "all" || (filter === "home" ? g.home : !g.home)));
+  const rows = [];
+  let dividerDone = !(asOf && inMonth(asOf));
+  for (const game of shown) {
+    if (!dividerDone && game.date > asOf) {
+      rows.push(dividerRow());
+      dividerDone = true;
+    }
+    rows.push(scheduleRow(game));
   }
-
-  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) =>
-    el("div", { class: "cal-weekday", text: d }));
-
-  const grid = el("div", { class: "cal-grid" }, weekdays, cells);
-  if (gamesThisMonth === 0) {
-    calendarBody.replaceChildren(grid, emptyBox("No games this month."));
-  } else {
-    calendarBody.replaceChildren(grid);
+  if (!dividerDone && shown.length) rows.push(dividerRow());
+  if (!shown.length) {
+    const kind = filter === "home" ? "home games" : filter === "road" ? "road games" : "games";
+    rows.push(emptyLine(`No ${kind} this month.`));
   }
-}
-
-function gameChip(game) {
-  const opp = teams.find((t) => t.team_id === game.opponent.team_id) || { abbreviation: game.opponent.abbreviation };
-  const where = game.home ? "vs" : "@";
-  const cup = game.season_type === "nba-cup" ? el("span", { class: "tag tag-cup", text: "Cup" }) : null;
-  if (game.played) {
-    const win = game.result === "W";
-    return el("div", { class: `chip ${win ? "chip-win" : "chip-loss"}` },
-      el("span", { class: "chip-opp" }, el("span", { class: "chip-where", text: where }), badge(opp.abbreviation, { conference: opp.conference, size: "sm" })),
-      el("span", { class: "chip-score" },
-        el("strong", { text: game.result }), ` ${game.team_pts}-${game.opp_pts}`),
-      cup);
-  }
-  return el("a", {
-    class: "chip chip-upcoming",
-    href: scoutUrl(myTeam, opp),
-    "aria-label": `Scout ${opp.city || ""} ${opp.name || opp.abbreviation} on ${game.date}`,
-  },
-    el("span", { class: "chip-opp" }, el("span", { class: "chip-where", text: where }), badge(opp.abbreviation, { conference: opp.conference, size: "sm" })),
-    el("span", { class: "chip-cta", text: "Scout" }),
-    cup);
+  fill(rowsBody, rows);
+  renderMini();
 }
 
 prevBtn.addEventListener("click", () => {
   month = new Date(month.getFullYear(), month.getMonth() - 1, 1);
-  renderCalendar();
+  renderMonth();
 });
 nextBtn.addEventListener("click", () => {
   month = new Date(month.getFullYear(), month.getMonth() + 1, 1);
-  renderCalendar();
+  renderMonth();
 });
-
-// ---- Search -----------------------------------------------------------
-
-const searchInput = document.getElementById("search-input");
-const searchResults = document.getElementById("search-results");
-const searchHelp = document.getElementById("search-help");
-
-function matches(query) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  return teams.filter((t) => {
-    const fields = [t.abbreviation, t.city, t.name, t.full_name];
-    // The data lists the Clippers' city as "LA", so also match the full name.
-    if (t.city === "LA") fields.push("Los Angeles");
-    return fields.some((v) => v && v.toLowerCase().includes(q));
+for (const btn of segButtons) {
+  btn.addEventListener("click", () => {
+    filter = btn.dataset.filter;
+    for (const b of segButtons) b.setAttribute("aria-pressed", String(b === btn));
+    renderMonth();
   });
 }
 
-function goScout(them) {
-  if (!myTeam) {
-    searchHelp.textContent = "Choose your team first, then pick who to scout.";
-    searchHelp.hidden = false;
-    pickerSection.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-  }
-  if (them.team_id === myTeam.team_id) {
-    searchHelp.textContent = "That is your own team. Pick an opponent.";
-    searchHelp.hidden = false;
-    return;
-  }
-  window.location.href = scoutUrl(myTeam, them);
+// ---- Mini month view --------------------------------------------------
+
+function dayKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function renderResults() {
-  searchHelp.hidden = true;
-  const query = searchInput.value;
-  if (!query.trim()) {
-    searchResults.hidden = true;
-    return;
+function renderMini() {
+  document.getElementById("mini-title").textContent = month.toLocaleDateString("en-US", { month: "long" });
+  const byDay = new Map(games.map((g) => [g.date, g]));
+  const cells = [];
+  for (let i = 0; i < month.getDay(); i++) cells.push(el("div", { class: "mini-day blank", "aria-hidden": "true" }));
+  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  for (let day = 1; day <= days; day++) {
+    const key = dayKey(new Date(month.getFullYear(), month.getMonth(), day));
+    const game = byDay.get(key);
+    let mark = null;
+    let label = formatDay(key);
+    if (game && game.played) {
+      mark = el("span", { class: `dot ${game.result === "W" ? "dot-win" : "dot-loss"}`, "aria-hidden": "true" });
+      label += `, ${game.result === "W" ? "win" : "loss"} ${game.home ? "vs" : "at"} ${game.opponent.abbreviation}`;
+    } else if (game) {
+      mark = el("span", { class: "dot dot-upcoming", "aria-hidden": "true" });
+      label += `, ${game.home ? "vs" : "at"} ${game.opponent.abbreviation}, scout this game`;
+    }
+    const cls = `mini-day${key === asOf ? " asof" : ""}`;
+    const content = [el("span", { text: day }), el("span", { class: "mini-mark" }, mark)];
+    cells.push(game && !game.played
+      ? el("a", { class: cls, href: scoutUrl(myTeam.abbreviation, game.opponent.abbreviation), "aria-label": label }, content)
+      : el("div", { class: cls, "aria-label": game ? label : null }, content));
   }
-  if (teams.length === 0) {
-    searchResults.replaceChildren(el("li", { class: "search-empty", text: "Teams are still loading." }));
-    searchResults.hidden = false;
-    return;
-  }
-  const found = matches(query);
-  searchResults.replaceChildren(
-    ...(found.length
-      ? found.map((t) =>
-          el("li", { role: "option" },
-            el("button", { type: "button", class: "search-item", onclick: () => goScout(t) },
-              badge(t.abbreviation, { conference: t.conference, size: "sm" }),
-              el("span", { text: t.full_name }))))
-      : [el("li", { class: "search-empty", text: `No team matches "${query.trim()}".` })]));
-  searchResults.hidden = false;
+  fill(document.getElementById("mini-body"),
+    el("div", { class: "mini-head", "aria-hidden": "true" }, ["S", "M", "T", "W", "T", "F", "S"].map((d) => el("span", { text: d }))),
+    el("div", { class: "mini-grid" }, cells));
 }
 
-searchInput.addEventListener("input", renderResults);
-searchInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    const found = matches(searchInput.value);
-    if (found.length) goScout(found[0]);
-    else renderResults();
-  } else if (event.key === "Escape") {
-    searchInput.value = "";
-    searchResults.hidden = true;
-  }
-});
-document.addEventListener("click", (event) => {
-  if (!event.target.closest(".search")) searchResults.hidden = true;
-});
+// ---- Sidebar: next game and snapshot ---------------------------------
 
-loadTeams();
+async function loadSide() {
+  const team = myTeam;
+  const nextBody = document.getElementById("next-body");
+  const snapBody = document.getElementById("snapshot-body");
+  const lastPlayed = [...games].reverse().find((g) => g.played);
+  // The context endpoint needs an opponent. Use the next game, or the last
+  // one when the season is over, so the snapshot still has data.
+  const ref = nextGame || lastPlayed;
+  if (!ref) {
+    fill(nextBody, emptyLine("No games scheduled."));
+    fill(snapBody, emptyLine("No games played yet."));
+    return;
+  }
+  fill(nextBody, skeletonRows(3, [60, 120, 60]));
+  fill(snapBody, skeletonRows(2, [60, 60, 60]));
+  let ctx;
+  try {
+    const query = new URLSearchParams({ us: team.team_id, them: ref.opponent.team_id });
+    ctx = await getJSON(`/api/games/context?${query}`);
+    if (team !== myTeam) return;
+  } catch (err) {
+    fill(nextBody, errorLine(err.message, loadSide));
+    fill(snapBody, errorLine("The snapshot could not load.", loadSide));
+    return;
+  }
+  renderNext(ctx);
+  renderSnapshot(ctx.us.standing);
+}
+
+function versusSide(side, alignRight) {
+  const s = side.standing || {};
+  return el("div", { style: alignRight ? "text-align: right" : null },
+    el("div", { class: "versus-abbr", text: side.team.abbreviation }),
+    el("div", { class: "muted", style: "margin-top: 2px", text: `${s.record || "–"} · ${seedText(s)}` }),
+    el("div", { class: `strong ${streakClass(s.streak)}`, style: "margin-top: 4px", text: shortStreak(s.streak) }));
+}
+
+function meetingText(m, usAbbr) {
+  if (!m) return "Not met this season or last";
+  const venue = m.home ? usAbbr : m.opponent.abbreviation;
+  const winner = m.result === "W" ? usAbbr : m.opponent.abbreviation;
+  const hi = Math.max(m.team_pts, m.opp_pts);
+  const lo = Math.min(m.team_pts, m.opp_pts);
+  const date = formatDay(m.date, { month: "short", day: "numeric", year: "numeric" });
+  const playoff = m.season_type === "playoffs" ? ", playoffs" : m.season_type === "play-in" ? ", play-in" : "";
+  return `${winner} won ${hi}-${lo} · ${date} at ${venue}${playoff}`;
+}
+
+function renderNext(ctx) {
+  const nextBody = document.getElementById("next-body");
+  const note = document.getElementById("next-note");
+  if (!nextGame) {
+    note.textContent = "";
+    fill(nextBody, emptyLine("No games left this season."));
+    return;
+  }
+  const venue = nextGame.home ? myTeam.abbreviation : nextGame.opponent.abbreviation;
+  note.textContent = `${formatDay(nextGame.date)} · at ${venue}`;
+  fill(nextBody,
+    el("div", { class: "versus" },
+      versusSide(ctx.us, false),
+      el("div", { class: "versus-vs", text: "VS" }),
+      versusSide(ctx.them, true)),
+    el("div", { class: "side-line" },
+      el("span", { class: "muted", text: "Last meeting" }),
+      el("span", { text: meetingText(ctx.last_meeting, myTeam.abbreviation) })),
+    nextGame.season_type !== "regular-season"
+      ? el("div", { class: "side-line" },
+        el("span", { class: "muted", text: "Game type" }),
+        el("span", { text: SEASON_TYPE_LABEL[nextGame.season_type] || nextGame.season_type }))
+      : null,
+    el("div", { class: "side-action" },
+      el("a", { class: "btn btn-primary btn-block", href: scoutUrl(myTeam.abbreviation, nextGame.opponent.abbreviation), text: "Open scouting report" })));
+}
+
+function renderSnapshot(standing) {
+  const body = document.getElementById("snapshot-body");
+  if (!standing) {
+    fill(body, emptyLine("No standings loaded for this team."));
+    return;
+  }
+  const tile = (label, value, cls = "") =>
+    el("div", { class: "tile" },
+      el("div", { class: "label", text: label }),
+      el("div", { class: `tile-value ${cls}`, text: value || "–" }));
+  fill(body, el("div", { class: "tiles" },
+    tile("Record", standing.record),
+    tile("Seed", seedText(standing, { short: true })),
+    tile("Streak", shortStreak(standing.streak), streakClass(standing.streak)),
+    tile("Last 10", standing.last_ten),
+    tile("Home", standing.home_record),
+    tile("Road", standing.road_record)));
+}
+
+start();

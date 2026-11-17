@@ -1,49 +1,86 @@
 {% extends "base.html" %}
+{% block page %}schedule{% endblock %}
 {% block content %}
-<section class="hero">
-  <div>
-    <p class="eyebrow">Pregame scouting</p>
-    <h1>Scout your next opponent</h1>
-    <p class="lede">Pick your team, then click an upcoming game on the calendar. Or search for any team to scout.</p>
-  </div>
-  <div class="search" role="search">
-    <label for="search-input" class="search-label">Scout any team</label>
-    <input id="search-input" type="search" autocomplete="off" placeholder="Search by name, city or abbreviation"
-           aria-controls="search-results" aria-describedby="search-help">
-    <p id="search-help" class="field-help" hidden></p>
-    <ul id="search-results" class="search-results" role="listbox" hidden></ul>
-  </div>
-</section>
+<div id="select-view" class="stack" hidden>
+  <section class="panel" aria-labelledby="select-title">
+    <div class="panel-head">
+      <div style="flex: 1 1 360px">
+        <h1 id="select-title" class="panel-title">Choose your team</h1>
+        <p class="muted" style="margin-top: 2px">Your schedule and scouting reports start from this team. It is saved in this browser and can be changed from the top bar.</p>
+      </div>
+      <label class="filter-field">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4.25" stroke="currentColor" stroke-width="1.4" style="color: var(--muted)"></circle><path d="M8.7 8.7l3 3" stroke="currentColor" stroke-width="1.4" style="color: var(--muted)"></path></svg>
+        <span class="sr-only">Filter teams</span>
+        <input id="team-filter" type="search" placeholder="Filter by name, city or abbreviation" autocomplete="off">
+      </label>
+    </div>
+    <div id="select-body" aria-live="polite"></div>
+  </section>
+  <p class="muted">Only want to look at one team? Use the filter above and pick it, then search for any opponent from the top bar.</p>
+</div>
 
-<section id="picker" class="panel" aria-labelledby="picker-title">
-  <div class="panel-head">
-    <h2 id="picker-title">Choose your team</h2>
-  </div>
-  <div id="picker-body" aria-live="polite"></div>
-</section>
-
-<section id="schedule" class="panel" aria-labelledby="schedule-title" hidden>
-  <div class="panel-head">
-    <div class="team-title">
-      <span id="my-badge"></span>
-      <div>
-        <h2 id="schedule-title">Schedule</h2>
-        <p id="schedule-sub" class="muted"></p>
+<div id="schedule-view" class="twocol" hidden>
+  <section class="panel twocol-main" aria-labelledby="schedule-title">
+    <div class="panel-head">
+      <h1 id="schedule-title" class="panel-title">Schedule</h1>
+      <span id="schedule-note" class="panel-note"></span>
+      <div class="spacer"></div>
+      <div class="month-nav">
+        <button id="prev-month" class="btn btn-icon" type="button" aria-label="Previous month">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M6.5 2l-3 3 3 3" stroke="currentColor" stroke-width="1.4"></path></svg>
+        </button>
+        <span id="month-label" class="month-label"></span>
+        <button id="next-month" class="btn btn-icon" type="button" aria-label="Next month">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M3.5 2l3 3-3 3" stroke="currentColor" stroke-width="1.4"></path></svg>
+        </button>
+      </div>
+      <div class="seg" role="group" aria-label="Filter games">
+        <button type="button" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" data-filter="home" aria-pressed="false">Home</button>
+        <button type="button" data-filter="road" aria-pressed="false">Road</button>
       </div>
     </div>
-    <button id="change-team" class="btn ghost" type="button">Change team</button>
-  </div>
-  <div class="cal-toolbar">
-    <button id="prev-month" class="btn icon" type="button" aria-label="Previous month">&#8249;</button>
-    <h3 id="month-label" class="month-label"></h3>
-    <button id="next-month" class="btn icon" type="button" aria-label="Next month">&#8250;</button>
-  </div>
-  <div id="calendar" aria-live="polite"></div>
-  <p class="legend muted">
-    <span class="dot win"></span> Win <span class="dot loss"></span> Loss
-    <span class="dot upcoming"></span> Upcoming, click to scout
-  </p>
-</section>
+    <div class="table-scroll">
+      <div class="minw-640">
+        <div class="trow thead cols-schedule">
+          <span>Date</span><span>Opponent</span><span>Result</span><span>Score</span><span class="num">Margin</span><span class="num">Record</span><span></span>
+        </div>
+        <div id="schedule-rows" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="twocol-side">
+    <section class="panel" aria-labelledby="next-title">
+      <div class="panel-head" style="justify-content: space-between">
+        <h2 id="next-title" class="panel-title">Next game</h2>
+        <span id="next-note" class="panel-note"></span>
+      </div>
+      <div id="next-body"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="snapshot-title">
+      <div class="panel-head">
+        <h2 id="snapshot-title" class="panel-title">Snapshot</h2>
+      </div>
+      <div id="snapshot-body"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="mini-title">
+      <div class="panel-head" style="justify-content: space-between">
+        <h2 id="mini-title" class="panel-title">Month</h2>
+        <span class="legend">
+          <span><span class="dot dot-win" aria-hidden="true"></span>Win</span>
+          <span><span class="dot dot-loss" aria-hidden="true"></span>Loss</span>
+          <span><span class="dot dot-upcoming" aria-hidden="true"></span>Upcoming</span>
+        </span>
+      </div>
+      <div id="mini-body" class="mini"></div>
+    </section>
+  </aside>
+</div>
+
+<div id="load-view" class="panel" aria-live="polite"></div>
 {% endblock %}
 {% block scripts %}
 <script type="module" src="{{ url_for('static', filename='js/home.js') }}"></script>

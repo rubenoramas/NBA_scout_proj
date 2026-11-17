@@ -1,8 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Scouting report | Opponent Scout{% endblock %}
+{% block page %}scout{% endblock %}
+{% block band %}
+<section class="band" aria-label="Matchup">
+  <div class="band-inner">
+    <div id="band-teams" class="band-teams" aria-live="polite"></div>
+    <div class="band-row">
+      <nav class="tabs" aria-label="Scouting sections">
+        <a href="" aria-current="page" id="tab-overview">Overview</a>
+        <button type="button" disabled>Players <span class="tag">Soon</span></button>
+        <button type="button" disabled>Shot profiles <span class="tag">Soon</span></button>
+        <button type="button" disabled>Matchups <span class="tag">Soon</span></button>
+        <button type="button" disabled>Lineups <span class="tag">Soon</span></button>
+        <button type="button" disabled>Rotations <span class="tag">Soon</span></button>
+        <button type="button" disabled>Report <span class="tag">Soon</span></button>
+      </nav>
+      <div class="band-actions">
+        <button class="btn" type="button" disabled>Print one-pagers <span class="tag">Soon</span></button>
+        <button class="btn btn-primary" type="button" disabled>Generate report <span class="tag">Soon</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
 {% block content %}
-<nav class="crumbs"><a href="/">&#8249; Back to schedule</a></nav>
-<div id="scout" aria-live="polite"></div>
+<div id="scout" class="dash" aria-live="polite"></div>
 {% endblock %}
 {% block scripts %}
 <script type="module" src="{{ url_for('static', filename='js/scout.js') }}"></script>

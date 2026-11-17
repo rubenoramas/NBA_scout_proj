@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Opponent Scout: choose your team</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0D1015}
+a{color:#4F9DFF;text-decoration:none}a:hover{color:#7DB6FF}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0D1015; color: #E7EAEE; font-family: Inter, system-ui, sans-serif; font-size: 13px; font-variant-numeric: tabular-nums; box-sizing: border-box">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 0 24px; min-height: 48px; border-bottom: 1px solid #232A33; background: #11151B">
+  <div style="display: flex; align-items: center; gap: 8px">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="7.5" stroke="#4F9DFF" stroke-width="1.5"></circle><path d="M1.5 9h15M9 1.5v15" stroke="#4F9DFF" stroke-width="1.5"></path></svg>
+    <span style="font-weight: 700; font-size: 13px; letter-spacing: 0.02em">OPPONENT SCOUT</span>
+  </div>
+  <span style="display: flex; align-items: center; height: 30px; padding: 0 10px; border: 1px dashed #36404C; border-radius: 4px; color: #8E98A5">No team selected</span>
+  <div style="flex: 1 1 auto"></div>
+  <div style="display: flex; align-items: center; gap: 6px; color: #8E98A5; font-size: 12px">
+    <span style="width: 6px; height: 6px; border-radius: 50%; background: #33C37E" aria-hidden="true"></span>
+    Data as of Nov 16, 2026
+  </div>
+</header>
+
+<main style="max-width: 1600px; margin: 0 auto; padding: 16px 24px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px">
+
+  <section aria-label="Choose your team" style="background: #13171D; border: 1px solid #232A33; border-radius: 4px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 12px 16px; border-bottom: 1px solid #232A33">
+      <div style="flex: 1 1 360px">
+        <h1 style="margin: 0; font-size: 14px; font-weight: 600">Choose your team</h1>
+        <p style="margin: 2px 0 0; color: #8E98A5">Your schedule and scouting reports start from this team. It is saved in this browser and can be changed from the top bar.</p>
+      </div>
+      <label style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; width: 300px; max-width: 100%; box-sizing: border-box; background: #0D1015; border: 1px solid #2A313B; border-radius: 4px">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4.25" stroke="#8E98A5" stroke-width="1.4"></circle><path d="M8.7 8.7l3 3" stroke="#8E98A5" stroke-width="1.4"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Filter teams</span>
+        <input type="search" placeholder="Filter by name, city or abbreviation" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: #E7EAEE; font: inherit">
+      </label>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap">
+      <sc-for list="{{conferences}}" as="conf" hint-placeholder-count="2">
+        <div style="flex: 1 1 560px; min-width: 0; border-right: 1px solid #232A33">
+          <div style="display: flex; align-items: center; height: 32px; padding: 0 16px; background: #171C23; border-bottom: 1px solid #232A33; color: #8E98A5; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase">{{conf.name}}</div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr))">
+            <sc-for list="{{conf.divisions}}" as="div" hint-placeholder-count="3">
+              <div style="min-width: 0; border-right: 1px solid #1D232B">
+                <div style="padding: 8px 16px 6px; color: #8E98A5; font-size: 11px; font-weight: 600">{{div.name}}</div>
+                <sc-for list="{{div.teams}}" as="t" hint-placeholder-count="5">
+                  <button type="button" style="display: flex; align-items: center; gap: 10px; width: 100%; height: 40px; padding: 0 16px; background: transparent; border: 0; border-top: 1px solid #1D232B; color: #E7EAEE; font: inherit; text-align: left; cursor: pointer">
+                    <span style="flex: 0 0 auto; width: 38px; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 2px 0; border: 1px solid #36404C; border-radius: 3px; background: #1C232C">{{t.abbr}}</span>
+                    <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">
+                      <span style="color: #8E98A5">{{t.city}}</span>
+                      <span style="font-weight: 600"> {{t.name}}</span>
+                    </span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <p style="margin: 0; color: #8E98A5">Only want to look at one team? Use the filter above and pick it, then search for any opponent from the top bar.</p>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    function t(abbr, city, name) { return { abbr: abbr, city: city, name: name }; }
+    return {
+      conferences: [
+        { name: 'Eastern Conference', divisions: [
+          { name: 'Atlantic', teams: [t('BOS', 'Boston', 'Celtics'), t('BKN', 'Brooklyn', 'Nets'), t('NYK', 'New York', 'Knicks'), t('PHI', 'Philadelphia', '76ers'), t('TOR', 'Toronto', 'Raptors')] },
+          { name: 'Central', teams: [t('CHI', 'Chicago', 'Bulls'), t('CLE', 'Cleveland', 'Cavaliers'), t('DET', 'Detroit', 'Pistons'), t('IND', 'Indiana', 'Pacers'), t('MIL', 'Milwaukee', 'Bucks')] },
+          { name: 'Southeast', teams: [t('ATL', 'Atlanta', 'Hawks'), t('CHA', 'Charlotte', 'Hornets'), t('MIA', 'Miami', 'Heat'), t('ORL', 'Orlando', 'Magic'), t('WAS', 'Washington', 'Wizards')] }
+        ] },
+        { name: 'Western Conference', divisions: [
+          { name: 'Northwest', teams: [t('DEN', 'Denver', 'Nuggets'), t('MIN', 'Minnesota', 'Timberwolves'), t('OKC', 'Oklahoma City', 'Thunder'), t('POR', 'Portland', 'Trail Blazers'), t('UTA', 'Utah', 'Jazz')] },
+          { name: 'Pacific', teams: [t('GSW', 'Golden State', 'Warriors'), t('LAC', 'LA', 'Clippers'), t('LAL', 'Los Angeles', 'Lakers'), t('PHX', 'Phoenix', 'Suns'), t('SAC', 'Sacramento', 'Kings')] },
+          { name: 'Southwest', teams: [t('DAL', 'Dallas', 'Mavericks'), t('HOU', 'Houston', 'Rockets'), t('MEM', 'Memphis', 'Grizzlies'), t('NOP', 'New Orleans', 'Pelicans'), t('SAS', 'San Antonio', 'Spurs')] }
+        ] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
