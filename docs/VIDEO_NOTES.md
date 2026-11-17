@@ -153,6 +153,26 @@ Questions:
 - What happens on the second `docker-compose up` if no seed file has changed, and how does the loader know?
 - Why load into a temporary collection and rename it, instead of inserting into the real one?
 
+## First screen: team picker, calendar and game context
+
+What it does: the landing page lets you pick your team (remembered in the browser), shows its season as a month calendar with scores for played games, and turns every upcoming game into a "Scout" link. A search box scouts any other team. The scouting page, at an address like `/scout?us=BOS&them=NYK`, shows the game context header: both teams' records, seeds, streaks, last ten and last game, a last game standout for each side, the next meeting, and the last meeting.
+
+How it works, in plain words:
+- Three REST endpoints feed the pages: `GET /api/teams`, `GET /api/teams/<id>/schedule` and `GET /api/games/context?us=<id>&them=<id>`. They use NBA team ids and answer bad requests with 400 or 404 and a plain message.
+- The JavaScript fetches JSON from those endpoints and builds the page. Every fetch shows a loading skeleton first, then the content, an empty message, or an error with a "Try again" button.
+- The scouting page reads the two abbreviations from the address, looks up their ids, and asks for the context. That is why the link can be bookmarked or shared.
+- The last meeting searches this season and last season, so it can say "2025-26 season, Playoffs" when the teams have not met yet this year.
+- Your team is stored in the browser's localStorage, so the calendar opens straight away on the next visit.
+
+Design decision worth mentioning: the last game standout rule. A player stands out when, in his team's last game, he beat his own average by at least 10 points, 6 rebounds or 5 assists, and by at least 1.5 times, with at least 5 earlier games behind the average. When several qualify, the biggest jump relative to the average wins. The card shows the numbers and the rule, so nobody has to trust it blindly, and it says "Small sample" when the average rests on fewer than 10 games. On Nov 17 it found a standout for 20 of 30 teams. A second decision: team abbreviations in styled badges instead of logos, because logos are trademarks and the repo is public.
+
+Tests: `docker compose run --rm web pytest` runs 14 tests against a separate test database filled with three made-up teams, so the results never depend on the day's real data.
+
+Questions:
+- Why do the API endpoints take team ids, but the scouting page address uses abbreviations?
+- What does the standout rule require, and why does it need at least 5 earlier games?
+- Why do the tests use their own database and made-up teams instead of the real data?
+
 ## AI in the project
 
 AI shows up in three places:
@@ -174,6 +194,7 @@ Full notes are in `docs/NOTES.md`. Write the README answers in your own words.
 - The NBA play-by-play file does not record who made a steal, so steals come from ESPN, matched to NBA players by name.
 - Taking each player's latest injury row would have marked recovered players as Out.
 - 51 injured players had not played yet, so they were missing from the player bio file and from rosters.
+- The first standout rule favored bench players: a small average makes any good night look huge. The card shows the sample size and the rule so the reader can judge it.
 
 ## Still to come
 

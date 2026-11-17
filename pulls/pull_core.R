@@ -35,7 +35,10 @@ if (!requireNamespace("arrow", quietly = TRUE)) {
 # load_nba_stats_* functions take the START year of a season, so in
 # November 2026 this is 2026, which means the 2026-27 season.
 season_start <- most_recent_nba_stats_season()
-season_label <- sprintf("%d-%02d", season_start, (season_start + 1) %% 100)
+# Turns a start year into a label, such as 2026 -> "2026-27".
+make_label <- function(start) sprintf("%d-%02d", start, (start + 1) %% 100)
+season_label <- make_label(season_start)
+last_season_label <- make_label(season_start - 1)
 
 seed_dir <- "data/seed"
 dir.create(seed_dir, recursive = TRUE, showWarnings = FALSE)
@@ -65,6 +68,9 @@ cat("Downloading...\n")
 standings_raw <- suppressMessages(load_nba_stats_leaguedash(seasons = season_start, table = "standings"))
 bio_raw       <- suppressMessages(load_nba_stats_leaguedash(seasons = season_start, table = "player_bio"))
 schedule_raw  <- suppressMessages(load_nba_stats_schedule(seasons = season_start))
+# Last season's schedule is only used to find the last meeting between two
+# teams that have not played each other yet this season.
+last_schedule_raw <- suppressMessages(load_nba_stats_schedule(seasons = season_start - 1))
 logs_raw      <- suppressMessages(load_nba_stats_player_game_logs(seasons = season_start))
 injury_raw    <- suppressMessages(load_nba_stats_injury_report(seasons = season_start))
 
@@ -76,13 +82,19 @@ if (nrow(standings_raw) == 0 || nrow(bio_raw) == 0 || nrow(schedule_raw) == 0) {
 cat("\nWriting seed files to", seed_dir, "\n")
 
 # 3. Schedule ---------------------------------------------------------------
-# One document per game. Preseason games are dropped. Games not played yet
-# have null scores. filter() keeps the rows where the condition is TRUE.
-schedule <- schedule_raw %>%
-  filter(season_type != "preseason") %>%
+# One document per game, for this season and last season. Only real team
+# games are kept: preseason and All-Star games are dropped. Games not played
+# yet have null scores. filter() keeps the rows where the condition is TRUE,
+# and %in% asks "is this value one of these?". The season column tells the
+# two seasons apart.
+kept_game_types <- c("regular-season", "nba-cup", "play-in", "playoffs")
+tidy_schedule <- function(raw, label) {
+  raw %>%
+  filter(season_type %in% kept_game_types) %>%
   transmute(
     `_id` = game_id,
     game_id,
+    season = label,
     game_date = as.character(game_date),
     season_type,
     home_team_id = as.integer(home_team_id),
@@ -93,8 +105,16 @@ schedule <- schedule_raw %>%
     away_pts = as.integer(away_pts),
     home_wl, away_wl,
     played = !is.na(home_pts)
-  ) %>%
+  )
+}
+
+# bind_rows() stacks the two seasons into one table.
+schedule <- bind_rows(
+  tidy_schedule(last_schedule_raw, last_season_label),
+  tidy_schedule(schedule_raw, season_label)
+) %>%
   arrange(game_date, game_id)
+this_season_games <- schedule %>% filter(season == season_label)
 
 # 4. Teams ------------------------------------------------------------------
 # The standings file has city, name, conference and division, but no
@@ -270,6 +290,7 @@ write_jsonl(injuries, "injuries")
 meta <- list(
   `_id` = "seed",
   season = season_label,
+  last_season = last_season_label,
   data_as_of = max(game_logs$game_date),
   pulled_at = as_utc_text(Sys.time()),
   latest_injury_report = as_utc_text(max(reports$report_datetime)),
@@ -287,7 +308,9 @@ cat("Injured players with no stats yet:", nrow(injured_without_stats), "\n")
 if (nrow(injured_without_stats) > 0) {
   cat("  ", paste(injured_without_stats$player_name, collapse = ", "), "\n")
 }
-cat("Games played / still to play:     ", sum(schedule$played), "/", sum(!schedule$played), "\n")
+cat("Schedule rows by season and type:\n")
+print(as.data.frame(count(schedule, season, season_type)), row.names = FALSE)
+cat("This season played / still to play:", sum(this_season_games$played), "/", sum(!this_season_games$played), "\n")
 cat("Data as of:                       ", meta$data_as_of, "\n")
 
 files <- list.files(seed_dir, full.names = TRUE)

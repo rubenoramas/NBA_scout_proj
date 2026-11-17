@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Scouting report | Opponent Scout{% endblock %}
+{% block content %}
+<nav class="crumbs"><a href="/">&#8249; Back to schedule</a></nav>
+<div id="scout" aria-live="polite"></div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/scout.js') }}"></script>
+{% endblock %}

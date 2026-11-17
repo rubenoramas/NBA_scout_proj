@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Opponent Scout{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>Opponent <strong>Scout</strong></span>
+    </a>
+    <span class="asof" id="asof" hidden></span>
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    Data from public NBA stats. Team abbreviations only, no logos.
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

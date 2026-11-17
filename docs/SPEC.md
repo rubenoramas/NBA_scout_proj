@@ -45,8 +45,9 @@ The top of the scouting page sets the scene before any analysis.
 | Records and seeds | Each team's win-loss record and conference seed |
 | Streak | Current win or loss streak, and the last ten games |
 | Last game, both teams | Opponent, score, result and date |
-| Last game standout | Any player whose last game was well above his season average |
-| Last meeting | The most recent game between the two teams, with date and score |
+| Last game standout | The player whose last game beat his own average by the most. Rule: at least 5 earlier games, and in the last game at least 10 more points, 6 more rebounds or 5 more assists than his average, and at least 1.5 times it. The biggest jump relative to the average wins |
+| Last meeting | The most recent game between the two teams, with date and score. Falls back to last season, labeled with the season and marked when it was a playoff or play-in game |
+| Next meeting | The next scheduled game between the two teams this season |
 | Game type icon | A marker when the game is an NBA Cup game or a playoff game |
 | Data as of | The date of the last data pull |
 
@@ -225,7 +226,7 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | --- | --- | --- |
 | `teams` | Team info and the style fingerprint | Seed loader |
 | `players` | Bio, headshot link, role, play type and tracking stats. Injured players who have not played yet get a basic document with `has_stats` false | Seed loader |
-| `schedule` | Games for the calendar, with results | Seed loader |
+| `schedule` | Games for the calendar, with results. Holds this season and last season (for the last meeting), with a `season` field | Seed loader |
 | `game_logs` | Per-game player lines, for last game and form | Seed loader |
 | `shots` | One document per shot: location, shot type, zone, result | Seed loader |
 | `matchups` | Totals for each defender and scorer pair | Seed loader |

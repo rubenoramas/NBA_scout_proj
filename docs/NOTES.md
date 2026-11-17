@@ -42,3 +42,8 @@ What I learned: (yours to fill in)
 What happened: the plan was to take each player's latest row in the injury report. But a player who recovers just stops appearing on the report, so his latest row would say Out forever. Also, 51 injured players had not played yet and were missing from the player bio file, so they would not show on rosters at all.
 What fixed it: use each team's most recent report, and treat players not on it as available. Players on the report but missing from the bio file get a basic player document marked has_stats false.
 What I learned: (yours to fill in)
+
+## 2026-11-17: HTML changes did not show up after saving
+What happened: after editing a template, the browser still showed the old page, even though gunicorn's --reload was on.
+What fixed it: --reload only watches Python files, and Flask keeps templates in memory. Setting TEMPLATES_AUTO_RELOAD makes Flask re-read a template when it changes.
+What I learned: (yours to fill in)

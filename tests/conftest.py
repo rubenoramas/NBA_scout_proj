@@ -1,0 +1,110 @@
+"""Test setup.
+
+Tests run inside the web container against a separate database,
+opponent_scout_test, filled with a few hand-made documents. The real data
+in opponent_scout is never touched, and results do not change when the
+seed data is refreshed.
+
+Run with:  docker compose run --rm web pytest
+"""
+
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+# Point the app at the test database BEFORE it is imported, because
+# app/db.py reads MONGO_URI when it loads.
+base_uri = os.environ.get("MONGO_URI", "mongodb://mongo:27017/opponent_scout")
+os.environ["MONGO_URI"] = base_uri.rsplit("/", 1)[0] + "/opponent_scout_test"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from app import create_app  # noqa: E402
+from app.db import client, db  # noqa: E402
+
+assert db.name == "opponent_scout_test", "Tests must never run against the real database"
+
+SEASON = "2026-27"
+LAST = "2025-26"
+
+# Three teams. AAA and BBB play each other this season. AAA and CCC only
+# met in last season's playoffs. BBB and CCC have never met.
+TEAMS = [
+    {"_id": 1, "team_id": 1, "abbreviation": "AAA", "city": "Alpha", "name": "Ants", "full_name": "Alpha Ants", "conference": "East", "division": "Atlantic"},
+    {"_id": 2, "team_id": 2, "abbreviation": "BBB", "city": "Beta", "name": "Bees", "full_name": "Beta Bees", "conference": "East", "division": "Central"},
+    {"_id": 3, "team_id": 3, "abbreviation": "CCC", "city": "Gamma", "name": "Cats", "full_name": "Gamma Cats", "conference": "West", "division": "Pacific"},
+]
+
+STANDINGS = [
+    {"_id": 1, "team_id": 1, "conference": "East", "seed": 1, "wins": 6, "losses": 1, "record": "6-1", "streak": "W 3", "last_ten": "6-1", "home_record": "3-0", "road_record": "3-1"},
+    {"_id": 2, "team_id": 2, "conference": "East", "seed": 8, "wins": 2, "losses": 5, "record": "2-5", "streak": "L 2", "last_ten": "2-5", "home_record": "1-2", "road_record": "1-3"},
+    {"_id": 3, "team_id": 3, "conference": "West", "seed": 4, "wins": 4, "losses": 3, "record": "4-3", "streak": "W 1", "last_ten": "4-3", "home_record": "2-1", "road_record": "2-2"},
+]
+
+
+def game(gid, date, home, away, home_pts=None, away_pts=None, season=SEASON, season_type="regular-season"):
+    played = home_pts is not None
+    abbr = {t["_id"]: t["abbreviation"] for t in TEAMS}
+    return {
+        "_id": gid, "game_id": gid, "season": season, "game_date": date, "season_type": season_type,
+        "home_team_id": home, "home_abbr": abbr[home], "away_team_id": away, "away_abbr": abbr[away],
+        "home_pts": home_pts, "away_pts": away_pts,
+        "home_wl": ("W" if home_pts > away_pts else "L") if played else None,
+        "away_wl": ("L" if home_pts > away_pts else "W") if played else None,
+        "played": played,
+    }
+
+
+SCHEDULE = [
+    game("L1", "2026-04-30", 3, 1, 110, 101, season=LAST, season_type="playoffs"),
+    game("G1", "2026-10-25", 1, 2, 100, 90),
+    game("G2", "2026-11-01", 2, 1, 95, 105),
+    game("G3", "2026-11-05", 3, 2, 99, 97),
+    game("G4", "2026-11-10", 1, 3, 120, 111),  # AAA's last game, a different season than L1
+    game("G5", "2026-12-01", 2, 1),             # next AAA vs BBB meeting
+    game("G6", "2026-12-20", 1, 2),
+]
+
+
+def log(gid, date, pid, team, pts=10, reb=4, ast=2, name=None):
+    return {"_id": f"{gid}_{pid}", "game_id": gid, "game_date": date, "player_id": pid,
+            "player_name": name or f"Player {pid}", "team_id": team, "pts": pts, "reb": reb, "ast": ast}
+
+
+def build_logs():
+    """Player 101 (AAA): 5 earlier games of 10 pts, then 20 in G4 (exactly +10, 2x).
+    Player 102 (AAA): only 4 earlier games, so he cannot qualify.
+    Player 201 (BBB): ordinary game, no standout."""
+    logs = []
+    dates = ["2026-10-20", "2026-10-22", "2026-10-25", "2026-11-01", "2026-11-03"]
+    for i, d in enumerate(dates):
+        logs.append(log(f"E{i}", d, 101, 1, pts=10, name="Steady Scorer"))
+        if i < 4:
+            logs.append(log(f"E{i}", d, 102, 1, pts=2, name="New Guy"))
+        logs.append(log(f"F{i}", d, 201, 2, pts=12))
+    logs.append(log("G4", "2026-11-10", 101, 1, pts=20, name="Steady Scorer"))
+    logs.append(log("G4", "2026-11-10", 102, 1, pts=30, name="New Guy"))
+    logs.append(log("G3", "2026-11-05", 201, 2, pts=13))
+    return logs
+
+
+@pytest.fixture()
+def client_app():
+    db.teams.delete_many({})
+    db.standings.delete_many({})
+    db.schedule.delete_many({})
+    db.game_logs.delete_many({})
+    db.meta.delete_many({})
+    db.teams.insert_many(TEAMS)
+    db.standings.insert_many(STANDINGS)
+    db.schedule.insert_many(SCHEDULE)
+    db.game_logs.insert_many(build_logs())
+    db.meta.insert_one({"_id": "seed", "season": SEASON, "data_as_of": "2026-11-10"})
+    app = create_app()
+    app.config["TESTING"] = True
+    yield app.test_client()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    client.drop_database("opponent_scout_test")

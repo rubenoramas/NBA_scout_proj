@@ -1,30 +1,50 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Opponent Scout</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-  <main>
-    <h1>Opponent Scout</h1>
-    <p class="lede">Pregame scouting reports on any NBA opponent.</p>
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">Pregame scouting</p>
+    <h1>Scout your next opponent</h1>
+    <p class="lede">Pick your team, then click an upcoming game on the calendar. Or search for any team to scout.</p>
+  </div>
+  <div class="search" role="search">
+    <label for="search-input" class="search-label">Scout any team</label>
+    <input id="search-input" type="search" autocomplete="off" placeholder="Search by name, city or abbreviation"
+           aria-controls="search-results" aria-describedby="search-help">
+    <p id="search-help" class="field-help" hidden></p>
+    <ul id="search-results" class="search-results" role="listbox" hidden></ul>
+  </div>
+</section>
 
-    <section class="card" aria-live="polite">
-      <h2>System status</h2>
-      <p id="status" class="status loading">Checking the API and database...</p>
-      <ul id="details" class="details" hidden></ul>
-      <button id="retry" type="button" hidden>Try again</button>
-    </section>
+<section id="picker" class="panel" aria-labelledby="picker-title">
+  <div class="panel-head">
+    <h2 id="picker-title">Choose your team</h2>
+  </div>
+  <div id="picker-body" aria-live="polite"></div>
+</section>
 
-    <section class="card">
-      <h2>Headshot placeholder</h2>
-      <p>Shown when a player photo cannot load.</p>
-      <img class="headshot" src="{{ url_for('static', filename='img/headshot-placeholder.svg') }}"
-           alt="Placeholder headshot" width="130" height="95">
-    </section>
-  </main>
-  <script src="{{ url_for('static', filename='js/health.js') }}"></script>
-</body>
-</html>
+<section id="schedule" class="panel" aria-labelledby="schedule-title" hidden>
+  <div class="panel-head">
+    <div class="team-title">
+      <span id="my-badge"></span>
+      <div>
+        <h2 id="schedule-title">Schedule</h2>
+        <p id="schedule-sub" class="muted"></p>
+      </div>
+    </div>
+    <button id="change-team" class="btn ghost" type="button">Change team</button>
+  </div>
+  <div class="cal-toolbar">
+    <button id="prev-month" class="btn icon" type="button" aria-label="Previous month">&#8249;</button>
+    <h3 id="month-label" class="month-label"></h3>
+    <button id="next-month" class="btn icon" type="button" aria-label="Next month">&#8250;</button>
+  </div>
+  <div id="calendar" aria-live="polite"></div>
+  <p class="legend muted">
+    <span class="dot win"></span> Win <span class="dot loss"></span> Loss
+    <span class="dot upcoming"></span> Upcoming, click to scout
+  </p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/home.js') }}"></script>
+{% endblock %}

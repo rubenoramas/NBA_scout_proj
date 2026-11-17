@@ -65,7 +65,7 @@ Freshness: the player game logs ran through Nov 15, 2026 when pulled on Nov 16, 
 - **The NBA stats play-by-play has no steal rows and never names the stealer.** On-ball steals come from ESPN play-by-play instead (Route 2).
 - **Assists are in the shot description.** 10,768 of 16,512 made shots (65.2%, Nov 17) name the passer, as in "Tatum 4' Layup (3 PTS) (Robinson 1 AST)". The passer is a last name only, so match it to the scorer's four teammates on the floor (`off_player_1` to `off_player_5`, NBA ids) to get assist pairs.
 - **Injury report rows.** 5,529 rows have reason "NOT YET SUBMITTED" and no player, so they are skipped. `current_status` is Out, Questionable, Probable, Doubtful or Available. Use the latest `report_datetime` per `person_id`. `match_method` (exact, family, roster) is how hoopR matched the report name to an NBA id.
-- **Game types** are in `season_type` of the schedule file: regular-season (1,206), preseason (67), nba-cup (1). Only one game carries the nba-cup label, so NBA Cup group games are not marked here.
+- **Game types** are in `season_type` of the schedule file: regular-season (1,206), preseason (67), nba-cup (1). Last season's file (`seasons = 2025`) also has playoffs (85), play-in (6) and all-star (7). The pull keeps regular season, NBA Cup, play-in and playoffs. Only one game carries the nba-cup label, so NBA Cup group games are not marked here.
 - **Play-by-play action types:** Rebound, Missed Shot, Made Shot, Substitution, Free Throw, Foul, Turnover, Timeout, period, Instant Replay, Jump Ball, Violation, Heave, Ejection.
 
 ## Headshots: NBA image CDN

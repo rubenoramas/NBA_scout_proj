@@ -143,3 +143,35 @@ Prompt (approval):
 >
 > Go ahead and build, then commit and push.
 Result: built pulls/pull_core.R (six JSON Lines seed files plus meta.json, 2.07 MB, 51 injured players without stats added), a loader service that swaps in changed collections and skips unchanged files by SHA-256 fingerprint, and indexes; added the VIDEO_NOTES rule to CLAUDE.md and a section for this step
+
+## 2026-11-17: first screen, game context header and tests
+Tool: Claude Code
+Prompt:
+> Plan, then build the first real screen from the spec (step 1 of "Screens and user flow" plus the game context header).
+>
+> API:
+> - GET /api/teams
+> - GET /api/teams/<id>/schedule
+> - GET /api/games/context?us=<team id>&them=<team id> returning both teams' records and seeds, current streaks and last ten, each team's last game (opponent, score, result, date), the last meeting between the two (date and score, if they have played), and the "data as of" date
+>
+> Screens:
+> - Landing page: pick my team, then see its schedule as a month calendar. Played games show the score and result. Upcoming games are clickable and choose that opponent. Remember my team in the browser so I do not pick it every visit.
+> - A search box that scouts any other team instead.
+> - A scouting page whose URL includes both teams (for example /scout?us=BOS&them=NYK), so it can be bookmarked or shared. For now it shows only the game context header.
+> - Last game standout: propose a rule for a player whose last game was well above his season average, show me the rule, and include it in the header.
+>
+> Design: aim for a clean, modern sports-analytics look that holds up in a demo video. Use team abbreviations in styled badges, not team logos, since logos are trademarks and this repo will be public. Loading, empty and error states everywhere.
+>
+> Tests: add pytest now, with tests for the three endpoints, and tell me the command to run them.
+>
+> Vanilla JS and fetch only. Then commit and push, and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> Approved, with two changes:
+>
+> 1. Standout: keep the points rule, and add the same rule for rebounds (at least 6 more than his average and 1.5 times it) and assists (at least 5 more and 1.5 times). Show whichever stat triggered, with its numbers. If several players or stats qualify, show the biggest jump relative to the average. Show me how many teams have a standout on today's data after the change.
+>
+> 2. Last meeting: also load last season's schedule (regular season and playoffs, no preseason) so the last meeting can come from last season when the teams have not met this season. Label it with the season, and say when it was a playoff game.
+>
+> The next meeting, pytest in requirements.txt, and everything else are approved as planned. Build it, run your checks, then commit and push and add the VIDEO_NOTES section.
+Result: built the three endpoints, the landing page (team picker, month calendar, search) and the scouting page with the game context header (standout on points, rebounds or assists; last meeting from this season or last; next meeting), added last season's schedule to the pull, and added pytest with 14 passing tests
