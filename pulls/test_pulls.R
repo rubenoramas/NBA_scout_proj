@@ -809,6 +809,47 @@ if (!is.null(file_pbp) && nrow(file_pbp) > 0 &&
   show_values(file_pbp, "action_type", 15, "play-by-play action types")
   turnovers <- file_pbp[grepl("turnover", tolower(as.character(file_pbp$action_type))), ]
   show_values(turnovers, "sub_type", 12, "turnover types")
+  # About two thirds of made shots name the passer, as in "(Robinson 1 AST)".
+  made_shots <- file_pbp[as.character(file_pbp$action_type) == "Made Shot", ]
+  if (nrow(made_shots) > 0 && "description" %in% names(made_shots)) {
+    cat(sprintf("  Made shots that name a passer: %.1f%%\n",
+                100 * mean(grepl("AST\\)", made_shots$description))))
+  }
+}
+
+# Injury report. Uses NBA ids, so no name matching is needed. Rows whose
+# reason is "NOT YET SUBMITTED" have no player and are skipped by the pull.
+file_injuries <- run_test(
+  "File: injury report", "injury tags in the lineup editor",
+  function() load_nba_stats_injury_report(seasons = stats_season),
+  needs = c("report_datetime", "game_date", "team_id", "person_id",
+            "report_player_name", "current_status", "reason"),
+  nba_stats = FALSE, peek = TRUE
+)
+if (!is.null(file_injuries) && nrow(file_injuries) > 0 &&
+    "report_datetime" %in% names(file_injuries)) {
+  cat("  Latest report:", format(max(file_injuries$report_datetime, na.rm = TRUE)), "\n")
+  show_values(file_injuries, "current_status", 8, "injury statuses")
+}
+
+# ESPN play-by-play. The NBA stats play-by-play does not name who made a
+# steal, but ESPN does: on a turnover row, athlete_id_2 is the stealer and
+# the text ends with "(Name steals)". ESPN takes the END year of the season.
+espn_pbp <- run_test(
+  "ESPN play-by-play", "on-ball pest badge (lost-ball steals)",
+  function() load_nba_pbp(seasons = espn_season),
+  needs = c("game_id", "type_text", "text", "team_id", "athlete_id_1", "athlete_id_2"),
+  nba_stats = FALSE
+)
+if (!is.null(espn_pbp) && nrow(espn_pbp) > 0 &&
+    all(c("type_text", "text", "athlete_id_2") %in% names(espn_pbp))) {
+  lost_ball <- espn_pbp[espn_pbp$type_text == "Lost Ball Turnover", ]
+  named <- sum(!is.na(lost_ball$athlete_id_2) & grepl("steals\\)", lost_ball$text))
+  cat(sprintf("  Lost-ball turnovers: %d, with a named stealer: %d\n", nrow(lost_ball), named))
+  if (named == 0) {
+    record_result("ESPN play-by-play names the stealer", "on-ball pest badge",
+                  "CHECK", TRUE, 0L, 0L, 0, "no lost-ball turnover names a stealer")
+  }
 }
 
 run_test(

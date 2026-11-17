@@ -46,7 +46,7 @@ Then walk me through docker-compose.yml line by line. I need to be able to expla
 Plan, then build the first slice of the data pipeline, using only the sources verified in docs/DATA_SOURCES.md:
 
 1. pulls/pull_core.R: pulls teams, players (bio with height and weight), standings, the schedule and player game logs for the current season, and writes them to data/seed/ as JSON files. Follow the season rules in CLAUDE.md. Print the row count of every table it writes.
-2. Use NBA stats ids everywhere. Headshots load from the NBA image CDN by player id. Injuries come from ESPN and are matched to players by name. Tell me the matching approach before building it.
+2. Use NBA stats ids everywhere. Headshots load from the NBA image CDN by player id. Injuries come from the NBA stats injury report, which uses NBA ids.
 3. A loader that runs when the stack starts and fills MongoDB from data/seed/. Running it twice must not create duplicates. Store the "data as of" date.
 4. Sensible indexes for how the app will look things up.
 

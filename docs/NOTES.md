@@ -32,3 +32,8 @@ What I learned: (yours to fill in)
 What happened: 21 of the file pulls returned 0 rows with a warning.
 What fixed it: the files are in Parquet format and R needs the arrow package to read them. After `install.packages("arrow")`, 20 of the 21 passed. The last one, this season's matchups, is simply not published yet.
 What I learned: (yours to fill in)
+
+## 2026-11-17: the NBA play-by-play does not say who made a steal
+What happened: the On-Ball Pest badge needs steals on lost-ball turnovers, but the NBA stats play-by-play file has no steal rows and never names the stealer.
+What fixed it: ESPN's play-by-play names the stealer on each turnover ("(Anthony Black steals)"). ESPN names were matched to NBA ids by name, which worked for 404 of 405 players. A check on one player gave 19 steals in both ESPN play-by-play and the NBA game logs.
+What I learned: (yours to fill in)

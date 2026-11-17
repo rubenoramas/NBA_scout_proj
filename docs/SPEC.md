@@ -111,7 +111,7 @@ Ratings carry the numbers. Badges carry the traits that numbers hide. Each badge
 | --- | --- | --- | --- |
 | Deep Range | Takes and makes threes from well behind the line | Share of his threes from 28 feet or more, and accuracy on them | Solid |
 | Streaky Shooter | Runs hot and cold | Make rate after a make against after a miss within games, plus game-to-game swings | Low. Needs a large sample, and research finds the hot hand effect small |
-| On-Ball Pest | Takes the ball off the dribbler | Steals on lost-ball turnovers (not bad passes) from play-by-play, plus deflections | Medium. Needs play-by-play parsing |
+| On-Ball Pest | Takes the ball off the dribbler | Steals on lost-ball turnovers (not bad passes) from ESPN play-by-play, plus deflections | Medium. ESPN names the stealer, matched to NBA ids by name |
 | Poster Maker | Dunks on people | Dunk volume by type (driving, cutting, running, putback, alley-oop) from shot data, plus combine max vertical where a player has one | Solid for dunk volume. Vertical covers few players |
 | Tough Shot Maker | Hits contested shots | Accuracy on tightly guarded shots against league average | Needs live data. Skipped unless a hotspot pull is run |
 | Corner Specialist | Lives in the corners | Share and accuracy of corner threes | Solid |
@@ -187,21 +187,22 @@ The verified list of sources, calls and column names is in `docs/DATA_SOURCES.md
 There are three routes:
 
 1. **Pre-pulled NBA stats files** (`load_nba_stats_*`). The main route. One file holds a season, each loads in about a second, and they were current to the previous day when tested.
-2. **ESPN feeds.** Used only for injuries. Headshots load from the NBA image CDN by NBA player id, and the calendar uses the NBA stats schedule.
+2. **ESPN play-by-play.** Used only for steals, because it names the stealer and the NBA stats play-by-play does not. Headshots load from the NBA image CDN by NBA player id, injuries come from the NBA stats injury report, and the calendar uses the NBA stats schedule.
 3. **The live NBA stats site.** It gives no answer from campus Wi-Fi, so it is used only for a short optional list, pulled from a phone hotspot.
 
 | Feature | Data | Route |
 | --- | --- | --- |
 | Shot profiles, favorite shots | Shots with x, y, shot type and distance, this season and last | Files |
-| Team profile | Team advanced stats, four factors, play types | Files |
+| Team profile | Team advanced stats, four factors, play types summed from player rows (the file has no team rows) | Files |
 | Player cards | Player bio (height, weight), base and advanced stats | Files |
 | Headshots | NBA image CDN link built from the NBA player id, with a placeholder image when it fails | CDN |
 | Calendar | NBA stats schedule | Files |
-| Injuries | Injury feed, matched to players by name | ESPN |
+| Injuries | NBA stats injury report, latest report per player | Files |
 | Ratings | Tracking tables: drives, passing, rebounding, catch-and-shoot, pull-up, post touches, speed, rim defense | Files |
 | Game context header | Standings (record, seed, streak, last ten), player game logs, schedule results | Files |
 | Rotation scouting | Lineups, and the five players on the floor for every play | Files |
-| Trait badges | Shots, play-by-play (lost-ball steals), hustle stats (deflections), combine drills (vertical) | Files |
+| Trait badges | Shots, ESPN play-by-play (lost-ball steals), hustle stats (deflections), combine drills (vertical) | Files, plus ESPN |
+| How he gets his shots | Assist pairs from the passer named in NBA stats play-by-play shot descriptions | Files |
 | Wingspan | Combine measurements | Files |
 | Matchup model | Per-game matchups for this season and last, summed into pair totals | Files |
 
@@ -211,7 +212,9 @@ Things the files do not give directly:
 
 - Shot zones. They are derived from the shot's x, y and distance.
 - NBA Cup group games. The schedule file labels only one game as NBA Cup, so the Cup icon needs another source.
-- A shared id system with ESPN. The app uses NBA stats ids everywhere, and ESPN injuries are matched to players by name.
+- A shared id system with ESPN. The app uses NBA stats ids everywhere, and ESPN stealers are matched to NBA players by name, with team as a tie-breaker.
+- Who made a steal. The NBA stats play-by-play has no steal rows, so steals come from ESPN play-by-play.
+- Assist pairs. They are parsed from the passer's name in made-shot descriptions (about 65% of made shots) and matched to the teammates on the floor.
 - Matchup season totals for this season. They are built by summing the per-game matchup file.
 
 Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 shots in mid-November). Last season is stored as per-player totals by zone and shot type, which keeps the repo small.
@@ -299,9 +302,11 @@ Made on Nov 16, 2026.
 - **R pulls, Python computes.** R scripts only pull and trim data into seed files. Python in `app/model/` computes ratings, badges and lineup tags when the loader runs. The loader skips recomputing when the seed data has not changed, so startup stays fast.
 - **NBA stats ids everywhere.** Every team and player id in MongoDB and the API is the NBA stats id. The calendar uses the NBA stats schedule.
 - **Headshots from the NBA image CDN.** The link is built from the NBA player id. A test link loaded on Nov 16. A placeholder image shows when a headshot fails to load.
-- **ESPN only for injuries.** Injuries are matched to players by name. No ESPN id crosswalk is built.
+- **Injuries from the NBA stats injury report.** It uses NBA ids, so no name matching. The latest report per player is used, and rows with reason "NOT YET SUBMITTED" are skipped. (Changed Nov 17. ESPN injuries are no longer used.)
+- **ESPN only for steals.** ESPN play-by-play names the stealer on lost-ball turnovers. Stealers are matched to NBA ids by name, with team as a tie-breaker. No full ESPN id crosswalk is built. (Changed Nov 17.)
+- **Assist pairs from shot descriptions.** The passer's last name in "(Robinson 1 AST)" is matched to the four teammates on the floor.
 - **Play-by-play and game lineups are boiled down in R.** The pull scripts turn them into small tables (lost-ball steals, assist pairs, most common fives). The raw rows never enter the repo or MongoDB. The R stays simple, and one player's steal total is checked against his game logs to prove the aggregation.
-- **Matchups come from the per-game file.** Pair totals for both seasons are sums of per-game rows. No live pull is needed for the matchup model.
+- **Matchups come from the per-game file.** Pair totals for both seasons are sums of per-game rows. No live pull is needed for the matchup model. Last season keeps the regular season, the playoffs and the NBA Cup final, and drops preseason.
 - **Graded CRUD lands early.** Lineup and report create, read, update and delete (reports with notes only) are done by Nov 24. The AI text is added on Nov 27.
 - **Badge names live in one config file.** Renaming a badge is one edit.
 - **The cut list is the real rule.** The order is in the Timeline section.
@@ -315,7 +320,8 @@ None of these blocks the build.
 - Headshot usage terms: check before any public hosted demo.
 - Seed file size: check after the first full shot pull, and compress or trim if the repo gets heavy.
 - NBA Cup group games: find a source for the icon, such as a note in the ESPN schedule.
-- Injury name matching: confirm that ESPN injury names match NBA stats player names, and handle the ones that do not.
+- Stealer name matching: handle the few ESPN names that do not match (Bobby Portis on Nov 17), and build the ESPN to NBA team abbreviation map.
+- Play-in games in last season's matchups (6 games) were not covered by the season type decision. They are kept for now.
 
 ## Timeline
 

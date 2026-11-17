@@ -68,3 +68,21 @@ Prompt:
 > - The model check gets easier: the per-game file shows who actually guarded whom in each game.
 > - Move "Matchups, this season" out of the live-only list.
 Result: added the per-game matchup file to docs/DATA_SOURCES.md and docs/SPEC.md, moved this season's matchups out of the live-only list, and added two tests for it to pulls/test_pulls.R
+
+## 2026-11-17: injuries, steals and assists sources
+Tool: Claude Code
+Prompt:
+> Three updates for docs/DATA_SOURCES.md and docs/SPEC.md. Add tests for the first two to pulls/test_pulls.R.
+>
+> 1. Injuries: use load_nba_stats_injury_report(seasons = 2026) in place of ESPN. Checked Nov 17: 54,695 rows, reports through today. Columns: season, report_datetime, game_date, game_time, report_matchup, away_team_abbr, home_team_abbr, team, report_player_name, current_status, reason, category, previous_status, game_id, team_id, person_id, match_method. It uses NBA ids, so no name matching. Use the latest report per player, and skip rows where reason is "NOT YET SUBMITTED".
+>
+> 2. Steals: the NBA stats play-by-play file has no steal rows and does not name the stealer, so On-Ball Pest cannot come from it. Test whether ESPN play-by-play (load_nba_pbp(seasons = 2027)) names the stealer on lost-ball turnovers. If it does, use it and match ESPN players to NBA ids by name and team. If not, base On-Ball Pest on steals and deflections per minute, and note that it cannot separate on-ball steals.
+>
+> 3. Assists: about 65% of made shots name the passer in the description, for example "(Robinson 1 AST)". Match that name to the four teammates on the floor (off_player_1 to off_player_5) to get assist pairs.
+>
+> Matchups: keep regular season and playoffs from last season, drop preseason, keep the Cup final.
+>
+> Then commit everything that is not committed yet.
+>
+> github url: https://github.com/rubenoramas/NBA_scout_proj
+Result: confirmed ESPN play-by-play names the stealer (1,299 of 1,327 lost-ball turnovers), recorded injuries, steals, assist pairs and matchup season types in the docs, added injury report and ESPN play-by-play tests, reran the pull test, and committed
