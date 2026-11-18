@@ -244,6 +244,23 @@ Questions:
 - What share of players have a wingspan, and why not all of them?
 - Why is "which side of the floor" left out for now?
 
+## The matchup model
+
+What it does: the Matchups tab suggests which of our five should guard each of their five, sorted by their usage. Each row leads with how our defender changes the scorer's output against his norm, such as "holds him 3.4 below his norm" in green, then the expected points per 100 partial possessions, how much head-to-head history sits behind it, a one-line reason, and our top three options from the whole roster.
+
+How it works, in plain words:
+- Each scorer has a norm: what he scores against everyone, pulled toward the league average until he has enough possessions.
+- Each defender has an effect: how many points he allows compared with what his opponents usually score, pulled toward zero until he has enough possessions.
+- The pair's own history only nudges the estimate. Ten possessions of history count about a sixth.
+- The app tries all 120 ways to match our five to their five and picks the one with the fewest expected points, weighting each scorer by his usage, so the best defender goes where it matters most. A guard is not put on a center, or the other way round, without real history between them.
+
+Design decision worth mentioning: the model was tested honestly. Trained on games before Nov 1 and tested on games after, its predictions line up with what happened only a little better than knowing each scorer's norm (correlation 0.18 against 0.16). Its picks match the defender who actually guarded each scorer most 37% of the time, below a simple same-position guess at 43%. The test also exposed a flaw: the defender effect partly measures position, because centers are matched to scorers near the rim, so guards look like better defenders against everyone. The tab says plainly that the data is noisy, and the fix is the next step.
+
+Questions:
+- What is a scorer's "norm", and why do the numbers lead with the effect against it?
+- Why does the app weight each scorer by usage rate?
+- How was the model tested, and what did the test show?
+
 ## Team pages
 
 What it does: every team has a page at `/team/<abbreviation>`, such as `/team/BOS`. The band shows the record, seed, streak, last ten, home and road records. The Roster tab is the same sortable table as the scouting Players tab, with USG%, badges, injury tags and links to player cards. The Team stats tab shows offensive, defensive and net rating, pace and the four factors on both ends, each with its league rank. "My team" in the top bar goes to your own team's page, and every team chip in the app (schedule, box scores, scouting band, recent results, player cards) links to that team's page.

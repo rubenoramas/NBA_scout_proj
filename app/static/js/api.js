@@ -243,3 +243,24 @@ export function rankText(rank) {
   const v = rank % 100;
   return rank + (sfx[(v - 20) % 10] || sfx[v] || sfx[0]);
 }
+
+// POST JSON to our API with the same plain-language errors as getJSON.
+export async function postJSON(url, payload) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch (err) {
+    if (err.name === "TimeoutError") throw new Error("The server took too long to answer.");
+    throw new Error("Could not reach the server. Check that the app is running.");
+  }
+  let body = null;
+  try { body = await response.json(); } catch { /* handled below */ }
+  if (!response.ok) throw new Error((body && body.error) || `The server answered with an error (${response.status}).`);
+  if (body === null) throw new Error("The server sent a reply that could not be read.");
+  return body;
+}

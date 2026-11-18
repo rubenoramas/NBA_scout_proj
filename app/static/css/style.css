@@ -268,6 +268,15 @@ button, input { font: inherit; color: inherit; }
 .usage-team { min-width: 0; border-right: 1px solid var(--row-border); }
 .usage-team:last-child { border-right: 0; }
 .cols-teamstats { grid-template-columns: 150px 72px 88px minmax(0, 1fr); }
+.cols-matchups { grid-template-columns: minmax(170px, 1.2fr) 56px minmax(170px, 1.2fr) minmax(190px, 1.4fr) 72px 180px; }
+.matchup-block { border-bottom: 1px solid var(--border); }
+.matchup-block .trow { border-bottom: 0; }
+.matchup-detail { padding: 0 16px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.matchup-options { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+.option { white-space: nowrap; }
+.history-cell { display: inline-flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.matchup-notes { padding: 10px 16px; border-bottom: 1px solid var(--row-border); display: flex; flex-direction: column; gap: 4px; }
+.matchup-foot { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--row-border); }
 .cols-usage { grid-template-columns: minmax(0, 1fr) 60px 56px 56px 60px; }
 
 /* ---- Chips and tags -------------------------------------------------- */

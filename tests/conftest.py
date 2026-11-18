@@ -153,7 +153,8 @@ def client_app():
     db.schedule.delete_many({})
     db.game_logs.delete_many({})
     db.meta.delete_many({})
-    for name in ("players", "injuries", "shots", "shot_zones_last", "shot_types_last"):
+    for name in ("players", "injuries", "shots", "shot_zones_last", "shot_types_last", "matchup_pairs",
+                 "player_stats", "attributes"):
         db[name].delete_many({})
     db.players.insert_many([dict(p) for p in PLAYERS])
     db.injuries.insert_many([dict(i) for i in INJURIES])

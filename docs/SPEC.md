@@ -191,27 +191,27 @@ Counters start as simple rules, for example answering a small ball lineup with o
 
 ## Matchup model
 
-The model assigns our five defenders to their five scorers so that the opponent's expected points are as low as possible.
+Built Nov 18 in `app/model/matchups.py`. Units are points per 100 partial possessions (the time a defender spends guarding a scorer). The league averages about 24, because a scorer finishes only a small share of the possessions he is on the floor.
 
-Inputs:
+Data: totals for every defender and scorer pair per season, summed from the per-game matchup files for both seasons (`matchup_pairs.jsonl.gz`), plus this season pair by pair and game by game for validation (`matchup_games.jsonl.gz`).
 
-- Matchup history: possessions and points allowed for each defender and scorer pair, for this season and last. Both come from the per-game matchup file, summed into pair totals. The two seasons are blended so this season gains weight as its possessions grow
-- Each defender's overall numbers, such as how much worse opponents shoot when he is the closest defender
-- Each scorer's volume and efficiency
-- Height and weight for everyone, wingspan where combine measurements exist
+Formulas (seasons blended like the ratings: rate and sample each weighted by w = MIN_this / (MIN_this + 600); the scorer's minutes for his baseline and pair history, the defender's minutes for his effect):
 
-Steps:
+1. League rate L = total points / total partial possessions.
+2. **Scorer baseline (his norm)** B = (pts + 200 x L) / (poss + 200).
+3. **Defender effect** D = (actual points allowed - expected) / (his poss + 300), where expected = sum over his pairs of poss x B of that scorer. Shrinks toward 0.
+4. **Size fit** S = b_h x height gap + b_w x weight gap / 10 lb + b_ws x wingspan gap (scorer minus defender; a missing measurement gives 0), fitted by weighted least squares on what is left after B + D. On Nov 18 it explains 0.1% of the leftover variance, so it barely matters.
+5. **Pair estimate** E = (pair pts + 50 x mu) / (pair poss + 50), with prior mu = B + D + S. Ten possessions of history count about 17%.
 
-1. Estimate expected points for every defender and scorer pair. Pair history is thin, so it is blended with each player's overall numbers.
-2. Weight each pair by how much of the offense the scorer carries.
-3. Solve the five-by-five assignment for the lowest total.
-4. Show the assignment with a one-line reason for each pairing.
+Assignment: each opposing scorer is weighted by his USG% (this season with 100+ minutes, else last season). The app checks all 120 orderings of our five against their five and picks the lowest sum of USG% x E. **Position guard:** a guard may not guard a center, or a center a guard, unless the pair has 20+ partial possessions of history; the same rule applies to the top three lists. Players marked Out are excluded. Until the lineup editor exists, both lineups default to each team's most common starting five this season, with Out players replaced by the healthy players with the most minutes. The top three per opposing player come from our whole healthy roster (100+ minutes this season or 500+ last season).
 
-The assignment recomputes whenever a lineup changes. The same scores rank the best three defenders for each opponent player, which feeds the player one-pager.
+Display: each pairing leads with E - B, "holds him 3.4 below his norm" (green) or "allows 1.2 above his norm" (red), with E per 100, the history size (small sample under 20 possessions) and a one-line reason built from the parts.
 
-Known limit: public matchup data is noisy because of switches and help defense. The output is a suggestion, shown with a note on how much data sits behind it.
+Validation (Nov 18; trained on last season plus this season before Nov 1, tested on games since):
+- Pair predictions against actual points per 100, weighted by possessions: correlation 0.18 for the full model, 0.18 for B + D, 0.16 for the scorer norm alone, 0 for the league average. On pairs with 10+ test possessions: 0.32 full, 0.35 B + D, 0.33 norm only. Calibration by fifths: predicted 13.9 / 19.4 / 23.4 / 27.7 / 36.7, actual 16.6 / 20.0 / 22.3 / 25.7 / 36.9.
+- The pick matched the defender who actually guarded each starting scorer most 36.7% of the time with the position guard (32.4% without), against 43.3% for a same-position guess and 20% for random. Without the guard the model picked a guard-center pairing 8.3% of the time; in the games the top defender was a guard-center pairing 0.7% of the time.
 
-Check: compare the model's picks with the matchups teams actually used in past games. The per-game matchup file shows who guarded whom in each game.
+Known limits: public matchup data is noisy because of switches and help defense. The defender effect also picks up position: weighted by possessions, centers average +5.3 per 100 above expected and guards -1.5, because bigs are matched to scorers in high-scoring moments near the rim. This makes guards look like better defenders against everyone. A position-relative defender effect is the proposed next fix. Matching "who guarded him most" also measures coaches' choices, not what is best.
 
 ## Data window
 

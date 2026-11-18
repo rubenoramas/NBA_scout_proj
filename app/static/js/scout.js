@@ -2,7 +2,7 @@
 // ids, and shows the matchup band plus the Overview panels.
 
 import {
-  MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, chevron, chip, el, injuryTag, pct1, rankText, emptyLine, errorLine, fill, formatDay, getJSON,
+  MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, chevron, chip, el, injuryTag, pct1, postJSON, rankText, emptyLine, errorLine, fill, formatDay, getJSON,
   resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag,
 } from "./api.js";
 import { newRosterState, renderRoster } from "./roster.js";
@@ -19,13 +19,13 @@ const usAbbr = (params.get("us") || "").trim().toUpperCase();
 const themAbbr = (params.get("them") || "").trim().toUpperCase();
 
 // Tabs: Overview (no tab parameter) and Players (?tab=players).
-const activeTab = params.get("tab") === "players" ? "players" : "overview";
+const activeTab = ["players", "matchups"].includes(params.get("tab")) ? params.get("tab") : "overview";
 function tabUrl(tab) {
   const q = new URLSearchParams({ us: usAbbr, them: themAbbr });
   if (tab !== "overview") q.set("tab", tab);
   return `/scout?${q}`;
 }
-for (const tab of ["overview", "players"]) {
+for (const tab of ["overview", "players", "matchups"]) {
   const link = document.getElementById(`tab-${tab}`);
   link.setAttribute("href", tabUrl(tab));
   if (tab === activeTab) link.setAttribute("aria-current", "page");
@@ -51,8 +51,9 @@ function showProblem(message, retry) {
 
 function showLoading() {
   fill(band, el("div", { class: "band-side" }, skeletonRows(2, [60, 160])));
-  if (activeTab === "players") {
-    fill(root, panel("span-12", "Roster", null, skeletonRows(10, [180, 30, 30, 40, 40, 40, 40, 50, 50])));
+  if (activeTab === "players" || activeTab === "matchups") {
+    fill(root, panel("span-12", activeTab === "players" ? "Roster" : "Suggested matchups", null,
+      skeletonRows(10, [180, 30, 30, 40, 40, 40, 40, 50, 50])));
     return;
   }
   fill(root,
@@ -249,6 +250,10 @@ function render(ctx) {
     renderPlayers(ctx);
     return;
   }
+  if (activeTab === "matchups") {
+    renderMatchups(ctx);
+    return;
+  }
   const usagePanel = el("section", { class: "panel span-12", "aria-label": "Who runs the offense" },
     el("div", { class: "panel-head", style: "justify-content: space-between" },
       el("h2", { class: "panel-title", text: "Who runs the offense" }),
@@ -308,3 +313,80 @@ async function renderPlayers(ctx) {
 }
 
 load();
+
+
+// ---- Matchups tab -------------------------------------------------------
+
+// Lead with the effect against the scorer's norm: negative is good for us.
+function normEffect(m) {
+  const v = m.vs_norm_per100;
+  if (Math.abs(v) < 0.05) return el("span", { class: "text-2", text: "matches his norm" });
+  return el("span", { class: `strong ${v < 0 ? "win" : "loss"}` },
+    v < 0 ? `holds him ${Math.abs(v).toFixed(1)} below his norm` : `allows ${v.toFixed(1)} above his norm`);
+}
+
+function historyCell(m) {
+  return el("span", { class: "history-cell" },
+    el("span", { class: "text-2", text: `${Math.round(m.history_poss)} poss` }),
+    m.small_history ? tag("Small sample", "gold") : null);
+}
+
+async function renderMatchups(ctx) {
+  const body = el("div");
+  fill(root, el("section", { class: "panel span-12", "aria-label": "Suggested matchups" },
+    el("div", { class: "panel-head", style: "justify-content: space-between" },
+      el("h2", { class: "panel-title", text: "Suggested matchups" }),
+      el("span", { class: "panel-note", text: `Our five against their five, sorted by their USG%` })),
+    body));
+  fill(body, skeletonRows(6, [180, 50, 160, 200, 60, 60]));
+  let data;
+  try {
+    data = await postJSON("/api/matchups", { us: ctx.us.team.team_id, them: ctx.them.team.team_id });
+  } catch (err) {
+    fill(body, errorLine(err.message, () => renderMatchups(ctx)));
+    return;
+  }
+  const names = (lineup) => lineup.map((p) => p.player_name).join(", ");
+  const lineupNote = el("div", { class: "matchup-notes" },
+    el("p", {},
+      el("span", { class: "label", text: `${ctx.us.team.abbreviation} ` }), names(data.us_lineup),
+      data.us_default ? el("span", { class: "muted", text: " (default: most common starters, Out players replaced)" }) : null),
+    el("p", {},
+      el("span", { class: "label", text: `${ctx.them.team.abbreviation} ` }), names(data.them_lineup),
+      data.them_default ? el("span", { class: "muted", text: " (default: most common starters, Out players replaced)" }) : null));
+  const header = el("div", { class: "trow thead short-head cols-matchups" },
+    el("span", { text: "Their player" }), el("span", { class: "num", text: "USG%" }),
+    el("span", { text: "Our defender" }), el("span", { text: "Effect vs his norm" }),
+    el("span", { class: "num", text: "Exp / 100" }), el("span", { class: "num", text: "History" }));
+  const rows = data.rows.map((r) => {
+    const a = r.assigned;
+    const options = r.top_three.map((o) => el("span", { class: "option" },
+      el("a", { class: "name-link", href: `/player/${o.defender_id}`, text: o.defender_name }),
+      el("span", { class: o.vs_norm_per100 < 0 ? "win" : "loss", text: ` ${o.vs_norm_per100 > 0 ? "+" : ""}${o.vs_norm_per100.toFixed(1)}` })));
+    return el("div", { class: "matchup-block" },
+      el("div", { class: "trow cols-matchups tall" },
+        el("span", { class: "player-cell" },
+          el("a", { class: "name-link", href: `/player/${r.scorer_id}`, text: r.scorer_name }),
+          r.position ? el("span", { class: "muted", text: r.position }) : null),
+        el("span", { class: "num strong", text: r.usg_pct.toFixed(1) }),
+        el("span", { class: "player-cell" },
+          el("a", { class: "name-link", href: `/player/${a.defender_id}`, text: a.defender_name }),
+          a.position ? el("span", { class: "muted", text: a.position }) : null),
+        el("span", {}, normEffect(a)),
+        el("span", { class: "num text-2", text: a.expected_per100.toFixed(1) }),
+        el("span", { class: "num" }, historyCell(a))),
+      el("div", { class: "matchup-detail" },
+        el("p", { class: "muted", text: a.reason }),
+        el("p", { class: "matchup-options" }, el("span", { class: "label", text: "Top three from our roster " }),
+          options.length ? options : el("span", { class: "muted", text: "No eligible defenders." }))));
+  });
+  const size = data.size_fit;
+  fill(body,
+    lineupNote,
+    el("div", { class: "table-scroll" }, el("div", { style: "min-width: 860px" }, header, rows)),
+    el("div", { class: "panel-foot matchup-foot" },
+      el("p", { text: data.notes.unit }),
+      el("p", { text: `Effect vs his norm is the expected points minus his norm, per 100. Green means our defender holds him below what he usually scores. Guards and centers are not matched against each other without ${data.position_guard.min_history}+ possessions of history.` }),
+      el("p", { text: `Size (height, weight, wingspan gaps) explains ${(size.share_of_leftover_explained * 100).toFixed(1)}% of what is left after his norm and the defender's effect, so it barely moves the numbers.` }),
+      el("p", { class: "strong", text: data.notes.noise })));
+}

@@ -39,9 +39,9 @@ make_label <- function(start) sprintf("%d-%02d", start, (start + 1) %% 100)
 seasons <- c(this_start - 1, this_start)
 seed_dir <- "data/seed"
 
-write_jsonl <- function(df, name) {
-  path <- file.path(seed_dir, paste0(name, ".jsonl"))
-  con <- file(path, open = "w", encoding = "UTF-8")
+write_jsonl <- function(df, name, gz = FALSE) {
+  path <- file.path(seed_dir, paste0(name, if (gz) ".jsonl.gz" else ".jsonl"))
+  con <- if (gz) gzfile(path, open = "w", encoding = "UTF-8") else file(path, open = "w", encoding = "UTF-8")
   stream_out(df, con, na = "null", digits = NA, verbose = FALSE)
   close(con)
   cat(sprintf("  %-24s %7d rows\n", basename(path), nrow(df)))
@@ -209,6 +209,36 @@ matchup_defense <- bind_rows(lapply(seasons, function(start) {
     mutate(season = make_label(start))
 })) %>% mutate(`_id` = paste(player_id, season, sep = "_")) %>% relocate(`_id`)
 
+# 6b. Matchup pairs and games ----------------------------------------------
+# Totals for every defender and scorer pair per season, for the matchup
+# model, plus this season pair by pair and game by game (with the date) for
+# validation and "who guarded whom most". Regular season only.
+matchup_rows <- bind_rows(lapply(seasons, function(start) {
+  suppressMessages(load_nba_stats_game_matchups(seasons = start)) %>%
+    filter(season_type_id == 2) %>%
+    transmute(game_id, season = make_label(start),
+              off_id = as.integer(off_person_id), def_id = as.integer(def_person_id),
+              off_team_id = as.integer(off_team_id), def_team_id = as.integer(def_team_id),
+              poss = partial_possessions, pts = player_points,
+              fga = matchup_field_goals_attempted, fgm = matchup_field_goals_made,
+              fg3a = matchup_three_pointers_attempted, fg3m = matchup_three_pointers_made,
+              tov = matchup_turnovers, switches = switches_on)
+}))
+matchup_pairs <- matchup_rows %>%
+  group_by(season, off_id, def_id) %>%
+  summarise(games = n_distinct(game_id), across(c(poss, pts, fga, fgm, fg3a, fg3m, tov, switches), sum),
+            .groups = "drop") %>%
+  mutate(`_id` = paste(season, off_id, def_id, sep = "_")) %>%
+  relocate(`_id`)
+game_dates <- suppressMessages(load_nba_stats_schedule(seasons = this_start)) %>%
+  transmute(game_id, game_date = as.character(game_date))
+matchup_games <- matchup_rows %>%
+  filter(season == make_label(this_start)) %>%
+  left_join(game_dates, by = "game_id") %>%
+  mutate(`_id` = paste(game_id, off_id, def_id, sep = "_")) %>%
+  relocate(`_id`) %>%
+  select(-season)
+
 # 7. Combine drills: max vertical --------------------------------------------
 drills <- bind_rows(lapply(2000:(this_start - 1), function(cl) {
   tryCatch(suppressMessages(load_nba_stats_draft_combine_drills(seasons = cl)), error = function(e) NULL)
@@ -228,5 +258,7 @@ write_jsonl(steals, "steals")
 write_jsonl(shot_extras, "shot_extras")
 write_jsonl(matchup_defense, "matchup_defense")
 write_jsonl(drills, "combine_drills")
+write_jsonl(matchup_pairs, "matchup_pairs", gz = TRUE)
+write_jsonl(matchup_games, "matchup_games", gz = TRUE)
 files <- list.files(seed_dir, full.names = TRUE)
 cat(sprintf("Total size of %s: %.2f MB\n", seed_dir, sum(file.size(files)) / 1024^2))

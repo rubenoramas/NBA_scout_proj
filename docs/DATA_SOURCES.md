@@ -52,6 +52,7 @@ Freshness: the player game logs ran through Nov 15, 2026 when pulled on Nov 16, 
 
 ### What the labels look like
 
+- **Matchup pairs and games.** `pulls/pull_stats.R` writes `matchup_pairs.jsonl.gz` (183,088 pair-seasons, both seasons, regular season: partial possessions, points, FGA, FGM, 3PA, 3PM, turnovers, switches, games) and `matchup_games.jsonl.gz` (this season, 41,418 rows by game with the date). The league averages about 24 points per 100 partial possessions.
 - **Matchup season types kept:** regular season (2), playoffs (4), play-in (5) and the NBA Cup final (6). Preseason is dropped. The file holds no preseason rows, so in practice the filter is a guard.
 - **Matchups** come one row per offensive player, defensive player and game. There is no season-totals file for 2026-27, so pair totals for both seasons are built by summing the per-game rows by `off_person_id` and `def_person_id`. `season_type_id` is 2 for the regular season (1,230 games last season), 4 for the playoffs (85), 5 for the play-in (6) and 6 for the NBA Cup final (1), checked by joining to the schedule file. Every 2026-27 row so far is 2. The types kept are in the line above.
 - **Every leaguedash table is season totals.** All the tables checked carry `season_type` "Regular Season" and `per_mode` "Totals", one row per player or team. Per-game numbers are totals divided by `gp`.

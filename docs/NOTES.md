@@ -92,3 +92,8 @@ What I learned: (yours to fill in)
 What happened: each season's shooting rate was pulled toward the league on its own small sample, then the two were blended. Stephen Curry's 45.7% on 94 threes was cut to 42.1% before last season was even mixed in, so this season was shrunk twice.
 What fixed it: blend the two seasons first (rate, sample and league rate, each weighted by w), then shrink once on the blended numbers. Curry's blended 3P% went from 39.9% to 40.6%.
 What I learned: (yours to fill in)
+
+## 2026-11-18: testing the matchup model, and what the test exposed
+What happened: the matchup model looked sensible on one game but ranked Damian Lillard as the best option against every scorer, and said a top rim protector allowed 15 points per 100 above expected. Averaging the defender effect by position showed why: centers average +5.3 and guards -1.5, because bigs are matched to scorers near the rim.
+What fixed it: not fixed yet. The validation (train before Nov 1, test after) is reported honestly: the model's picks match the real top defender 37% of the time, below a same-position guess at 43%. A position-relative defender effect is the proposed fix. A unit test also caught a bug where a player with no minutes on record lost all his data in the blend.
+What I learned: (yours to fill in)

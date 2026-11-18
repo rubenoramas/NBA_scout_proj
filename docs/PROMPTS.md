@@ -374,3 +374,44 @@ Prompt:
 >
 > Add tests where new endpoints are needed, check it in the browser, then commit and push and add the VIDEO_NOTES section.
 Result: rating tooltips show the real rate with the adjusted value beside it; added team_stats to the core pull, GET /api/teams/<id> with league ranks, the /team/<abbreviation> page (Roster and Team stats tabs, shared roster table), a My team nav item and team chip links across the app; 54 tests pass
+
+## 2026-11-18: matchup model
+Tool: Claude Code
+Prompt:
+> Plan, then build the matchup model. Follow docs/DESIGN.md and docs/SPEC.md, and use only verified data. Python in app/model/ computes. Show me every formula before building.
+>
+> Data: pair totals for every defender and scorer pair, summed from the per-game matchup files for both seasons, with partial possessions, points, FGA, FGM, 3PA, 3PM, turnovers and switches. Add to the seed and to refresh.sh if a pull changes.
+>
+> Model, kept interpretable, in points per 100 partial possessions:
+> - Scorer baseline: his points per partial possession against all defenders, shrunk toward the league.
+> - Defender effect: how many points he allows compared with what his opponents usually score, shrunk toward zero.
+> - Pair history: this pair's own result, shrunk toward baseline plus defender effect by its possessions, so thin history barely moves it.
+> - Size fit: height, weight and wingspan gaps, where we have them. Show how much it matters.
+> - Blend seasons the same way the ratings do.
+>
+> Assignment:
+> - Weight each opposing scorer by his USG%, then pick the five-by-five assignment with the lowest weighted expected points. With five players, checking all 120 orderings is enough, so no new package.
+> - Players marked Out are excluded.
+> - Until the lineup editor exists, default both lineups to each team's most common starters from the lineup data.
+> - For every opposing player, also rank our top three defenders from our whole roster.
+> - Each pairing gets a one-line reason built from its components, and a note on how many possessions of history sit behind it.
+>
+> API: POST /api/matchups with both lineups, returning the assignment, each pairing's expected points and reason, the top three per opposing player, and the history sizes.
+>
+> Screen: turn on the Matchups tab of the scouting page. A table of their five (sorted by USG%) with our assigned defender, expected points per 100, history size, and the reason, plus each player's top three options. Include a short note that public matchup data is noisy because of switches and help defense.
+>
+> Validation, and tell me the results:
+> - Train on games before Nov 1 and test on games since. Does the model's expected points line up with what scorers actually scored?
+> - For this season's games, how often does the model's pick match the defender who actually guarded each scorer most, compared with a simple same-position guess?
+>
+> Add tests (the assignment picks the true best of 120, Out players excluded, shrinkage at the edges). Check it in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> Approved, keeping k = 200, 300 and 50. Two additions:
+>
+> 1. Position guard: in the five-on-five assignment and the top three lists, do not allow a guard to guard a center or a center to guard a guard unless that pair has at least 20 partial possessions of history. Positions come from the existing position field. Before applying it, report how often the unconstrained model chose such a pairing in the validation games.
+>
+> 2. Display: lead with the effect relative to the scorer's norm, E minus B, as "holds him 3.4 below his norm" or "allows 1.2 above his norm", with the sign and color (better in green, worse in red, per DESIGN.md). Show the raw expected points per 100 in the details and the reason line, and explain the unit once in a short note on the tab.
+>
+> Build it, run the validation and report the numbers, add the tests, check it in the browser, then commit and push and add the VIDEO_NOTES section.
+Result: matchup pair and game seed files; app/model/matchups.py (norm, defender effect, size fit, pair history, 120-ordering assignment with a position guard); POST /api/matchups; the Matchups tab; app/model/validate_matchups.py; 7 new tests (61 total). Validation: picks match the real top defender 36.7% vs 43.3% for a same-position guess; the defender effect is confounded with position (centers +5.3, guards -1.5 per 100)
