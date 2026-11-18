@@ -33,8 +33,15 @@ def current_season():
 
 
 def data_as_of():
+    """The date of the latest game in the data, such as "2026-11-17"."""
     meta = db.meta.find_one({"_id": "seed"}) or {}
     return meta.get("data_as_of")
+
+
+def pulled_at():
+    """When the data was pulled, as UTC text such as "2026-11-18T16:58:25Z"."""
+    meta = db.meta.find_one({"_id": "seed"}) or {}
+    return meta.get("pulled_at")
 
 
 def get_team(team_id):
@@ -194,6 +201,7 @@ def game_context(us_id, them_id):
     return {
         "season": season,
         "data_as_of": data_as_of(),
+        "pulled_at": pulled_at(),
         "us": team_context(us_id, season),
         "them": team_context(them_id, season),
         "last_meeting": last_meeting(us_id, them_id),

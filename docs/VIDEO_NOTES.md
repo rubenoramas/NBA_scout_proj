@@ -28,7 +28,7 @@ Questions:
 | 2:50 | Close | One thing that makes it different |
 
 Before recording:
-- Rerun the pulls so the data is current, and check the "data as of" date on screen.
+- Run `./refresh.sh` so the data is current, and check that the top bar shows a green dot and "Games through" last night's games.
 - Put a real API key in `.env` so the AI report works.
 - Pick a matchup that tells a good story (a star scorer, a badge that stands out).
 - Zoom the browser so text is readable in the recording.
@@ -109,7 +109,7 @@ R scripts in `pulls/` use the hoopR package, part of the SportsDataverse project
 Other decisions:
 - NBA ids everywhere. Headshots come from the NBA's image site by player id.
 - Injuries come from the NBA's official injury report. A player who dropped off his team's latest report counts as available, because taking each player's latest row would leave long-recovered players marked Out.
-- "Data as of" is the date of the latest game in the data.
+- The top bar shows two facts: the latest game in the data and when it was pulled, such as "Games through Tue, Nov 17 · pulled Nov 18, 9:02 AM".
 - Seed files are JSON Lines: one JSON document per line. Each line is already a MongoDB document, types are kept, and git diffs stay readable.
 - This season is blended with last season, because a month into a season the samples are small.
 
@@ -179,13 +179,13 @@ What it does: every screen now follows one design guide, `docs/DESIGN.md`, built
 
 How it works, in plain words:
 - All 21 colors live as variables at the top of `style.css`, so a color change is one edit and no screen can drift off the palette.
-- The top bar is shared code (`topbar.js`): the team switcher, the main navigation, the team search (press `/` to jump to it) and the "Data as of" date.
+- The top bar is shared code (`topbar.js`): the team switcher, the main navigation, the team search (press `/` to jump to it) and the data freshness label.
 - The running record is counted over the whole season in date order, so November starts from the record before Nov 1. LAC reads 1-5 after Nov 1 and 4-8 after Nov 15, which matches the official standings. The NBA Cup final is skipped because it does not count in the standings.
 - Tabs and buttons for features that are not built yet are disabled and marked "Soon". Nothing on screen pretends to work.
 - The Inter font is stored in the app itself, with its open font license, so the app looks the same with no internet.
 - No API or test changed. Only the look and layout did.
 
-Design decision worth mentioning: the divider between played and upcoming games says "Data as of Mon, Nov 16" instead of "Today". The data is pulled the morning after games, so calling that line "today" would be wrong on most days.
+Design decision worth mentioning: the divider between played and upcoming games says "Games through Mon, Nov 16" instead of "Today". The data is pulled the morning after games, so calling that line "today" would be wrong on most days.
 
 Questions:
 - Why keep every color in one set of variables instead of writing colors where they are used?
@@ -208,6 +208,21 @@ Questions:
 - Where does the box score data come from, and how do you know the numbers are right?
 - What is True Shooting percentage, and why is it a better measure than field goal percentage?
 - Why did adding last season's game logs risk breaking the standout rule, and how was it fixed?
+
+## Data freshness and refreshing the data
+
+What it does: the top bar shows two facts about the data: the latest game it includes and when it was pulled, for example "Games through Tue, Nov 17 · pulled Nov 18, 9:02 AM". The dot beside it is green, or amber when the pull is more than 2 days old. One command, `./refresh.sh`, brings everything up to date.
+
+How it works, in plain words:
+- The R pull writes both facts into `meta.json`: the date of the latest game in the game logs, and the time of the pull. The API passes them to the page, which shows the pull time in the viewer's own time zone.
+- `./refresh.sh` runs every R pull script in order. If one fails, it stops and says which one, so a half-finished pull is never loaded silently. Then it runs the loader to reload MongoDB and prints a table of row counts per seed file, before and after.
+- The loader only reloads files that changed, so a refresh on a day with no games finishes fast.
+
+Design decision worth mentioning: the old label said "Data as of Nov 17" and people read it as "today is Nov 17". Showing the last game date and the pull time separately removes the guess, and the amber dot warns when someone forgot to refresh before a demo.
+
+Questions:
+- What two facts does the top bar show about the data, and why both?
+- What does `./refresh.sh` do, step by step, and what happens if one pull fails?
 
 ## AI in the project
 

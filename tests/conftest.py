@@ -123,7 +123,7 @@ def client_app():
     db.standings.insert_many(STANDINGS)
     db.schedule.insert_many(SCHEDULE)
     db.game_logs.insert_many(build_logs())
-    db.meta.insert_one({"_id": "seed", "season": SEASON, "data_as_of": "2026-11-10"})
+    db.meta.insert_one({"_id": "seed", "season": SEASON, "data_as_of": "2026-11-10", "pulled_at": "2026-11-11T14:02:00Z"})
     app = create_app()
     app.config["TESTING"] = True
     yield app.test_client()

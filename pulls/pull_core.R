@@ -358,7 +358,7 @@ cat("Game log lines this season / last: ", nrow(this_logs), "/", nrow(last_logs)
 starters_per_game <- game_logs %>% group_by(season, game_id) %>% summarise(n = sum(starter %in% TRUE), .groups = "drop")
 cat("Games with 10 starters marked:     ", sum(starters_per_game$n == 10), "of", nrow(starters_per_game), "\n")
 print(as.data.frame(count(starters_per_game, season, starters = n)), row.names = FALSE)
-cat("Data as of:                       ", meta$data_as_of, "\n")
+cat("Games through:                    ", meta$data_as_of, "\n")
 
 files <- list.files(seed_dir, full.names = TRUE)
 total_mb <- sum(file.size(files)) / 1024^2

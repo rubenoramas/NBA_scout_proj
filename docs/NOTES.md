@@ -57,3 +57,13 @@ What I learned: (yours to fill in)
 What happened: box scores needed last season's player game logs in the same collection. The standout rule averages each player's earlier games, and without a filter those averages would have quietly included last season.
 What fixed it: every game log line now carries a season, the standout query filters on it, and a test adds a 50 point game from last season to prove it is ignored. Also found: the play-in games are missing from the NBA game log file, so they show a score with a plain note instead of a box score.
 What I learned: (yours to fill in)
+
+## For the README: refreshing the data
+
+Run this from the repo root on your laptop, with Docker running:
+
+```
+./refresh.sh
+```
+
+It runs every R pull script in `pulls/` in order (today only `pull_core.R`), stops with a plain message if one fails, reloads MongoDB with the loader, and prints the row count of each seed file before and after. It needs R with hoopR, arrow, dplyr and jsonlite. The optional live pull (`pulls/pull_live.R`, hotspot only) is not part of it. The top bar then shows "Games through <latest game> · pulled <time>", with an amber dot if the pull is more than 2 days old.

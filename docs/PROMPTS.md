@@ -244,3 +244,15 @@ Prompt (approval):
 >
 > Go ahead and build, run the checks and tests, then commit and push.
 Result: added last season's game logs and starters to the pull (seed now 13.4 MB), GET /api/games/<game_id>/boxscore with advanced stats and four factors, the /game page with sortable Basic and Advanced tables, a Last game tab, box score links from the schedule, mini calendar and Recent results, and 9 new tests (24 total)
+
+## 2026-11-18: data freshness label and refresh script
+Tool: Claude Code
+Prompt:
+> Two small changes before the shots step.
+>
+> 1. The "Data as of" label confuses people into expecting today's date. Change it everywhere to show both facts, for example "Games through Tue, Nov 17 · pulled Nov 18, 9:02 AM". Use the latest game date and the pull time already stored in meta. Keep the green dot, and make it amber if the pull is more than 2 days old.
+>
+> 2. Add one refresh script at the repo root, refresh.sh, that runs every R pull script in order, stops with a plain message if any fails, then reloads MongoDB with the loader. Print what changed (row counts per file). Document it in the README notes and in VIDEO_NOTES.
+>
+> Then commit and push.
+Result: the top bar and schedule divider now read "Games through ... · pulled ...", with an amber dot after 2 days; added refresh.sh (runs the pulls, stops on failure, reloads MongoDB, prints row count changes) and documented it

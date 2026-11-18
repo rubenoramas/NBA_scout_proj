@@ -12,6 +12,7 @@ def test_teams_lists_all_teams_sorted(client_app):
     body = res.get_json()
     assert [t["abbreviation"] for t in body["teams"]] == ["AAA", "BBB", "CCC"]
     assert body["data_as_of"] == "2026-11-10"
+    assert body["pulled_at"] == "2026-11-11T14:02:00Z"
     assert "_id" not in body["teams"][0]
 
 

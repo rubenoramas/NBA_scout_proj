@@ -53,9 +53,9 @@ The top of the scouting page sets the scene before any analysis.
 | Last meeting | The most recent game between the two teams, with date and score. Falls back to last season, labeled with the season and marked when it was a playoff or play-in game |
 | Next meeting | The next scheduled game between the two teams this season |
 | Game type icon | A marker when the game is an NBA Cup game or a playoff game |
-| Data as of | The date of the last data pull |
+| Data freshness | Both facts in the top bar: "Games through Tue, Nov 17 · pulled Nov 18, 9:02 AM". Green dot, amber when the pull is more than 2 days old |
 
-Everything here changes daily. Because the app runs from seed data, the header always shows the "data as of" date, and the pulls are rerun right before the demo video and before submitting.
+Everything here changes daily. Because the app runs from seed data, the top bar always shows the latest game in the data and when it was pulled, and `./refresh.sh` is rerun right before the demo video and before submitting.
 
 ## Shot profile detail
 
@@ -237,7 +237,7 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | `injuries` | Latest status per player | Seed loader |
 | `attributes` | Ratings and badges per player | Seed loader, computed in Python at load time |
 | `standings` | Record, seed, streak and last ten per team | Seed loader |
-| `meta` | The "data as of" date | Seed loader |
+| `meta` | The latest game date (`data_as_of`) and the pull time (`pulled_at`) | Seed loader |
 | `opponent_lineups` | Most-used fives with tags | Seed loader, tags computed in Python at load time |
 | `lineups` | User-set fives with injury tags | User (CRUD) |
 | `reports` | Saved scouting reports: inputs, model output, AI text, user notes | User (CRUD) |
@@ -317,7 +317,8 @@ Made on Nov 16, 2026.
 - **Seed files are JSON Lines.** One document per line, one file per collection, so each line maps straight to a MongoDB document and git diffs stay readable.
 - **The loader is its own Compose service.** It runs once after MongoDB is healthy, swaps each changed collection in whole, skips files whose SHA-256 fingerprint has not changed, and exits. `web` waits for it.
 - **Injury status comes from each team's latest report.** A player who dropped off his team's latest report counts as available.
-- **"Data as of" is the date of the latest game in the game logs.** The time of the pull is stored separately.
+- **The app shows both the latest game date and the pull time.** "Data as of" alone made people expect today's date, so the top bar reads "Games through ... · pulled ...", and the dot turns amber when the pull is more than 2 days old (changed Nov 18).
+- **One command refreshes the data.** `./refresh.sh` runs every R pull script in order, stops with a plain message if one fails, reloads MongoDB and prints the row count change per seed file.
 - **Box scores come from player game logs.** Last season's logs are kept in full (about 10 MB). Starters are the five players on the floor at the first play, from the game lineups file. Advanced stats are computed in Python in one place, and the page shows every formula.
 - **Badge names live in one config file.** Renaming a badge is one edit.
 - **The cut list is the real rule.** The order is in the Timeline section.

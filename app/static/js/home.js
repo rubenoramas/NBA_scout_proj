@@ -245,7 +245,7 @@ function scheduleRow(game) {
 
 function dividerRow() {
   return el("div", { class: "divider-row" },
-    `Data as of ${formatDay(asOf, { weekday: "short", month: "short", day: "numeric" })}`,
+    `Games through ${formatDay(asOf, { weekday: "short", month: "short", day: "numeric" })}`,
     el("span", { class: "divider-note", text: "Games below have not been played yet" }));
 }
 

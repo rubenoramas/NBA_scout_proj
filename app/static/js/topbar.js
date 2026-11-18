@@ -11,7 +11,7 @@ export function loadTeams() {
   if (!teamsPromise) {
     teamsPromise = getJSON("/api/teams").then((data) => {
       teams = data.teams;
-      showAsOf(data.data_as_of);
+      showFreshness(data.data_as_of, data.pulled_at);
       return data;
     });
     teamsPromise.catch(() => { teamsPromise = null; });
@@ -23,11 +23,30 @@ export function myTeamAbbr() {
   return store.get(MY_TEAM_KEY);
 }
 
-export function showAsOf(dateText) {
-  if (!dateText) return;
-  document.getElementById("asof-text").textContent =
-    `Data as of ${formatDay(dateText, { month: "short", day: "numeric", year: "numeric" })}`;
-  document.getElementById("asof").hidden = false;
+// How old a pull can be before the dot turns from green to amber.
+const STALE_AFTER_HOURS = 48;
+
+// Shows both facts: the latest game in the data, and when it was pulled.
+// For example "Games through Tue, Nov 17 · pulled Nov 18, 9:02 AM".
+export function showFreshness(gamesThrough, pulledAt) {
+  if (!gamesThrough) return;
+  const parts = [`Games through ${formatDay(gamesThrough)}`];
+  const dot = document.getElementById("asof-dot");
+  const pulled = pulledAt ? new Date(pulledAt) : null;
+  let stale = false;
+  if (pulled && !Number.isNaN(pulled.getTime())) {
+    // Shown in the viewer's own time zone.
+    const when = pulled.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    parts.push(`pulled ${when}`);
+    stale = Date.now() - pulled.getTime() > STALE_AFTER_HOURS * 3600 * 1000;
+  }
+  document.getElementById("asof-text").textContent = parts.join(" · ");
+  dot.className = `dot ${stale ? "dot-stale" : "dot-win"}`;
+  const node = document.getElementById("asof");
+  node.title = stale
+    ? "The data was pulled more than 2 days ago. Run ./refresh.sh to update it."
+    : "Latest game in the data, and when the data was pulled.";
+  node.hidden = false;
 }
 
 // Show the chosen team in the switcher, with its record when known.

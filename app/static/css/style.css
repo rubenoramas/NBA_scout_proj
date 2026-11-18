@@ -96,6 +96,8 @@ button, input { font: inherit; color: inherit; }
 .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex: none; }
 .dot-win { background: var(--win); }
 .dot-loss { background: var(--loss); }
+/* Amber dot for a stale pull: gold is the design's warning color. */
+.dot-stale { background: var(--gold); }
 .dot-upcoming { border: 1px solid var(--accent-text); }
 
 /* ---- Search ---------------------------------------------------------- */
