@@ -214,3 +214,50 @@ def game_context(us_id, them_id):
             "min_last_game_minutes": MIN_LAST_GAME_MINUTES,
         },
     }
+
+
+# Team stats on the team page, with the direction that ranks 1st.
+# True = higher is better. Pace has no better or worse; 1st is the fastest.
+TEAM_STATS = [
+    ("off_rating", "Offensive rating", "Points scored per 100 possessions", True),
+    ("def_rating", "Defensive rating", "Points allowed per 100 possessions", False),
+    ("net_rating", "Net rating", "Offensive minus defensive rating", True),
+    ("pace", "Pace", "Possessions per 48 minutes (1st is fastest)", True),
+    ("efg_pct", "eFG%", "Offense: (FGM + 0.5 x 3PM) / FGA", True),
+    ("tov_pct", "TOV%", "Offense: turnovers per play", False),
+    ("oreb_pct", "OREB%", "Offense: share of its misses it rebounds", True),
+    ("fta_rate", "FT rate", "Offense: FTA / FGA", True),
+    ("opp_efg_pct", "Opponent eFG%", "Defense: opponents' eFG%", False),
+    ("opp_tov_pct", "Opponent TOV%", "Defense: turnovers it forces per play", True),
+    ("opp_oreb_pct", "Opponent OREB%", "Defense: share of misses opponents rebound", False),
+    ("opp_fta_rate", "Opponent FT rate", "Defense: opponents' FTA / FGA", False),
+]
+
+
+def team_stats_with_ranks(team_id):
+    """Each team stat with its league rank (1 = best, or fastest for pace)."""
+    all_stats = list(db.team_stats.find({}, {"_id": 0}))
+    mine = next((t for t in all_stats if t["team_id"] == team_id), None)
+    if not mine:
+        return None
+    out = []
+    for key, label, help_text, higher_better in TEAM_STATS:
+        values = [t.get(key) for t in all_stats if t.get(key) is not None]
+        value = mine.get(key)
+        rank = None
+        if value is not None:
+            better = [v for v in values if (v > value if higher_better else v < value)]
+            rank = len(better) + 1
+        out.append({"key": key, "label": label, "help": help_text, "value": value,
+                    "rank": rank, "of": len(values)})
+    return {"gp": mine.get("gp"), "stats": out}
+
+
+def team_overview(team_id):
+    return {
+        "team": get_team(team_id),
+        "standing": standing(team_id),
+        "season": current_season(),
+        "data_as_of": data_as_of(),
+        "team_stats": team_stats_with_ranks(team_id),
+    }

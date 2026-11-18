@@ -66,7 +66,7 @@ function bandSide(side, label, right) {
     el("div", { class: "label", text: label }),
     el("div", { class: "band-name", text: side.team.full_name || side.team.abbreviation }),
     el("div", { class: "band-sub" }, el("span", { class: `strong ${won ? "win" : "loss"}`, text: won ? "W" : "L" })));
-  const abbr = chip(side.team.abbreviation, { xl: true });
+  const abbr = chip(side.team.abbreviation, { xl: true, link: true });
   return el("div", { class: `band-side${right ? " right" : ""}` }, right ? [info, abbr] : [abbr, info]);
 }
 

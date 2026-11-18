@@ -82,6 +82,9 @@ last_logs_raw <- suppressMessages(load_nba_stats_player_game_logs(seasons = seas
 lineups_raw      <- suppressMessages(load_nba_stats_game_lineups(seasons = season_start))
 last_lineups_raw <- suppressMessages(load_nba_stats_game_lineups(seasons = season_start - 1))
 injury_raw    <- suppressMessages(load_nba_stats_injury_report(seasons = season_start))
+# Team ratings, pace and four factors for the team page.
+team_adv_raw  <- suppressMessages(load_nba_stats_leaguedash(seasons = season_start, table = "team_stats_advanced"))
+team_ff_raw   <- suppressMessages(load_nba_stats_leaguedash(seasons = season_start, table = "team_stats_fourfactors"))
 # Season totals per player, for the season line on player cards.
 base_raw      <- suppressMessages(load_nba_stats_leaguedash(seasons = season_start, table = "player_stats_base"))
 # Positions: the per-game matchup files list a position (C, F or G) for
@@ -390,6 +393,16 @@ players <- players %>%
   left_join(wingspans, by = "player_id") %>%
   arrange(team_id, player_name)
 
+# Team stats: one document per team. All rates are fractions (0.527 = 52.7%).
+team_stats <- team_adv_raw %>%
+  transmute(team_id = as.integer(team_id), gp = as.integer(gp), w = as.integer(w), l = as.integer(l),
+            off_rating, def_rating, net_rating, pace) %>%
+  left_join(team_ff_raw %>% transmute(team_id = as.integer(team_id), efg_pct, fta_rate, tov_pct = tm_tov_pct,
+                                      oreb_pct, opp_efg_pct, opp_fta_rate, opp_tov_pct, opp_oreb_pct),
+            by = "team_id") %>%
+  mutate(`_id` = team_id, season = season_label) %>%
+  relocate(`_id`)
+
 # 9. Write ------------------------------------------------------------------
 write_jsonl(teams, "teams")
 write_jsonl(players, "players")
@@ -397,6 +410,7 @@ write_jsonl(standings, "standings")
 write_jsonl(schedule, "schedule")
 write_jsonl(game_logs, "game_logs", gz = TRUE)
 write_jsonl(injuries, "injuries")
+write_jsonl(team_stats, "team_stats")
 
 # The meta file is a single document, so it is plain JSON and not JSON Lines.
 # "Data as of" is the date of the latest game in the game logs, which is the

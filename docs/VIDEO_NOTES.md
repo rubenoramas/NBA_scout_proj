@@ -244,6 +244,18 @@ Questions:
 - What share of players have a wingspan, and why not all of them?
 - Why is "which side of the floor" left out for now?
 
+## Team pages
+
+What it does: every team has a page at `/team/<abbreviation>`, such as `/team/BOS`. The band shows the record, seed, streak, last ten, home and road records. The Roster tab is the same sortable table as the scouting Players tab, with USG%, badges, injury tags and links to player cards. The Team stats tab shows offensive, defensive and net rating, pace and the four factors on both ends, each with its league rank. "My team" in the top bar goes to your own team's page, and every team chip in the app (schedule, box scores, scouting band, recent results, player cards) links to that team's page.
+
+How it works, in plain words: the team stats come from the NBA's team stats files, pulled by the same R script as the standings. The API ranks each stat across the 30 teams, knowing which direction is better: a low defensive rating ranks 1st, a high one last, and pace ranks fastest first because neither is better. The roster table is one shared piece of code used by both the team page and the scouting page.
+
+Design decision worth mentioning: rating tooltips now show a player's real rate with the adjusted one beside it, such as "13.0 per 36 (adjusted 10.9)". Players are ranked on the adjusted numbers so small samples cannot top the lists, but the card never hides what actually happened on the court.
+
+Questions:
+- Why does a low defensive rating rank 1st while a low offensive rating ranks last?
+- Why does a rating tooltip show two numbers for some stats?
+
 ## Usage rate
 
 What it does: usage rate (USG%) is the share of his team's plays a player uses while he is on the floor, counting shots, free throw trips and turnovers. It shows on the player card with his league rank and last season's value, as a sortable column on the Players tab (which now lists the main options first), and in a "Who runs the offense" panel on the scouting overview with each team's top three.

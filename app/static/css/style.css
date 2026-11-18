@@ -135,6 +135,7 @@ button, input { font: inherit; color: inherit; }
 .dash { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
 .span-4 { grid-column: span 4; }
 .span-5 { grid-column: span 5; }
+.span-6 { grid-column: span 6; }
 .span-7 { grid-column: span 7; }
 .span-12 { grid-column: span 12; }
 
@@ -266,6 +267,7 @@ button, input { font: inherit; color: inherit; }
 .usage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .usage-team { min-width: 0; border-right: 1px solid var(--row-border); }
 .usage-team:last-child { border-right: 0; }
+.cols-teamstats { grid-template-columns: 150px 72px 88px minmax(0, 1fr); }
 .cols-usage { grid-template-columns: minmax(0, 1fr) 60px 56px 56px 60px; }
 
 /* ---- Chips and tags -------------------------------------------------- */
@@ -274,6 +276,8 @@ button, input { font: inherit; color: inherit; }
   padding: 1px 5px; border: 1px solid var(--chip-border); border-radius: 3px; background: var(--chip); color: var(--text);
 }
 .chip.fixed { width: 38px; text-align: center; padding: 2px 0; }
+a.chip-link { color: var(--text); text-decoration: none; }
+a.chip-link:hover, a.chip-link:focus-visible { border-color: var(--accent); color: var(--accent-text); }
 .chip-xl { font-size: 20px; letter-spacing: 0.03em; padding: 6px 10px; border-radius: 4px; }
 .result { display: inline-block; min-width: 20px; text-align: center; font-weight: 700; font-size: 12px; border-radius: 3px; padding: 1px 0; }
 .result.w { color: var(--win); background: var(--win-tint); }
@@ -393,7 +397,7 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
 
 /* ---- Narrow screens -------------------------------------------------- */
 @media (max-width: 1100px) {
-  .span-4, .span-5, .span-7 { grid-column: span 12; }
+  .span-4, .span-5, .span-6, .span-7 { grid-column: span 12; }
 }
 @media (max-width: 760px) {
   .usage-grid { grid-template-columns: 1fr; }

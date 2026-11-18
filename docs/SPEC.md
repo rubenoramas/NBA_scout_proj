@@ -117,7 +117,8 @@ R pulls and trims; Python in `app/model/ratings.py` computes. Only regular-seaso
 3. **Qualified players.** At least 200 minutes this season, or at least 500 last season. Others show "Not enough minutes".
 4. **Component percentile.** Each component is ranked among qualified players as a share from 0 to 1 (flipped where lower is better).
 5. **Rating.** composite = weighted average of component percentiles; rating = round(99 x percentile rank of the composite among qualified players). 50 is a typical qualified player.
-6. **Small sample.** Tagged when the attribute's key sample (this season plus last) is below the threshold in the table.
+6. **Tooltips.** Players are ranked on the adjusted (shrunk) values, but rating tooltips show each player's real blended rate with the adjusted value beside it, such as "13.0 per 36 (adjusted 10.9)".
+7. **Small sample.** Tagged when the attribute's key sample (this season plus last) is below the threshold in the table.
 
 | Attribute | Components (weight) | Small sample below |
 | --- | --- | --- |
@@ -275,6 +276,7 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | `injuries` | Latest status per player | Seed loader |
 | `attributes` | Ratings and badges per player | Seed loader, computed in Python at load time |
 | `standings` | Record, seed, streak and last ten per team | Seed loader |
+| `team_stats` | Offensive, defensive and net rating, pace and the four factors per team, this season | Seed loader |
 | `meta` | The latest game date (`data_as_of`) and the pull time (`pulled_at`) | Seed loader |
 | `opponent_lineups` | Most-used fives with tags | Seed loader, tags computed in Python at load time |
 | `lineups` | User-set fives with injury tags | User (CRUD) |
@@ -286,6 +288,7 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | --- | --- | --- |
 | GET | `/api/health` | Says whether the API can reach MongoDB |
 | GET | `/api/teams` | List teams |
+| GET | `/api/teams/<id>` | Team page: team, standing, and team stats (ratings, pace, four factors) with league ranks |
 | GET | `/api/teams/<id>/schedule` | Games for the calendar |
 | GET | `/api/teams/<id>/profile` | Team style fingerprint and roster |
 | GET | `/api/games/context?us=<team id>&them=<team id>` | Records, seeds, streaks, last games, last meeting, game type |

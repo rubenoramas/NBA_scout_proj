@@ -5,7 +5,7 @@ import {
   MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, chevron, chip, el, injuryTag, pct1, rankText, emptyLine, errorLine, fill, formatDay, getJSON,
   resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag,
 } from "./api.js";
-import { renderSortTable } from "./sorttable.js";
+import { newRosterState, renderRoster } from "./roster.js";
 import { loadTeams, setScoutNav, setSwitcher } from "./topbar.js";
 
 function boxLink(gameId, label) {
@@ -102,7 +102,7 @@ function bandSide(side, label, right) {
     el("div", { class: "band-sub" },
       `${s.record || "–"} · ${seedText(s)} · `,
       el("span", { class: `strong ${streakClass(s.streak)}`, text: shortStreak(s.streak) })));
-  const abbr = chip(side.team.abbreviation, { xl: true });
+  const abbr = chip(side.team.abbreviation, { xl: true, link: true });
   return el("div", { class: `band-side${right ? " right" : ""}` }, right ? [info, abbr] : [abbr, info]);
 }
 
@@ -161,9 +161,9 @@ function lastGameRow(side) {
       el("span"), el("span"), el("span"));
   }
   return el("div", { class: "trow cols-recent tall" },
-    el("span", { class: "bold", text: side.team.abbreviation }),
+    el("span", {}, chip(side.team.abbreviation, { link: true })),
     el("span", { class: "text-2", text: formatDay(g.date) }),
-    el("span", { class: "text-2" }, `${g.home ? "vs" : "at"} ${g.opponent.abbreviation} · last game`, typeTag(g)),
+    el("span", { class: "text-2" }, `${g.home ? "vs" : "at"} `, chip(g.opponent.abbreviation, { link: true }), " · last game", typeTag(g)),
     el("span", {}, resultChip(g.result)),
     el("span", { class: "num strong", text: `${g.team_pts}-${g.opp_pts}` }),
     boxLink(g.game_id, `Box score, ${side.team.abbreviation} last game`));
@@ -291,19 +291,7 @@ async function loadUsage(ctx) {
 
 // ---- Players tab: the opponent's roster ------------------------------
 
-// Sorted by USG% so the main options are at the top.
-const rosterState = { sortKey: "usg", sortDir: "desc" };
-
-// USG% for sorting: small samples (under 100 minutes) sort last.
-const usgSortValue = (r) => (r.usage && r.usage.usg_pct !== null && !r.usage.small_sample ? r.usage.usg_pct : null);
-const usgCell = (r) => {
-  if (!r.usage || r.usage.usg_pct === null) return "–";
-  const node = el("span", { title: r.usage.rank ? `${rankText(r.usage.rank)} of ${r.usage.ranked_of}` : "Not ranked (under 200 minutes)" },
-    r.usage.usg_pct.toFixed(1));
-  if (r.usage.small_sample) node.classList.add("muted");
-  return node;
-};
-
+const rosterState = newRosterState();
 async function renderPlayers(ctx) {
   const them = ctx.them.team;
   const body = el("div");
@@ -316,33 +304,7 @@ async function renderPlayers(ctx) {
     fill(body, errorLine(err.message, () => renderPlayers(ctx)));
     return;
   }
-  const s = (key) => (r) => (r.season ? r.season[key] : null);
-  const num = (key, digits = 1) => (r) => (r.season ? Number(r.season[key]).toFixed(digits) : "–");
-  const columns = [
-    { key: "name", label: "Player", width: "minmax(200px, 1fr)", firstDir: "asc", value: (r) => r.player_name.toLowerCase(),
-      cell: (r) => el("span", { class: "player-cell" },
-        el("a", { class: "name-link", href: `/player/${r.player_id}`, text: r.player_name }),
-        r.has_stats ? null : el("span", { class: "muted", text: "No stats yet" })) },
-    { key: "pos", label: "Pos", width: "48px", firstDir: "asc", value: (r) => r.position, cell: (r) => r.position || "–", className: "text-2" },
-    { key: "gp", label: "GP", width: "44px", align: "num", value: s("gp"), cell: (r) => (r.season ? r.season.gp : "–"), className: "text-2" },
-    { key: "usg", label: "USG%", width: "60px", align: "num", value: usgSortValue, cell: usgCell, className: "strong" },
-    { key: "min", label: "MIN", width: "56px", align: "num", value: s("min"), cell: num("min"), className: "text-2" },
-    { key: "pts", label: "PTS", width: "56px", align: "num", value: s("pts"), cell: num("pts"), className: "strong" },
-    { key: "reb", label: "REB", width: "56px", align: "num", value: s("reb"), cell: num("reb"), className: "text-2" },
-    { key: "ast", label: "AST", width: "56px", align: "num", value: s("ast"), cell: num("ast"), className: "text-2" },
-    { key: "fg", label: "FG%", width: "60px", align: "num", value: s("fg_pct"), cell: (r) => pct1(r.season && r.season.fg_pct), className: "text-2" },
-    { key: "fg3", label: "3P%", width: "60px", align: "num", value: s("fg3_pct"), cell: (r) => pct1(r.season && r.season.fg3_pct), className: "text-2" },
-    { key: "ts", label: "TS%", width: "60px", align: "num", value: s("ts_pct"), cell: (r) => pct1(r.season && r.season.ts_pct), className: "text-2" },
-    { key: "badges", label: "Badges", width: "190px", value: (r) => r.badges.length || null,
-      cell: (r) => (r.badges.length ? el("span", { class: "badge-cell" }, r.badges.map(badgeTip)) : el("span", { class: "muted", text: "" })) },
-    { key: "status", label: "Status", width: "120px", align: "num", firstDir: "asc",
-      value: (r) => (r.injury ? r.injury.status : null), cell: (r) => injuryTag(r.injury) || el("span", { class: "muted", text: "" }) },
-  ];
-  const draw = () => renderSortTable(body, {
-    columns, rows: data.players, state: rosterState, onSort: draw,
-    label: `${them.full_name} roster`, emptyNode: emptyLine("No players are loaded for this team."),
-  });
-  draw();
+  renderRoster(body, data.players, rosterState, `${them.full_name} roster`);
 }
 
 load();

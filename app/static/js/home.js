@@ -210,7 +210,7 @@ function scheduleRow(game) {
   const isNext = nextGame && game.game_id === nextGame.game_id;
   const oppCell = el("span", { class: "opp" },
     el("span", { class: "ha", text: game.home ? "vs" : "@" }),
-    chip(opp.abbreviation),
+    chip(opp.abbreviation, { link: true }),
     el("span", { class: "text-2", text: opp.name }),
     game.season_type === "nba-cup" ? tag("NBA Cup", "gold") : null,
     isNext ? tag("Next", "accent") : null);
@@ -499,7 +499,7 @@ function renderLastGame() {
     el("div", { class: "score-line" },
       resultChip(result),
       el("span", { class: "final", text: `${ours.pts}-${theirs.pts}` }),
-      el("span", { class: "text-2" }, `${ours.home ? "vs" : "at"} `, chip(theirs.team.abbreviation), ` ${theirs.team.name || ""}`),
+      el("span", { class: "text-2" }, `${ours.home ? "vs" : "at"} `, chip(theirs.team.abbreviation, { link: true }), ` ${theirs.team.name || ""}`),
       el("span", { class: "muted", text: formatDay(box.game.date) }),
       el("span", { class: "spacer" }),
       el("a", { class: "scout-link", href: `/game/${box.game.game_id}` }, "Full box score", chevron())),

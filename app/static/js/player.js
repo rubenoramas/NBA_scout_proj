@@ -90,7 +90,7 @@ function renderBand() {
         el("div", { class: "label", text: card.season_label ? `${card.season_label} season` : "Player" }),
         el("h1", { class: "band-name", style: "font-size: 16px; margin: 0", text: p.player_name }),
         el("div", { class: "band-sub", style: "display: flex; gap: 8px; align-items: center; flex-wrap: wrap" },
-          chip(team.abbreviation),
+          chip(team.abbreviation, { link: true }),
           el("span", { text: team.full_name }),
           p.position ? el("span", { class: "muted", text: `· ${p.position}` }) : null,
           injuryTag(card.injury)),
@@ -275,10 +275,21 @@ function badgesRow() {
   return el("div", { class: "badges-row", "aria-label": "Badges" }, el("span", { class: "label", text: "Badges" }), items);
 }
 
-// Percent-type parts are shown as percentages, the rest with two decimals.
+// Show his real rate, with the adjusted (shrunk) value used for ranking
+// beside it, for example "13.0 per 36 (adjusted 10.9)".
+function fmtNumber(label, v) {
+  if (v === null || v === undefined) return null;
+  if (label.includes("%")) return `${(v * 100).toFixed(1)}%`;
+  if (label.includes("/36")) return `${v.toFixed(1)} per 36`;
+  return v.toFixed(2);
+}
+
 function fmtComponent(c) {
-  if (c.value === null || c.value === undefined) return "no data";
-  return c.label.includes("%") ? `${(c.value * 100).toFixed(1)}%` : c.value.toFixed(2);
+  const real = fmtNumber(c.label, c.raw ?? c.value);
+  if (real === null) return "no data";
+  if (!c.shrunk || c.value === null || c.value === undefined) return real;
+  const adjusted = fmtNumber(c.label, c.value).replace(" per 36", "");
+  return `${real} (adjusted ${adjusted})`;
 }
 
 function ratingsPanel() {
@@ -312,7 +323,7 @@ function ratingsPanel() {
     el("div", { class: "ratings-grid" }, rows),
     el("p", { class: "panel-foot",
       text: `This season counts ${w}% and last season ${100 - w}% (${Math.round(a.min_this)} minutes this season; last season fades as minutes grow). `
-        + "Shooting percentages are pulled toward the league average until the sample is large. Hover or focus a rating for its parts." }));
+        + "Players are ranked on adjusted values: rates are pulled toward the league average until the sample is large. Hover or focus a rating to see his real rates and the adjusted ones." }));
 }
 let tipCount = 0;
 

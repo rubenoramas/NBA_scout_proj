@@ -30,6 +30,10 @@ def create_app():
     def scout():
         return render_template("scout.html")
 
+    @app.get("/team/<abbreviation>")
+    def team_page(abbreviation):
+        return render_template("team.html")
+
     @app.get("/player/<player_id>")
     def player_page(player_id):
         return render_template("player.html")

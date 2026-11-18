@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Team | Opponent Scout{% endblock %}
+{% block page %}team{% endblock %}
+{% block band %}
+<section class="band" aria-label="Team">
+  <div class="band-inner">
+    <div id="band-team" class="band-teams" aria-live="polite"></div>
+    <div class="band-row">
+      <nav class="tabs" aria-label="Team sections">
+        <a href="" id="tab-roster">Roster</a>
+        <a href="" id="tab-stats">Team stats</a>
+      </nav>
+      <div class="band-actions" id="team-actions"></div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block content %}
+<div id="team" class="dash" aria-live="polite"></div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/team.js') }}"></script>
+{% endblock %}

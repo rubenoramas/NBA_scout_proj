@@ -54,8 +54,13 @@ export function fill(node, ...children) {
 
 // ---- Components ---------------------------------------------------------
 
-export function chip(abbreviation, { fixed = false, xl = false } = {}) {
-  const cls = ["chip", fixed && "fixed", xl && "chip-xl"].filter(Boolean).join(" ");
+// A team abbreviation chip. link: true makes it a link to the team page.
+export function chip(abbreviation, { fixed = false, xl = false, link = false } = {}) {
+  const cls = ["chip", fixed && "fixed", xl && "chip-xl", link && "chip-link"].filter(Boolean).join(" ");
+  if (link && abbreviation) {
+    return el("a", { class: cls, href: `/team/${encodeURIComponent(abbreviation)}`, text: abbreviation,
+      "aria-label": `${abbreviation} team page` });
+  }
   return el("span", { class: cls, text: abbreviation || "?" });
 }
 

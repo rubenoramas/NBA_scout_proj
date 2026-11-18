@@ -80,6 +80,7 @@ INDEXES = {
     "steals": [IndexModel([("player_id", ASCENDING)])],
     "shot_extras": [IndexModel([("player_id", ASCENDING)])],
     "matchup_defense": [IndexModel([("player_id", ASCENDING)])],
+    "team_stats": [],
 }
 
 

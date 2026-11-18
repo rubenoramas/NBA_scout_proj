@@ -179,3 +179,45 @@ def test_standout_minutes_floor():
     assert find_standout(short, {1: lines(5, min=30)}) is None
     # Missing minutes count as zero.
     assert find_standout([dict(big_night[0], min=None)], {1: lines(5)}) is None
+
+
+# ---- /api/teams/<id> ------------------------------------------------------
+
+
+def seed_team_stats():
+    from app.db import db
+
+    db.team_stats.delete_many({})
+    db.team_stats.insert_many([
+        {"_id": 1, "team_id": 1, "gp": 7, "off_rating": 118.0, "def_rating": 104.0, "net_rating": 14.0, "pace": 98.0,
+         "efg_pct": 0.56, "tov_pct": 0.12, "oreb_pct": 0.30, "fta_rate": 0.25,
+         "opp_efg_pct": 0.50, "opp_tov_pct": 0.16, "opp_oreb_pct": 0.27, "opp_fta_rate": 0.22},
+        {"_id": 2, "team_id": 2, "gp": 7, "off_rating": 110.0, "def_rating": 115.0, "net_rating": -5.0, "pace": 102.0,
+         "efg_pct": 0.51, "tov_pct": 0.15, "oreb_pct": 0.25, "fta_rate": 0.20,
+         "opp_efg_pct": 0.55, "opp_tov_pct": 0.13, "opp_oreb_pct": 0.31, "opp_fta_rate": 0.28},
+    ])
+
+
+def test_team_overview_with_ranks(client_app):
+    seed_team_stats()
+    res = client_app.get("/api/teams/1")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["team"]["abbreviation"] == "AAA" and body["standing"]["record"] == "6-1"
+    stats = {s["key"]: s for s in body["team_stats"]["stats"]}
+    assert stats["off_rating"]["rank"] == 1 and stats["off_rating"]["of"] == 2
+    assert stats["def_rating"]["rank"] == 1          # lower is better
+    assert stats["tov_pct"]["rank"] == 1             # lower is better
+    assert stats["opp_tov_pct"]["rank"] == 1         # forcing more is better
+    assert stats["pace"]["rank"] == 2                # 1st is the fastest
+    assert body["team_stats"]["gp"] == 7
+
+
+def test_team_overview_without_stats_and_errors(client_app):
+    from app.db import db
+
+    db.team_stats.delete_many({})
+    body = client_app.get("/api/teams/3").get_json()
+    assert body["team"]["abbreviation"] == "CCC" and body["team_stats"] is None
+    assert client_app.get("/api/teams/999").status_code == 404
+    assert client_app.get("/api/teams/abc").status_code == 400

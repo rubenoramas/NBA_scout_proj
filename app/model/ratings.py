@@ -155,6 +155,11 @@ def league_rates(rows):
 
 def blended_value(key, this, last, w, league_this, league_last):
     """Blend the two seasons, then shrink once. Returns the component value."""
+    return blended_parts(key, this, last, w, league_this, league_last)[0]
+
+
+def blended_parts(key, this, last, w, league_this, league_last):
+    """Returns (adjusted value used for ranking, real blended rate before shrinkage)."""
     num_fn, den_fn, k, scale = METRICS[key]
     seasons = []
     for row, weight, league in ((this, w, league_this), (last, 1 - w, league_last)):
@@ -165,7 +170,7 @@ def blended_value(key, this, last, w, league_this, league_last):
             continue
         seasons.append((weight, num, den, (league or {}).get(key)))
     if not seasons:
-        return None
+        return None, None
     total_w = sum(s[0] for s in seasons) or 1.0
     with_rate = [s for s in seasons if s[2]]
     rate_w = sum(s[0] for s in with_rate)
@@ -173,17 +178,18 @@ def blended_value(key, this, last, w, league_this, league_last):
     sample = sum(s[0] * s[2] for s in seasons) / total_w
     leagues = [(s[0], s[3]) for s in seasons if s[3] is not None]
     league = sum(wt * lg for wt, lg in leagues) / sum(wt for wt, _ in leagues) if leagues and sum(wt for wt, _ in leagues) else None
+    raw = rate * scale if rate is not None else None
     if key == "pts_allowed_per_poss" and sample < MIN_DEF_POSSESSIONS:
-        return None
+        return None, raw
     if k:
         if league is None:
-            return None
+            return None, raw
         value = ((rate or 0) * sample + k * league) / (sample + k)
     else:
         if rate is None:
-            return None
+            return None, raw
         value = rate
-    return value * scale
+    return value * scale, raw
 
 
 def season_samples(row):
@@ -273,6 +279,7 @@ def compute_ratings(players, shooting_weights=(0.65, 0.35)):
     Returns {pid: {"qualified", "w", "min_this", "min_last", "ratings": [...]}}."""
     defs = attribute_defs(shooting_weights)
     blended = {}
+    raw_rates = {}
     info = {}
     for pid, p in players.items():
         this, last = p.get("this"), p.get("last")
@@ -281,7 +288,9 @@ def compute_ratings(players, shooting_weights=(0.65, 0.35)):
         w = blend_weight(min_this)
         st = season_samples(this) if this else {}
         sl = season_samples(last) if last else {}
-        blended[pid] = {k: blended_value(k, this, last, w, p["league_this"], p["league_last"]) for k in METRICS}
+        parts = {k: blended_parts(k, this, last, w, p["league_this"], p["league_last"]) for k in METRICS}
+        blended[pid] = {k: v[0] for k, v in parts.items()}
+        raw_rates[pid] = {k: v[1] for k, v in parts.items()}
         info[pid] = {
             "qualified": min_this >= QUALIFY_THIS or min_last >= QUALIFY_LAST,
             "w": w, "min_this": min_this, "min_last": min_last,
@@ -321,7 +330,9 @@ def compute_ratings(players, shooting_weights=(0.65, 0.35)):
                 "sample": {"n": round(n), "min": sample_min, "label": sample_label},
                 "components": [
                     {"label": label, "weight": w_part, "lower_is_better": lower,
-                     "value": blended[pid].get(key), "percentile": part_pct[key].get(pid) if q else None}
+                     "value": blended[pid].get(key), "raw": raw_rates[pid].get(key),
+                     "shrunk": bool(METRICS[key][2]),
+                     "percentile": part_pct[key].get(pid) if q else None}
                     for key, label, w_part, lower in d["parts"]
                 ],
             }

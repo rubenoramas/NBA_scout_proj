@@ -23,6 +23,18 @@ export function myTeamAbbr() {
   return store.get(MY_TEAM_KEY);
 }
 
+// "My team" links to the chosen team's page, or is disabled with no team.
+export function setMyTeamNav(abbr = myTeamAbbr()) {
+  const old = document.getElementById("nav-myteam");
+  if (!old) return;
+  const onPage = window.location.pathname.toUpperCase() === `/TEAM/${(abbr || "").toUpperCase()}`;
+  const node = abbr
+    ? el("a", { id: "nav-myteam", href: `/team/${encodeURIComponent(abbr)}`, "aria-current": onPage ? "page" : null, text: "My team" })
+    : el("span", { id: "nav-myteam", class: "nav-disabled", title: "Choose your team first", text: "My team" });
+  old.replaceWith(node);
+}
+setMyTeamNav();
+
 // How old a pull can be before the dot turns from green to amber.
 const STALE_AFTER_HOURS = 48;
 
@@ -51,6 +63,7 @@ export function showFreshness(gamesThrough, pulledAt) {
 
 // Show the chosen team in the switcher, with its record when known.
 export function setSwitcher(team, record) {
+  setMyTeamNav(team ? team.abbreviation : null);
   const node = document.getElementById("team-switcher");
   if (!team) {
     node.className = "switcher empty";

@@ -356,3 +356,21 @@ Prompt:
 >
 > Show me the top ten by USG% as a sanity check. Then commit and push.
 Result: Playmaking reworked as skill (AST%, AST/TOV shrunk by minutes) plus volume (potential assists per game); ratings now blend the seasons first and shrink once; USG% added to the card, the Players tab (default sort) and a "Who runs the offense" panel, checked against the box score formula; 52 tests pass
+
+## 2026-11-18: real rates in tooltips and team pages
+Tool: Claude Code
+Prompt:
+> Two small changes:
+>
+> 1. Tooltips: rank players on the shrunk values, but show each player's real rate in rating tooltips, with the adjusted value beside it, for example "13.0 per 36 (adjusted 10.9)". Keep K = 400.
+>
+> 2. Add a team page that works for any team, at /team/<abbreviation>. Follow docs/DESIGN.md and reuse existing components.
+>    - Band: record, seed, streak and last ten, like the scouting band.
+>    - Tabs: Roster and Team stats.
+>      - Roster: the same sortable table as the scouting Players tab, with USG%, badges, injury tags and links to player cards.
+>      - Team stats: offensive, defensive and net rating, pace, and the four factors, each with its league rank, from the verified team stats files.
+>    - Top bar: add "My team" between Schedule and Scouting, linking to the chosen team's page. Disabled when no team is chosen.
+>    - Team chips across the app (schedule, box scores, scouting band, recent results) link to that team's page.
+>
+> Add tests where new endpoints are needed, check it in the browser, then commit and push and add the VIDEO_NOTES section.
+Result: rating tooltips show the real rate with the adjusted value beside it; added team_stats to the core pull, GET /api/teams/<id> with league ranks, the /team/<abbreviation> page (Roster and Team stats tabs, shared roster table), a My team nav item and team chip links across the app; 54 tests pass
