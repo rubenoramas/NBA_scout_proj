@@ -1,0 +1,169 @@
+"""Tests for the rating formulas and badge rules in app/model/."""
+
+import pytest
+
+from app.model.badges import compute_badges, quantile, two_proportion_z
+from app.model.ratings import (
+    blend, blend_weight, compute_ratings, percentile_ranks, rating_from_percentile, shrink,
+)
+
+# ---- Rating building blocks ----------------------------------------------
+
+
+def test_blend_weight_grows_with_minutes():
+    assert blend_weight(0) == 0
+    assert blend_weight(300) == pytest.approx(300 / 900)
+    assert blend_weight(900) == pytest.approx(0.6)
+    assert blend_weight(1800) == pytest.approx(0.75)
+
+
+def test_blend_uses_whichever_season_exists():
+    assert blend(0.5, 0.3, 0.25) == pytest.approx(0.35)
+    assert blend(None, 0.3, 0.9) == 0.3
+    assert blend(0.5, None, 0.1) == 0.5
+
+
+def test_shrink_pulls_small_samples_toward_league():
+    # 4 of 5 with a 35% league rate and k = 50: (4 + 17.5) / 55
+    assert shrink(4, 5, 0.35, 50) == pytest.approx(21.5 / 55)
+    # No attempts gives exactly the league rate
+    assert shrink(0, 0, 0.35, 50) == pytest.approx(0.35)
+    # A big sample barely moves
+    assert shrink(400, 1000, 0.35, 50) == pytest.approx(417.5 / 1050)
+
+
+def test_percentile_ranks_ties_and_direction():
+    ranks = percentile_ranks({"a": 1, "b": 2, "c": 2, "d": 3, "e": None})
+    assert ranks == {"a": 0.0, "b": 0.5, "c": 0.5, "d": 1.0}
+    flipped = percentile_ranks({"a": 1, "b": 3}, higher_is_better=False)
+    assert flipped == {"a": 1.0, "b": 0.0}
+    assert percentile_ranks({"a": 5}) == {"a": 0.5}
+
+
+def test_rating_scale():
+    assert rating_from_percentile(0) == 0
+    assert rating_from_percentile(0.5) == 50
+    assert rating_from_percentile(1) == 99
+
+
+LEAGUE = {"ra_fg": 0.65, "mid_fg": 0.42, "post_ppp": 0.95, "fg3": 0.36, "cs_efg": 0.55,
+          "pu_efg": 0.47, "ft": 0.78, "rim_def": 0.63}
+
+
+def row(minutes, fg3m, fg3a):
+    return {"min": minutes, "fg3m": fg3m, "fg3a": fg3a, "fga": fg3a, "zones": {}}
+
+
+def test_compute_ratings_qualification_and_order():
+    players = {
+        1: {"this": row(400, 50, 120), "last": None, "league_this": LEAGUE, "league_last": LEAGUE},  # good shooter
+        2: {"this": row(400, 30, 120), "last": None, "league_this": LEAGUE, "league_last": LEAGUE},  # worse
+        3: {"this": row(100, 5, 10), "last": None, "league_this": LEAGUE, "league_last": LEAGUE},    # not qualified
+        4: {"this": None, "last": row(900, 200, 500), "league_this": LEAGUE, "league_last": LEAGUE},  # last season only
+    }
+    out = compute_ratings(players)
+    three = {pid: next(r for r in out[pid]["ratings"] if r["key"] == "three_point") for pid in out}
+    assert out[3]["qualified"] is False and three[3]["rating"] is None
+    assert out[4]["qualified"] is True and three[4]["last_season_only"] is True
+    assert three[1]["rating"] > three[2]["rating"]
+    # 10 3PA is below the 50 needed, but player 3 is not rated at all.
+    assert three[3]["small_sample"] is False
+    assert out[1]["w"] == pytest.approx(400 / 1000)
+
+
+def test_compute_ratings_small_sample_flag():
+    players = {
+        1: {"this": row(400, 10, 30), "last": None, "league_this": LEAGUE, "league_last": LEAGUE},
+        2: {"this": row(400, 30, 120), "last": None, "league_this": LEAGUE, "league_last": LEAGUE},
+    }
+    out = compute_ratings(players)
+    three = next(r for r in out[1]["ratings"] if r["key"] == "three_point")
+    assert three["small_sample"] is True and three["sample"] == {"n": 30, "min": 50, "label": "3PA"}
+
+
+# ---- Badges --------------------------------------------------------------
+
+
+def test_z_test_hand_worked():
+    # 60 of 100 after a make, 45 of 100 after a miss. Pooled 0.525.
+    # se = sqrt(0.525 x 0.475 x 0.02) = 0.070622; z = 0.15 / 0.070622 = 2.124
+    z, p = two_proportion_z(60, 100, 45, 100)
+    assert z == pytest.approx(2.124, abs=0.001)
+    assert p == pytest.approx(0.01684, abs=0.0001)
+    assert two_proportion_z(0, 0, 1, 2) == (None, None)
+
+
+def test_quantile():
+    assert quantile([1, 2, 3, 4, 5], 0.5) == 3
+    assert quantile([0, 10], 0.9) == pytest.approx(9)
+
+
+def base(**extra):
+    p = {"min": 1000, "league_fg3": 0.36, "fg3a": 100, "deep3_fga": 0, "deep3_fgm": 0, "dunks": 0,
+         "lost_ball_steals": 0, "other_steals": 0, "deflections": 0,
+         "after_make_fga": 0, "after_make_fgm": 0, "after_miss_fga": 0, "after_miss_fgm": 0}
+    p.update(extra)
+    return p
+
+
+def names(result, pid):
+    return [b["key"] for b in result[pid]["badges"]]
+
+
+def test_deep_range_edges():
+    pooled = {
+        1: base(fg3a=200, deep3_fga=40, deep3_fgm=15),   # 20% share, 37.5%: earns
+        2: base(fg3a=200, deep3_fga=39, deep3_fgm=20),   # one attempt short
+        3: base(fg3a=201, deep3_fga=40, deep3_fgm=15),   # share just under 20%
+        4: base(fg3a=200, deep3_fga=40, deep3_fgm=14),   # 35% < league 36%
+    }
+    out, _ = compute_badges(pooled)
+    assert names(out, 1) == ["deep_range"]
+    assert names(out, 2) == names(out, 3) == names(out, 4) == []
+
+
+def test_badges_need_minutes():
+    out, summary = compute_badges({1: base(min=499, fg3a=200, deep3_fga=60, deep3_fgm=30)})
+    assert names(out, 1) == [] and summary["eligible"] == 0
+
+
+def test_streaky_needs_strict_significance():
+    pooled = {
+        # Strong effect over 1000 pairs: p is far below 0.05 / 2
+        1: base(after_make_fga=500, after_make_fgm=300, after_miss_fga=500, after_miss_fgm=200),
+        # Same rates, too few pairs to be tested
+        2: base(after_make_fga=100, after_make_fgm=60, after_miss_fga=100, after_miss_fgm=40),
+        # Tested, small effect: not earned, but the result is kept
+        3: base(after_make_fga=300, after_make_fgm=150, after_miss_fga=300, after_miss_fgm=145),
+    }
+    out, summary = compute_badges(pooled)
+    assert summary["streaky_tested"] == 2 and summary["streaky_alpha"] == pytest.approx(0.025)
+    assert names(out, 1) == ["streaky_shooter"]
+    assert out[2]["streaky_test"] is None
+    assert out[3]["streaky_test"]["passed"] is False and names(out, 3) == []
+
+
+def test_pest_and_poster_top_ten_percent():
+    pooled = {pid: base(lost_ball_steals=5, deflections=50, dunks=5) for pid in range(1, 21)}
+    pooled[1] = base(lost_ball_steals=40, deflections=100, dunks=60)   # top in both
+    pooled[2] = base(lost_ball_steals=14, deflections=100, dunks=24)   # under both minimums
+    out, _ = compute_badges(pooled)
+    assert set(names(out, 1)) == {"on_ball_pest", "poster_maker"}
+    assert names(out, 2) == []
+
+
+def test_api_includes_ratings_and_badges(client_app):
+    from app.db import db
+
+    db.attributes.delete_many({})
+    db.attributes.insert_one({"_id": 101, "player_id": 101, "qualified": True, "blend_weight": 0.4,
+                              "ratings": [], "streaky_test": None,
+                              "badges": [{"key": "deep_range", "name": "Deep Range", "short": "Deep",
+                                          "meaning": "m", "rule": "r", "detail": "d"}]})
+    card = client_app.get("/api/players/101").get_json()
+    assert card["attributes"]["badges"][0]["name"] == "Deep Range"
+    roster = client_app.get("/api/teams/1/roster").get_json()["players"]
+    assert roster[0]["badges"][0]["short"] == "Deep"
+    assert roster[1]["badges"] == []
+    db.attributes.delete_many({})
+    assert client_app.get("/api/players/101").get_json()["attributes"] is None

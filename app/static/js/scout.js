@@ -2,7 +2,7 @@
 // ids, and shows the matchup band plus the Overview panels.
 
 import {
-  MY_TEAM_KEY, SEASON_TYPE_LABEL, chevron, chip, el, injuryTag, pct1, emptyLine, errorLine, fill, formatDay, getJSON,
+  MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, chevron, chip, el, injuryTag, pct1, emptyLine, errorLine, fill, formatDay, getJSON,
   resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag,
 } from "./api.js";
 import { renderSortTable } from "./sorttable.js";
@@ -284,6 +284,8 @@ async function renderPlayers(ctx) {
     { key: "fg", label: "FG%", width: "60px", align: "num", value: s("fg_pct"), cell: (r) => pct1(r.season && r.season.fg_pct), className: "text-2" },
     { key: "fg3", label: "3P%", width: "60px", align: "num", value: s("fg3_pct"), cell: (r) => pct1(r.season && r.season.fg3_pct), className: "text-2" },
     { key: "ts", label: "TS%", width: "60px", align: "num", value: s("ts_pct"), cell: (r) => pct1(r.season && r.season.ts_pct), className: "text-2" },
+    { key: "badges", label: "Badges", width: "190px", value: (r) => r.badges.length || null,
+      cell: (r) => (r.badges.length ? el("span", { class: "badge-cell" }, r.badges.map(badgeTip)) : el("span", { class: "muted", text: "" })) },
     { key: "status", label: "Status", width: "120px", align: "num", firstDir: "asc",
       value: (r) => (r.injury ? r.injury.status : null), cell: (r) => injuryTag(r.injury) || el("span", { class: "muted", text: "" }) },
   ];

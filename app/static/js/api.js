@@ -187,3 +187,46 @@ export function feetInches(inches) {
 export function pct1(v) {
   return v === null || v === undefined ? "–" : (v * 100).toFixed(1);
 }
+
+// A badge tag with a tooltip that opens on hover and on keyboard focus.
+// tipLines: lines of plain text shown in the tooltip.
+let tipCount = 0;
+export function badgeWithTip(label, tipLines, kind = "accent") {
+  tipCount += 1;
+  const id = `tip-${tipCount}`;
+  return el("span", { class: "tip-wrap" },
+    el("button", { type: "button", class: `tag tag-${kind} tag-button`, "aria-describedby": id }, label),
+    el("span", { class: "tip", role: "tooltip", id },
+      tipLines.filter(Boolean).map((line, i) => el("span", { class: i === 0 ? "tip-title" : "tip-line", text: line }))));
+}
+
+export function badgeTip(b) {
+  return badgeWithTip(b.name, [b.name, b.meaning, `His numbers: ${b.detail}`, `Rule: ${b.rule}`, b.caveat]);
+}
+
+// Tooltips use fixed positioning so a scrolling table cannot clip them.
+// This places each one under its trigger, kept inside the window.
+function placeTip(wrap) {
+  const tip = wrap.querySelector(":scope > .tip");
+  if (!tip) return;
+  const r = wrap.getBoundingClientRect();
+  const width = Math.min(340, window.innerWidth - 16);
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+  tip.style.left = `${left}px`;
+  tip.style.width = `${width}px`;
+  tip.style.top = `${r.bottom + 6}px`;
+}
+document.addEventListener("mouseover", (e) => {
+  const wrap = e.target.closest && e.target.closest(".tip-wrap");
+  if (wrap) placeTip(wrap);
+});
+document.addEventListener("focusin", (e) => {
+  const wrap = e.target.closest && e.target.closest(".tip-wrap");
+  if (wrap) placeTip(wrap);
+});
+// Escape closes an open tooltip by moving focus away from it.
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.activeElement && document.activeElement.closest(".tip-wrap")) {
+    document.activeElement.blur();
+  }
+});

@@ -77,3 +77,13 @@ What I learned: (yours to fill in)
 What happened: adding shot-by-shot data would have pushed data/seed/ to about 20 MB, and every committed refresh would add that much to the repo history again.
 What fixed it: the two biggest files are gzip-compressed (13 MB down to about 3 MB) and the loader reads them directly. Refreshed seed data is committed only at milestones, and refresh.sh says so when it finishes.
 What I learned: (yours to fill in)
+
+## 2026-11-18: a fair test for the Streaky Shooter badge
+What happened: testing 270 players at the usual 5% level would give about 13 "streaky" players by pure luck.
+What fixed it: a one-sided two-proportion z-test with a Bonferroni threshold (0.05 / 270 = 0.00019). Nobody passes yet; the closest is p = 0.001. The card shows the test result either way.
+What I learned: (yours to fill in)
+
+## 2026-11-18: guessed column names broke the stats pull
+What happened: the first run of pull_stats.R stopped on "object 'catch_shoot_fg3m' not found". The real columns are catch_shoot_fg3_m and pull_up_fg3_m, as DATA_SOURCES.md lists.
+What fixed it: using the names from DATA_SOURCES.md. CLAUDE.md already says not to guess column names.
+What I learned: (yours to fill in)

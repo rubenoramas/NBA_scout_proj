@@ -108,6 +108,41 @@ The twelve attributes and the data behind each:
 | Interior defense | Opponent shooting at the rim when he defends, blocks |
 | Speed | Tracking speed and distance |
 
+### How ratings are computed (final, Nov 18)
+
+R pulls and trims; Python in `app/model/ratings.py` computes. Only regular-season numbers are used.
+
+1. **Blend.** For each component, w = MIN_this / (MIN_this + 600) and value = w x this season + (1 - w) x last season. With no last-season data, w = 1. With no minutes this season, w = 0 and the rating is tagged "Last season only".
+2. **Shrinkage.** Shooting percentages are pulled toward the league rate before blending: shrunk% = (makes + k x league%) / (attempts + k), with k = 50 for field goal types, 30 for free throws, and 25 possessions for post-up PPP.
+3. **Qualified players.** At least 200 minutes this season, or at least 500 last season. Others show "Not enough minutes".
+4. **Component percentile.** Each component is ranked among qualified players as a share from 0 to 1 (flipped where lower is better).
+5. **Rating.** composite = weighted average of component percentiles; rating = round(99 x percentile rank of the composite among qualified players). 50 is a typical qualified player.
+6. **Small sample.** Tagged when the attribute's key sample (this season plus last) is below the threshold in the table.
+
+| Attribute | Components (weight) | Small sample below |
+| --- | --- | --- |
+| Finishing | Restricted-area FG%, shrunk (0.4); restricted-area FGA/36 (0.3); drive points/36 (0.3) | 40 restricted-area FGA |
+| Post scoring | Post-up PPP, shrunk (0.5); post-up possessions/36 (0.2); post-touch points/36 (0.3) | 25 post-up possessions |
+| Midrange | FG% in paint (non-RA) plus midrange, shrunk (0.6); those FGA/36 (0.4) | 40 FGA |
+| Three-point shooting | 3P%, shrunk (0.65); 3PA/36 (0.35) | 50 3PA |
+| Catch-and-shoot | Catch-and-shoot eFG%, shrunk (0.65); catch-and-shoot FGA/36 (0.35) | 40 FGA |
+| Pull-up shooting | Pull-up eFG%, shrunk (0.65); pull-up FGA/36 (0.35) | 40 FGA |
+| Free throws and drawing fouls | FT%, shrunk (0.5); FTA per FGA (0.5) | 30 FTA |
+| Playmaking | AST% (0.4); potential assists/36 (0.3); AST/TOV (0.3) | 300 minutes |
+| Rebounding | OREB% (0.3); DREB% (0.4); rebound chance % (0.3) | 300 minutes |
+| Perimeter defense | Steals/36 (0.3); deflections/36 (0.3); contested threes/36 (0.2); points allowed per partial possession as primary defender, lower is better (0.2) | 300 minutes |
+| Interior defense | Opponent FG% at the rim, shrunk, lower is better (0.4); rim FGA defended/36 (0.2); blocks/36 (0.4) | 40 rim FGA defended |
+| Speed | Average speed (0.7); miles/36 (0.3) | 300 minutes |
+
+Badges (first four) pool both seasons' raw counts and need at least 500 minutes over the two seasons. Names live in `app/model/badge_config.py`.
+
+- **Deep Range:** at least 40 three-point attempts from 28 to 39 ft (heaves of 40 ft or more excluded); at least 20% of his threes from 28+ ft; deep 3P% at or above the league's overall 3P%.
+- **Streaky Shooter:** at least 300 field goal attempts that followed another attempt in the same game. One-sided two-proportion z-test that his make rate after a make is higher than after a miss, with p below 0.05 divided by the number of players tested (Bonferroni). Comparing rates after makes and misses within games is biased slightly against finding streakiness (Miller and Sanjurjo, 2018), so the test is conservative.
+- **On-Ball Pest:** at least 15 lost-ball steals (ESPN play-by-play); top 10% of qualified players in lost-ball steals/36, and deflections/36 above the qualified median.
+- **Poster Maker:** at least 25 dunks; top 10% of qualified players in dunks/36. Shows the dunk mix by type and max vertical where a combine measurement exists.
+
+Skipped because they need live-only data: Tough Shot Maker, defended FG% for perimeter defense, dunk score, clutch stats (Closer).
+
 ### Trait badges
 
 Ratings carry the numbers. Badges carry the traits that numbers hide. Each badge is a rule on data we already pull, and each needs a minimum sample before it can be earned.

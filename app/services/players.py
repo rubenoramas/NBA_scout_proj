@@ -56,8 +56,16 @@ def injury_for(player_id):
     return {k: doc.get(k) for k in ("status", "reason", "game_date", "report_time")}
 
 
+def badge_summary(attr):
+    """Short badge list for tables: key, name, short name and his numbers."""
+    if not attr:
+        return []
+    return [{k: b.get(k) for k in ("key", "name", "short", "meaning", "rule", "detail")} for b in attr.get("badges", [])]
+
+
 def roster(team_id):
     injuries = {d["_id"]: d for d in db.injuries.find({"team_id": team_id})}
+    attrs = {d["_id"]: d for d in db.attributes.find({}, {"badges": 1})}
     rows = []
     for doc in db.players.find({"team_id": team_id}):
         inj = injuries.get(doc["_id"])
@@ -68,6 +76,7 @@ def roster(team_id):
             "has_stats": bool(doc.get("has_stats")) and bool(doc.get("gp")),
             "season": per_game(doc),
             "injury": {"status": inj.get("status"), "reason": inj.get("reason")} if inj else None,
+            "badges": badge_summary(attrs.get(doc["_id"])),
         })
     # Most minutes first; players with no stats at the bottom.
     rows.sort(key=lambda r: -(r["season"]["min"] if r["season"] else -1))
@@ -167,7 +176,9 @@ def player_card(player_id):
     bio_keys = ["player_id", "player_name", "team_id", "team_abbr", "position", "position_source", "age",
                 "height", "height_inches", "weight_lbs", "wingspan_inches", "standing_reach_inches",
                 "college", "country", "draft_year", "draft_round", "draft_number", "headshot_url"]
+    attr = db.attributes.find_one({"_id": player_id}, {"_id": 0}) or None
     return {
+        "attributes": attr,
         "player": {k: doc.get(k) for k in bio_keys},
         "team": team,
         "has_stats": bool(doc.get("has_stats")) and bool(doc.get("gp")),

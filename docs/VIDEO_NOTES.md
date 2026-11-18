@@ -244,6 +244,25 @@ Questions:
 - What share of players have a wingspan, and why not all of them?
 - Why is "which side of the floor" left out for now?
 
+## Ratings and trait badges
+
+What it does: every player with enough minutes gets twelve ratings from 0 to 99, such as Finishing, Three-point shooting and Interior defense, shown as bars on his card. Hovering or focusing a bar shows what feeds it and where he ranks on each part. Badges mark traits the ratings hide: Deep Range, Streaky Shooter, On-Ball Pest and Poster Maker. Each badge explains its rule and his numbers on hover, and the Players tab shows every player's badges.
+
+How it works, in plain words:
+- A rating is a percentile. Each attribute combines two to four stats (for example 3P% and threes per 36 minutes), each stat is ranked against every qualified player, and the weighted result is ranked again. 50 means typical, 99 means best in the league.
+- This season is blended with last season: w = minutes this season / (minutes + 600). At 300 minutes this season counts a third, at 1,800 minutes three quarters. So early in the season, last season carries the rating, and it fades as games pile up.
+- Shooting percentages are pulled toward the league average until the sample is large: (makes + 50 x league rate) / (attempts + 50). A player who is 4 of 5 does not top the list.
+- Badges use both seasons' counts and need 500 minutes. On-Ball Pest uses steals from ESPN's play-by-play, because the NBA's play-by-play never says who made a steal, and only counts steals where the ball handler lost the ball.
+- The ratings are computed in Python when the loader runs, and only when their data changed.
+
+Design decision worth mentioning: Streaky Shooter has to pass a real statistical test. For each player, the app compares his make rate after a make with his make rate after a miss in the same game, with a one-sided z-test, and the result has to beat 0.05 divided by the 270 players tested. On Nov 18, nobody passed: the closest was Rudy Gobert at p = 0.001, against a threshold of 0.00019. That matches the research, which finds the hot hand small, and the comparison itself is slightly biased against finding streaks (Miller and Sanjurjo, 2018). The card still shows the test result, so "not streaky" is information too.
+
+Questions:
+- What does a rating of 50 mean, and how is it worked out?
+- How does the blend decide how much last season counts?
+- Why does nobody have the Streaky Shooter badge, and why is that the right answer?
+- Why do steals come from ESPN instead of the NBA's own play-by-play?
+
 ## AI in the project
 
 AI shows up in three places:
@@ -267,6 +286,7 @@ Full notes are in `docs/NOTES.md`. Write the README answers in your own words.
 - 51 injured players had not played yet, so they were missing from the player bio file and from rosters.
 - The first standout rule favored bench players: a small average makes any good night look huge. A minutes floor (15 a game before, 20 in the last game) fixed it, and the card shows the sample size and the rule so the reader can judge it.
 - The play-in games are not in the NBA's game log file, so they have a score but no box score.
+- Making a fair test for streaky shooting: with 270 players tested, a normal 5% threshold would hand out about 13 badges by luck alone, so the threshold is split across all of them.
 
 ## Still to come
 

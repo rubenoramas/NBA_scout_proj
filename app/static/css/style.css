@@ -232,6 +232,34 @@ button, input { font: inherit; color: inherit; }
 .name-link:hover { color: var(--accent-text); text-decoration: underline; }
 .tag-loss { color: var(--loss); border-color: var(--loss-tint); }
 
+/* ---- Ratings and badges -------------------------------------------- */
+.ratings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; padding: 6px 16px 10px; }
+.rating-row {
+  position: relative; display: grid; grid-template-columns: 200px minmax(0, 1fr) 32px 110px; align-items: center; gap: 10px;
+  min-height: 32px; border-bottom: 1px solid var(--row-border);
+}
+.rating-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rating-label { color: var(--text-2); }
+.rating-bar { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; }
+.rating-fill { display: block; height: 100%; background: var(--accent); }
+.rating-num { text-align: right; font-weight: 700; }
+.rating-tags { display: flex; justify-content: flex-end; }
+.badges-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.badge-cell { display: flex; flex-wrap: wrap; gap: 4px; overflow: visible; }
+.tip-wrap { position: relative; display: inline-flex; }
+.rating-row.tip-wrap { display: grid; }
+.tag-button { cursor: help; background: transparent; font-family: inherit; }
+.tag-muted { color: var(--muted); }
+.tip {
+  display: none; position: fixed; z-index: 40; left: 0; top: 0; width: 340px; max-width: calc(100vw - 16px);
+  padding: 10px 12px; background: var(--panel-head); border: 1px solid var(--control-border); border-radius: 4px;
+  color: var(--text-2); font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; white-space: normal;
+  flex-direction: column; gap: 4px; text-align: left;
+}
+.tip-wrap:hover > .tip, .tip-wrap:focus-within > .tip, .rating-row:focus > .tip { display: flex; }
+.tip-title { color: var(--text); font-weight: 600; }
+.trow > .badge-cell, .trow > span:has(.badge-cell) { overflow: visible; }
+
 /* ---- Chips and tags -------------------------------------------------- */
 .chip {
   display: inline-block; flex: none; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
@@ -360,6 +388,8 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
   .span-4, .span-5, .span-7 { grid-column: span 12; }
 }
 @media (max-width: 760px) {
+  .ratings-grid { grid-template-columns: 1fr; }
+  .rating-row { grid-template-columns: 140px minmax(0, 1fr) 32px 96px; }
   .levels, .tiles.tiles-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .measures { margin-left: 0; }
   .topbar { padding: 8px 16px; gap: 10px; }

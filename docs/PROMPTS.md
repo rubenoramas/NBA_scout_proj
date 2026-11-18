@@ -291,3 +291,38 @@ Prompt (approval):
 >
 > Go ahead and build, then run the checks and tests, then commit and push.
 Result: added pulls/pull_shots.R (zone rule with checks), pulls/espn_match.R, pulls/check_sides.R, season lines, positions (97%) and wingspans (60%) to the core pull; gzipped the big seed files (seed now 5.4 MB); built the roster, player card and shot endpoints, the Players tab, the player card with an SVG shot chart and zone table, and box score name links; 9 new tests (33 total)
+
+## 2026-11-18: ratings and trait badges
+Tool: Claude Code
+Prompt:
+> Plan, then build the twelve attributes and the trait badges. Follow docs/DESIGN.md, and use only data verified in docs/DATA_SOURCES.md. R pulls and trims, and Python in app/model/ computes.
+>
+> Data (pulls/pull_stats.R, added to refresh.sh), both seasons where available:
+> - Play types (one per_mode only), player advanced stats, the tracking tables (drives, passing, rebounding, catch-and-shoot, pull-up, post touches, speed and distance, defense), hustle stats, and combine drills for max vertical.
+> - Steals from ESPN play-by-play, split into lost-ball steals and other steals, matched to NBA ids with pulls/espn_match.R. Check one player's steal total against his game logs.
+>
+> Ratings:
+> - Propose which columns feed each of the twelve attributes in docs/SPEC.md, and how they combine into a 0 to 99 rating: a percentile among qualified players, with a minimum-minutes rule.
+> - Blend this season with last season, so last season fades as this season's volume grows. Show me the blend formula.
+> - Show me every formula before building.
+>
+> Badges (names from one config file):
+> - Build the first four: Deep Range, Streaky Shooter, On-Ball Pest and Poster Maker. Each needs a minimum sample.
+> - Streaky Shooter must pass a real statistical test, comparing his make rate after a make with after a miss within games, at a strict threshold. Show the sample size and the test result on the badge.
+> - Skip anything that needs live-only data, and list what you skipped.
+>
+> Screens:
+> - Player card: a Ratings panel with all twelve as labeled bars with the number, small-sample tags where they apply, and a Badges row where each badge explains its rule and his numbers on hover and focus.
+> - Players tab: add a column with each player's badges.
+>
+> Before finishing, show me the top ten players for each attribute and each badge, so I can sanity-check them against what I know about the league. Add tests, check the screens in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> Approved, with two changes:
+>
+> 1. Shooting weights: for three-point shooting, catch-and-shoot and pull-up shooting, use accuracy 0.65 and volume 0.35 in place of 0.5/0.5 and 0.6/0.4. Show me the top ten for each under both weightings so I can compare.
+>
+> 2. Streaky Shooter: keep the test as planned. In the "how it works" text, add that comparing make rates after makes and misses within games is biased slightly against finding streakiness (Miller and Sanjurjo, 2018), so the test is conservative. If no player qualifies, say so plainly in the sanity list.
+>
+> Write the final formulas into docs/SPEC.md, then build, run the checks and tests, and commit and push.
+Result: wrote the formulas into docs/SPEC.md; added pulls/pull_stats.R (stats, play types, hustle, ESPN steals, shot extras, matchup defense, combine drills); built app/model/ (ratings, badges, badge_config) computed by the loader; ratings panel, badge tooltips and a Players tab badges column; 14 new tests (47 total). No player passed the Streaky Shooter test.

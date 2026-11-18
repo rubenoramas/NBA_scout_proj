@@ -22,6 +22,7 @@ cd "$(dirname "$0")"
 PULL_SCRIPTS=(
   pulls/pull_core.R
   pulls/pull_shots.R
+  pulls/pull_stats.R
 )
 
 SEED_DIR="data/seed"

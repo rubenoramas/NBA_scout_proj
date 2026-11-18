@@ -28,10 +28,10 @@ espn_to_nba_team <- function(abbr) {
 # Manual overrides: ESPN name -> NBA player id. Add a row when a name is
 # printed as unmatched. Bobby Portis is listed as "Bobby Portis Jr." by the
 # NBA; suffix stripping already handles him, and the row stays as a safe
-# example of the format.
+# example of the format. ESPN spells Gradey Dick "Grady Dick".
 name_overrides <- data.frame(
-  espn_name = c("Bobby Portis"),
-  nba_player_id = c(1626171L),
+  espn_name = c("Bobby Portis", "Grady Dick"),
+  nba_player_id = c(1626171L, 1641711L),
   stringsAsFactors = FALSE
 )
 

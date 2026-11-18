@@ -1,7 +1,7 @@
 // Player card: /player/<player_id>
 
 import {
-  MY_TEAM_KEY, chevron, chip, el, emptyLine, errorLine, feetInches, fill, formatDay, getJSON,
+  MY_TEAM_KEY, badgeTip, badgeWithTip, chevron, chip, el, emptyLine, errorLine, feetInches, fill, formatDay, getJSON,
   injuryTag, pct1, resultChip, skeletonRows, store, tag,
 } from "./api.js";
 import { chartLegend, drawShotChart } from "./shotchart.js";
@@ -93,7 +93,8 @@ function renderBand() {
           chip(team.abbreviation),
           el("span", { text: team.full_name }),
           p.position ? el("span", { class: "muted", text: `· ${p.position}` }) : null,
-          injuryTag(card.injury)))),
+          injuryTag(card.injury)),
+        badgesRow())),
     el("div", { class: "measures" },
       measure("Height", height, "–"),
       measure("Weight", p.weight_lbs ? `${p.weight_lbs} lb` : null, "–"),
@@ -238,9 +239,70 @@ function topTypesPanel() {
     el("p", { class: "panel-foot", text: "At the rim is the restricted area. Midrange is the rest of the paint plus midrange. Columns: made-attempted, FG%." }));
 }
 
+// ---- Badges and ratings -------------------------------------------------
+
+function badgesRow() {
+  const a = card.attributes;
+  if (!a) return null;
+  const items = a.badges.map(badgeTip);
+  const t = a.streaky_test;
+  if (t && !t.passed) {
+    // Shown even when not earned: the test result itself is informative.
+    items.push(badgeWithTip("Tested: not streaky", [
+      "Streaky Shooter test",
+      `${pct1(t.after_make_pct)}% after a make (${t.after_make_fga} shots) vs ${pct1(t.after_miss_pct)}% after a miss (${t.after_miss_fga} shots).`,
+      `z = ${t.z.toFixed(2)}, p = ${t.p_value.toPrecision(2)}. Needed p below ${t.alpha.toPrecision(2)} (0.05 split across ${t.players_tested} players tested).`,
+      "Comparing make rates after makes and misses within games is biased slightly against finding streakiness (Miller and Sanjurjo, 2018), so this test is conservative.",
+    ], "muted"));
+  }
+  if (!items.length) return null;
+  return el("div", { class: "badges-row", "aria-label": "Badges" }, el("span", { class: "label", text: "Badges" }), items);
+}
+
+// Percent-type parts are shown as percentages, the rest with two decimals.
+function fmtComponent(c) {
+  if (c.value === null || c.value === undefined) return "no data";
+  return c.label.includes("%") ? `${(c.value * 100).toFixed(1)}%` : c.value.toFixed(2);
+}
+
+function ratingsPanel() {
+  const a = card.attributes;
+  const note = "0 to 99, percentile among qualified players";
+  if (!a || !a.qualified) {
+    return panel("span-12", "Ratings", note,
+      emptyLine("Not enough minutes for ratings yet. A player needs 200 minutes this season or 500 last season."));
+  }
+  const rows = a.ratings.map((r) => {
+    const tags = [];
+    if (r.last_season_only) tags.push(tag("Last season only", "gold"));
+    else if (r.small_sample) tags.push(tag("Small sample", "gold"));
+    const breakdown = r.components.map((c) =>
+      `${c.label} (weight ${c.weight}${c.lower_is_better ? ", lower is better" : ""}): ${fmtComponent(c)}, `
+      + `${c.percentile === null || c.percentile === undefined ? "no percentile" : `${Math.round(c.percentile * 100)}th percentile`}`);
+    const tipLines = [r.label, ...breakdown, `Sample: ${r.sample.n} ${r.sample.label} (small below ${r.sample.min}).`];
+    tipCount += 1;
+    const id = `rtip-${tipCount}`;
+    const value = r.rating ?? 0;
+    return el("div", { class: "rating-row tip-wrap", tabindex: "0", "aria-describedby": id },
+      el("span", { class: "rating-label", text: r.label }),
+      el("span", { class: "rating-bar", "aria-hidden": "true" }, el("span", { class: "rating-fill", style: `width: ${value}%` })),
+      el("span", { class: "rating-num", text: r.rating ?? "–" }),
+      el("span", { class: "rating-tags" }, tags),
+      el("span", { class: "tip", role: "tooltip", id },
+        tipLines.map((line, i) => el("span", { class: i === 0 ? "tip-title" : "tip-line", text: line }))));
+  });
+  const w = Math.round(a.blend_weight * 100);
+  return panel("span-12", "Ratings", note,
+    el("div", { class: "ratings-grid" }, rows),
+    el("p", { class: "panel-foot",
+      text: `This season counts ${w}% and last season ${100 - w}% (${Math.round(a.min_this)} minutes this season; last season fades as minutes grow). `
+        + "Shooting percentages are pulled toward the league average until the sample is large. Hover or focus a rating for its parts." }));
+}
+let tipCount = 0;
+
 function render() {
   renderBand();
-  fill(root, seasonPanel(), chartPanel(), zonePanel(), topTypesPanel(), lastGamesPanel());
+  fill(root, seasonPanel(), ratingsPanel(), chartPanel(), zonePanel(), topTypesPanel(), lastGamesPanel());
 }
 
 load();

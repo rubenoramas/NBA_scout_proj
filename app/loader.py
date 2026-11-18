@@ -31,6 +31,7 @@ from pymongo import ASCENDING, DESCENDING, IndexModel
 from pymongo.errors import PyMongoError
 
 from app.db import db
+from app.model import compute as model
 
 SEED_DIR = Path(__file__).resolve().parent.parent / "data" / "seed"
 
@@ -73,6 +74,12 @@ INDEXES = {
     "shot_types_last": [
         IndexModel([("player_id", ASCENDING)]),
     ],
+    "player_stats": [IndexModel([("player_id", ASCENDING), ("season", ASCENDING)])],
+    "play_types": [IndexModel([("player_id", ASCENDING)])],
+    "hustle": [IndexModel([("player_id", ASCENDING)])],
+    "steals": [IndexModel([("player_id", ASCENDING)])],
+    "shot_extras": [IndexModel([("player_id", ASCENDING)])],
+    "matchup_defense": [IndexModel([("player_id", ASCENDING)])],
 }
 
 
@@ -196,6 +203,19 @@ def main():
         {"_id": HASHES_ID, "files": known, "checked_at": datetime.now(timezone.utc).isoformat()},
         upsert=True,
     )
+
+    # Ratings and badges are computed in Python from the loaded data. Skip
+    # the work when none of their inputs changed and they already exist.
+    changed = {entry.split(" ")[0] for entry in loaded}
+    if changed & set(model.INPUTS) or "attributes" not in db.list_collection_names():
+        try:
+            docs, summary = model.compute()
+            model.write(docs, summary)
+            log(f"Computed ratings and badges for {len(docs)} players.")
+        except Exception as err:  # noqa: BLE001 - the app must still start
+            log(f"Could not compute ratings and badges: {err}. The rest of the app still works.")
+    else:
+        log("Ratings and badges unchanged, skipped.")
 
     if loaded:
         log("Loaded: " + ", ".join(loaded))
