@@ -4,7 +4,8 @@ import pytest
 
 from app.model.badges import compute_badges, quantile, two_proportion_z
 from app.model.ratings import (
-    blend, blend_weight, compute_ratings, per36, percentile_ranks, rating_from_percentile, shrink,
+    blend, blend_weight, blended_value, compute_ratings, league_rates, per36, percentile_ranks,
+    rating_from_percentile, shrink,
 )
 
 # ---- Rating building blocks ----------------------------------------------
@@ -58,12 +59,36 @@ def test_rating_scale():
     assert rating_from_percentile(1) == 99
 
 
-LEAGUE = {"ra_fg": 0.65, "mid_fg": 0.42, "post_ppp": 0.95, "fg3": 0.36, "cs_efg": 0.55,
-          "pu_efg": 0.47, "ft": 0.78, "rim_def": 0.63}
-
-
 def row(minutes, fg3m, fg3a):
     return {"min": minutes, "fg3m": fg3m, "fg3a": fg3a, "fga": fg3a, "zones": {}}
+
+
+LEAGUE = league_rates([row(1000, 360, 1000)])  # 36% from three, 36 3PA per 36
+
+
+def test_blend_first_then_shrink_once():
+    # This season 43 of 94 in 263 minutes, last season 190 of 484 in 1329.
+    this, last = row(263, 43, 94), row(1329, 190, 484)
+    lt = ll = {"fg3": 0.36}
+    w = blend_weight(263)
+    rate = w * 43 / 94 + (1 - w) * 190 / 484
+    sample = w * 94 + (1 - w) * 484
+    expected = (rate * sample + 50 * 0.36) / (sample + 50)
+    assert blended_value("fg3", this, last, w, lt, ll) == pytest.approx(expected)
+    # Not the old order (shrink each season, then blend)
+    old = w * shrink(43, 94, 0.36, 50) + (1 - w) * shrink(190, 484, 0.36, 50)
+    assert blended_value("fg3", this, last, w, lt, ll) != pytest.approx(old)
+
+
+def test_blend_with_one_season_only():
+    # No last season: plain shrink on this season's numbers
+    assert blended_value("fg3", row(400, 40, 100), None, blend_weight(400), {"fg3": 0.36}, None) == \
+        pytest.approx(shrink(40, 100, 0.36, 50))
+    # No attempts this season: the rate comes from last season, but this
+    # season's zero attempts still count in the blended sample (0.67 x 200).
+    sample = 0.67 * 200
+    assert blended_value("fg3", row(300, 0, 0), row(900, 90, 200), 0.33, {"fg3": 0.36}, {"fg3": 0.36}) == \
+        pytest.approx((0.45 * sample + 50 * 0.36) / (sample + 50))
 
 
 def test_compute_ratings_qualification_and_order():
@@ -81,6 +106,24 @@ def test_compute_ratings_qualification_and_order():
     # 10 3PA is below the 50 needed, but player 3 is not rated at all.
     assert three[3]["small_sample"] is False
     assert out[1]["w"] == pytest.approx(400 / 1000)
+
+
+def test_playmaking_uses_skill_and_volume():
+    players = {}
+    for pid, (minutes, ast_pct, ast_to, pot, gp) in {
+        1: (1500, 0.33, 3.3, 300, 50),   # starter: high volume, good rates
+        2: (210, 0.40, 4.0, 15, 15),     # backup: great rates in few minutes
+        3: (1200, 0.10, 1.0, 50, 50),
+    }.items():
+        r = row(minutes, 10, 30)
+        r.update({"ast_pct": ast_pct, "ast_to": ast_to, "potential_ast": pot, "gp": gp})
+        players[pid] = {"this": r, "last": None}
+    league = league_rates([p["this"] for p in players.values()])
+    for p in players.values():
+        p.update(league_this=league, league_last=league)
+    out = compute_ratings(players)
+    play = {pid: next(r for r in out[pid]["ratings"] if r["key"] == "playmaking")["rating"] for pid in out}
+    assert play[1] > play[2] > play[3]
 
 
 def test_compute_ratings_small_sample_flag():

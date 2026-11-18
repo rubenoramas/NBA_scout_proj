@@ -25,6 +25,39 @@ LEVELS = ["rim", "midrange", "three"]
 SMALL_SAMPLE_FGA = 20
 
 
+# USG% is ranked among players with at least this many minutes this season.
+USG_RANK_MINUTES = 200
+# Below this many minutes a USG% is shown but marked as a small sample, and
+# it is left out of default sorting and the "who runs the offense" panel.
+USG_SMALL_MINUTES = 100
+
+
+def usage_table(season):
+    """{pid: {"usg_pct", "min", "rank", "ranked_of"}} for one season.
+    usg_pct is a percentage (31.2 means 31.2%), the same scale as the box
+    score. It is the share of his team's plays (FGA + 0.44 x FTA + TOV) he
+    uses while on the floor."""
+    rows = [d for d in db.player_stats.find({"season": season}, {"player_id": 1, "usg_pct": 1, "min": 1})
+            if d.get("usg_pct") is not None]
+    ranked = sorted([d for d in rows if (d.get("min") or 0) >= USG_RANK_MINUTES], key=lambda d: -d["usg_pct"])
+    rank = {d["player_id"]: i + 1 for i, d in enumerate(ranked)}
+    return {d["player_id"]: {"usg_pct": round(d["usg_pct"] * 100, 1), "min": d.get("min") or 0,
+                             "rank": rank.get(d["player_id"]), "ranked_of": len(ranked)} for d in rows}
+
+
+def usage_for(pid, this_usage, last_usage):
+    u = this_usage.get(pid)
+    last = last_usage.get(pid)
+    return {
+        "usg_pct": u["usg_pct"] if u else None,
+        "rank": u["rank"] if u else None,
+        "ranked_of": u["ranked_of"] if u else len([1 for v in this_usage.values() if v["rank"]]),
+        "minutes": round(u["min"]) if u else 0,
+        "small_sample": (u["min"] if u else 0) < USG_SMALL_MINUTES,
+        "last_season_usg_pct": last["usg_pct"] if last else None,
+    }
+
+
 def safe_div(a, b):
     return a / b if b else None
 
@@ -64,6 +97,10 @@ def badge_summary(attr):
 
 
 def roster(team_id):
+    this_season = current_season()
+    meta = db.meta.find_one({"_id": "seed"}) or {}
+    this_usage = usage_table(this_season)
+    last_usage = usage_table(meta.get("last_season"))
     injuries = {d["_id"]: d for d in db.injuries.find({"team_id": team_id})}
     attrs = {d["_id"]: d for d in db.attributes.find({}, {"badges": 1})}
     rows = []
@@ -77,6 +114,7 @@ def roster(team_id):
             "season": per_game(doc),
             "injury": {"status": inj.get("status"), "reason": inj.get("reason")} if inj else None,
             "badges": badge_summary(attrs.get(doc["_id"])),
+            "usage": usage_for(doc["_id"], this_usage, last_usage),
         })
     # Most minutes first; players with no stats at the bottom.
     rows.sort(key=lambda r: -(r["season"]["min"] if r["season"] else -1))
@@ -177,7 +215,10 @@ def player_card(player_id):
                 "height", "height_inches", "weight_lbs", "wingspan_inches", "standing_reach_inches",
                 "college", "country", "draft_year", "draft_round", "draft_number", "headshot_url"]
     attr = db.attributes.find_one({"_id": player_id}, {"_id": 0}) or None
+    meta = db.meta.find_one({"_id": "seed"}) or {}
+    usage = usage_for(player_id, usage_table(season), usage_table(meta.get("last_season")))
     return {
+        "usage": usage,
         "attributes": attr,
         "player": {k: doc.get(k) for k in bio_keys},
         "team": team,

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from app.db import db
 from app.model.badges import compute_badges
-from app.model.ratings import compute_ratings, league_per_minute
+from app.model.ratings import compute_ratings, league_rates
 
 # Collections the ratings and badges read. The loader recomputes when any
 # of their seed files changed.
@@ -39,32 +39,6 @@ def zone_totals(this_season):
     for d in db.shot_zones_last.find():
         zones.setdefault((d["player_id"], d["season"]), {})[d["zone"]] = {"fga": d["fga"], "fgm": d["fgm"]}
     return zones
-
-
-def league_rates(rows):
-    """League rates for one season, from the sum over all players."""
-    def total(*keys):
-        return sum(sum((r.get(k) or 0) for k in keys) for r in rows)
-
-    def zone_total(zones, field):
-        return sum(r.get("zones", {}).get(z, {}).get(field, 0) for r in rows for z in zones)
-
-    def ratio(a, b):
-        return a / b if b else None
-
-    cs_fga = total("catch_shoot_fga")
-    pu_fga = total("pull_up_fga")
-    return {
-        "ra_fg": ratio(zone_total(["restricted_area"], "fgm"), zone_total(["restricted_area"], "fga")),
-        "mid_fg": ratio(zone_total(["paint", "midrange"], "fgm"), zone_total(["paint", "midrange"], "fga")),
-        "post_ppp": ratio(total("postup_pts"), total("postup_poss")),
-        "fg3": ratio(total("fg3m"), total("fg3a")),
-        "cs_efg": ratio(sum((r.get("catch_shoot_efg_pct") or 0) * (r.get("catch_shoot_fga") or 0) for r in rows), cs_fga),
-        "pu_efg": ratio(sum((r.get("pull_up_efg_pct") or 0) * (r.get("pull_up_fga") or 0) for r in rows), pu_fga),
-        "ft": ratio(total("ftm"), total("fta")),
-        "rim_def": ratio(total("def_rim_fgm"), total("def_rim_fga")),
-        "per_min": league_per_minute(rows),
-    }
 
 
 def gather():

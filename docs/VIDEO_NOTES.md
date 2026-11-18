@@ -244,13 +244,25 @@ Questions:
 - What share of players have a wingspan, and why not all of them?
 - Why is "which side of the floor" left out for now?
 
+## Usage rate
+
+What it does: usage rate (USG%) is the share of his team's plays a player uses while he is on the floor, counting shots, free throw trips and turnovers. It shows on the player card with his league rank and last season's value, as a sortable column on the Players tab (which now lists the main options first), and in a "Who runs the offense" panel on the scouting overview with each team's top three.
+
+How it works, in plain words: the season value comes straight from the NBA's files. The box score already worked out the same idea for one game from the box score numbers. Summed over the season, the two agree almost exactly (correlation 0.999); the box score version runs about 0.7 points higher because it estimates who was on the floor from minutes.
+
+Design decision worth mentioning: USG% is shown as a number with a rank, not a 0 to 99 rating, because a high usage is a role, not a skill. A bad shooter can have a high usage. It will matter in the matchup model: the defenders it assigns should matter most against the players who use the most plays.
+
+Questions:
+- What does a USG% of 35 mean?
+- Why is USG% a stat with a rank instead of a 0 to 99 rating?
+
 ## Ratings and trait badges
 
 What it does: every player with enough minutes gets twelve ratings from 0 to 99, such as Finishing, Three-point shooting and Interior defense, shown as bars on his card. Hovering or focusing a bar shows what feeds it and where he ranks on each part. Badges mark traits the ratings hide: Deep Range, Streaky Shooter, On-Ball Pest and Poster Maker (driving, running and cutting dunks only, so a big who catches lobs does not earn it). Each badge explains its rule and his numbers on hover, and the Players tab shows every player's badges.
 
 How it works, in plain words:
 - A rating is a percentile. Each attribute combines two to four stats (for example 3P% and threes per 36 minutes), each stat is ranked against every qualified player, and the weighted result is ranked again. 50 means typical, 99 means best in the league.
-- This season is blended with last season: w = minutes this season / (minutes + 600). At 300 minutes this season counts a third, at 1,800 minutes three quarters. So early in the season, last season carries the rating, and it fades as games pile up.
+- This season is blended with last season: w = minutes this season / (minutes + 600). At 300 minutes this season counts a third, at 1,800 minutes three quarters. So early in the season, last season carries the rating, and it fades as games pile up. The blend happens first, and the shrinkage below runs once on the blended numbers.
 - Shooting percentages are pulled toward the league average until the sample is large: (makes + 50 x league rate) / (attempts + 50). A player who is 4 of 5 does not top the list. Per-36 rates get the same treatment by minutes, (count + league rate per minute x 400) / (minutes + 400) x 36, so a player who blocked 3 shots in 40 minutes does not look like the league's best rim protector.
 - Badges use both seasons' counts and need 500 minutes. On-Ball Pest uses steals from ESPN's play-by-play, because the NBA's play-by-play never says who made a steal, and only counts steals where the ball handler lost the ball.
 - The ratings are computed in Python when the loader runs, and only when their data changed.

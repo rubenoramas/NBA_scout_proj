@@ -230,3 +230,11 @@ document.addEventListener("keydown", (e) => {
     document.activeElement.blur();
   }
 });
+
+// "1" -> "1st", "22" -> "22nd"
+export function rankText(rank) {
+  if (!rank) return null;
+  const sfx = ["th", "st", "nd", "rd"];
+  const v = rank % 100;
+  return rank + (sfx[(v - 20) % 10] || sfx[v] || sfx[0]);
+}

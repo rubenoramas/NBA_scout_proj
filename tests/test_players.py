@@ -88,3 +88,22 @@ def test_shots_bad_filters(client_app):
     res = client_app.get("/api/players/101/shots?type=Hook%20Shot")
     assert res.status_code == 400 and "no shots of type" in res.get_json()["error"]
     assert client_app.get("/api/players/9999/shots").status_code == 404
+
+
+def test_usage_rank_and_last_season(client_app):
+    from app.db import db
+
+    db.player_stats.delete_many({})
+    db.player_stats.insert_many([
+        {"player_id": 101, "season": "2026-27", "usg_pct": 0.312, "min": 400},
+        {"player_id": 201, "season": "2026-27", "usg_pct": 0.250, "min": 300},
+        {"player_id": 102, "season": "2026-27", "usg_pct": 0.400, "min": 50},   # too few minutes to rank
+        {"player_id": 101, "season": "2025-26", "usg_pct": 0.288, "min": 2000},
+    ])
+    db.meta.update_one({"_id": "seed"}, {"$set": {"last_season": "2025-26"}})
+    usage = client_app.get("/api/players/101").get_json()["usage"]
+    assert usage["usg_pct"] == 31.2 and usage["rank"] == 1 and usage["ranked_of"] == 2
+    assert usage["last_season_usg_pct"] == 28.8 and usage["small_sample"] is False
+    roster = {p["player_id"]: p["usage"] for p in client_app.get("/api/teams/1/roster").get_json()["players"]}
+    assert roster[102]["usg_pct"] == 40.0 and roster[102]["rank"] is None and roster[102]["small_sample"] is True
+    db.player_stats.delete_many({})

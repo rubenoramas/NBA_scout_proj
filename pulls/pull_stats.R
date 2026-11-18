@@ -66,7 +66,7 @@ season_stats <- function(start) {
               gp = as.integer(gp), min, pts, fgm, fga, fg3m = fg3_m, fg3a = fg3_a, ftm, fta,
               oreb, dreb, reb, ast, tov, stl, blk)
   adv <- dash(start, "player_stats_advanced") %>%
-    transmute(player_id = as.integer(player_id), ast_pct, ast_to, oreb_pct, dreb_pct)
+    transmute(player_id = as.integer(player_id), ast_pct, ast_to, oreb_pct, dreb_pct, usg_pct)
   drives <- dash(start, "player_tracking_drives") %>%
     transmute(player_id = as.integer(player_id), drives, drive_pts, drive_fgm, drive_fga)
   passing <- dash(start, "player_tracking_passing") %>%

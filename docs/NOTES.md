@@ -87,3 +87,8 @@ What I learned: (yours to fill in)
 What happened: the first run of pull_stats.R stopped on "object 'catch_shoot_fg3m' not found". The real columns are catch_shoot_fg3_m and pull_up_fg3_m, as DATA_SOURCES.md lists.
 What fixed it: using the names from DATA_SOURCES.md. CLAUDE.md already says not to guess column names.
 What I learned: (yours to fill in)
+
+## 2026-11-18: the ratings shrank this season before blending
+What happened: each season's shooting rate was pulled toward the league on its own small sample, then the two were blended. Stephen Curry's 45.7% on 94 threes was cut to 42.1% before last season was even mixed in, so this season was shrunk twice.
+What fixed it: blend the two seasons first (rate, sample and league rate, each weighted by w), then shrink once on the blended numbers. Curry's blended 3P% went from 39.9% to 40.6%.
+What I learned: (yours to fill in)

@@ -2,7 +2,7 @@
 // ids, and shows the matchup band plus the Overview panels.
 
 import {
-  MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, chevron, chip, el, injuryTag, pct1, emptyLine, errorLine, fill, formatDay, getJSON,
+  MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, chevron, chip, el, injuryTag, pct1, rankText, emptyLine, errorLine, fill, formatDay, getJSON,
   resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag,
 } from "./api.js";
 import { renderSortTable } from "./sorttable.js";
@@ -249,17 +249,65 @@ function render(ctx) {
     renderPlayers(ctx);
     return;
   }
-  fill(root, headToHead(ctx), recentResults(ctx), standouts(ctx));
+  const usagePanel = el("section", { class: "panel span-12", "aria-label": "Who runs the offense" },
+    el("div", { class: "panel-head", style: "justify-content: space-between" },
+      el("h2", { class: "panel-title", text: "Who runs the offense" }),
+      el("span", { class: "panel-note", text: "Top three by USG% this season (100+ minutes)" })),
+    el("div", { id: "usage-body" }, skeletonRows(3, [40, 160, 50, 50, 50])));
+  fill(root, headToHead(ctx), recentResults(ctx), usagePanel, standouts(ctx));
+  loadUsage(ctx);
+}
+
+async function loadUsage(ctx) {
+  const body = document.getElementById("usage-body");
+  if (!body) return;
+  fill(body, skeletonRows(3, [40, 160, 50, 50, 50]));
+  let rosters;
+  try {
+    rosters = await Promise.all([ctx.us, ctx.them].map((side) => getJSON(`/api/teams/${side.team.team_id}/roster`)));
+  } catch (err) {
+    fill(body, errorLine(err.message, () => loadUsage(ctx)));
+    return;
+  }
+  const columns = [ctx.us, ctx.them].map((side, i) => {
+    const top = rosters[i].players
+      .filter((p) => p.usage && p.usage.usg_pct !== null && !p.usage.small_sample && p.season)
+      .sort((a, b) => b.usage.usg_pct - a.usage.usg_pct)
+      .slice(0, 3);
+    return el("div", { class: "usage-team" },
+      el("div", { class: "trow thead short-head cols-usage" },
+        el("span", { text: side.team.abbreviation }),
+        ["USG%", "Rank", "PTS", "TS%"].map((t) => el("span", { class: "num", text: t }))),
+      top.length ? top.map((p) => el("div", { class: "trow cols-usage" },
+        el("a", { class: "name-link", href: `/player/${p.player_id}`, text: p.player_name }),
+        el("span", { class: "num strong", text: p.usage.usg_pct.toFixed(1) }),
+        el("span", { class: "num text-2", text: rankText(p.usage.rank) || "–" }),
+        el("span", { class: "num text-2", text: p.season.pts.toFixed(1) }),
+        el("span", { class: "num text-2", text: pct1(p.season.ts_pct) })))
+        : emptyLine("No player has 100 minutes yet."));
+  });
+  fill(body, el("div", { class: "usage-grid" }, columns));
 }
 
 // ---- Players tab: the opponent's roster ------------------------------
 
-const rosterState = { sortKey: "min", sortDir: "desc" };
+// Sorted by USG% so the main options are at the top.
+const rosterState = { sortKey: "usg", sortDir: "desc" };
+
+// USG% for sorting: small samples (under 100 minutes) sort last.
+const usgSortValue = (r) => (r.usage && r.usage.usg_pct !== null && !r.usage.small_sample ? r.usage.usg_pct : null);
+const usgCell = (r) => {
+  if (!r.usage || r.usage.usg_pct === null) return "–";
+  const node = el("span", { title: r.usage.rank ? `${rankText(r.usage.rank)} of ${r.usage.ranked_of}` : "Not ranked (under 200 minutes)" },
+    r.usage.usg_pct.toFixed(1));
+  if (r.usage.small_sample) node.classList.add("muted");
+  return node;
+};
 
 async function renderPlayers(ctx) {
   const them = ctx.them.team;
   const body = el("div");
-  fill(root, panel("span-12", `${them.full_name} roster`, `${ctx.season} · per game · click a name for the player card`, body));
+  fill(root, panel("span-12", `${them.full_name} roster`, `${ctx.season} · per game · sorted by USG% · click a name for the player card`, body));
   fill(body, skeletonRows(10, [180, 30, 30, 40, 40, 40, 40, 50, 50]));
   let data;
   try {
@@ -277,6 +325,7 @@ async function renderPlayers(ctx) {
         r.has_stats ? null : el("span", { class: "muted", text: "No stats yet" })) },
     { key: "pos", label: "Pos", width: "48px", firstDir: "asc", value: (r) => r.position, cell: (r) => r.position || "–", className: "text-2" },
     { key: "gp", label: "GP", width: "44px", align: "num", value: s("gp"), cell: (r) => (r.season ? r.season.gp : "–"), className: "text-2" },
+    { key: "usg", label: "USG%", width: "60px", align: "num", value: usgSortValue, cell: usgCell, className: "strong" },
     { key: "min", label: "MIN", width: "56px", align: "num", value: s("min"), cell: num("min"), className: "text-2" },
     { key: "pts", label: "PTS", width: "56px", align: "num", value: s("pts"), cell: num("pts"), className: "strong" },
     { key: "reb", label: "REB", width: "56px", align: "num", value: s("reb"), cell: num("reb"), className: "text-2" },

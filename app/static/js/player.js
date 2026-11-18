@@ -2,7 +2,7 @@
 
 import {
   MY_TEAM_KEY, badgeTip, badgeWithTip, chevron, chip, el, emptyLine, errorLine, feetInches, fill, formatDay, getJSON,
-  injuryTag, pct1, resultChip, skeletonRows, store, tag,
+  injuryTag, pct1, rankText, resultChip, skeletonRows, store, tag,
 } from "./api.js";
 import { chartLegend, drawShotChart } from "./shotchart.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
@@ -106,6 +106,21 @@ function renderBand() {
 
 const d1 = (v) => (v === null || v === undefined ? "–" : Number(v).toFixed(1));
 
+// USG% describes role, not skill, so it gets a league rank, not a rating.
+function usageLine() {
+  const u = card.usage;
+  if (!u || u.usg_pct === null) return null;
+  const rank = u.rank ? `${rankText(u.rank)} of ${u.ranked_of} players with 200+ minutes`
+    : `not ranked (${u.minutes} minutes, ranks start at 200)`;
+  return el("div", { class: "usage-line" },
+    el("span", { class: "label", text: "USG%" }),
+    el("span", { class: "usage-value", text: u.usg_pct.toFixed(1) }),
+    el("span", { class: "text-2", text: rank }),
+    u.small_sample ? tag("Small sample", "gold") : null,
+    el("span", { class: "muted", text: u.last_season_usg_pct !== null ? `Last season ${u.last_season_usg_pct.toFixed(1)}` : "No last season" }),
+    el("span", { class: "muted usage-note", text: "Share of his team's plays (FGA + 0.44 x FTA + TOV) he uses while on the floor, same meaning as in the box score." }));
+}
+
 function seasonPanel() {
   const s = card.season;
   if (!s) {
@@ -115,6 +130,7 @@ function seasonPanel() {
   const tile = (label, value) => el("div", { class: "tile" },
     el("div", { class: "label", text: label }), el("div", { class: "tile-value", text: value }));
   return panel("span-12", "Season", `${card.season_label} · per game`,
+    usageLine(),
     el("div", { class: "tiles tiles-wide" },
       tile("GP", s.gp), tile("MIN", d1(s.min)), tile("PTS", d1(s.pts)), tile("REB", d1(s.reb)), tile("AST", d1(s.ast)),
       tile("STL", d1(s.stl)), tile("BLK", d1(s.blk)), tile("TOV", d1(s.tov)),

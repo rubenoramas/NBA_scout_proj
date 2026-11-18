@@ -112,8 +112,8 @@ The twelve attributes and the data behind each:
 
 R pulls and trims; Python in `app/model/ratings.py` computes. Only regular-season numbers are used.
 
-1. **Blend.** For each component, w = MIN_this / (MIN_this + 600) and value = w x this season + (1 - w) x last season. With no last-season data, w = 1. With no minutes this season, w = 0 and the rating is tagged "Last season only".
-2. **Shrinkage.** Shooting percentages are pulled toward the league rate before blending: shrunk% = (makes + k x league%) / (attempts + k), with k = 50 for field goal types, 30 for free throws, and 25 possessions for post-up PPP. Every per-36 rate is shrunk the same way by minutes (added Nov 18): shrunk per 36 = (his count + league rate per minute x 400) / (his minutes + 400) x 36, where the league rate per minute is the season's total count divided by total minutes. The badge rates per 36 (lost-ball steals, deflections, dunks) use the same formula over both seasons pooled.
+1. **Blend first.** Every component is a rate over a sample (makes over attempts, a count over minutes). With w = MIN_this / (MIN_this + 600): blended rate = w x rate_this + (1 - w) x rate_last; blended sample = w x sample_this + (1 - w) x sample_last; blended league = w x league_this + (1 - w) x league_last. A season with no data for the component is left out and the weights renormalized. With no minutes this season, w = 0 and the rating is tagged "Last season only". (Changed Nov 18: shrinkage used to run on each season before blending.)
+2. **Then shrink once.** value = (blended rate x blended sample + k x blended league) / (blended sample + k). Shooting percentages: shrunk% = (makes + k x league%) / (attempts + k), with k = 50 for field goal types, 30 for free throws, and 25 possessions for post-up PPP. Every per-36 rate is shrunk the same way by minutes (added Nov 18): shrunk per 36 = (his count + league rate per minute x 400) / (his minutes + 400) x 36, where the league rate per minute is the season's total count divided by total minutes. The badge rates per 36 (lost-ball steals, deflections, dunks) use the same formula over both seasons pooled.
 3. **Qualified players.** At least 200 minutes this season, or at least 500 last season. Others show "Not enough minutes".
 4. **Component percentile.** Each component is ranked among qualified players as a share from 0 to 1 (flipped where lower is better).
 5. **Rating.** composite = weighted average of component percentiles; rating = round(99 x percentile rank of the composite among qualified players). 50 is a typical qualified player.
@@ -128,11 +128,13 @@ R pulls and trims; Python in `app/model/ratings.py` computes. Only regular-seaso
 | Catch-and-shoot | Catch-and-shoot eFG%, shrunk (0.65); catch-and-shoot FGA/36 (0.35) | 40 FGA |
 | Pull-up shooting | Pull-up eFG%, shrunk (0.65); pull-up FGA/36 (0.35) | 40 FGA |
 | Free throws and drawing fouls | FT%, shrunk (0.5); FTA per FGA (0.5) | 30 FTA |
-| Playmaking | AST% (0.4); potential assists/36 (0.3); AST/TOV (0.3) | 300 minutes |
+| Playmaking | Skill: AST%, shrunk by minutes with k = 400 (0.3); AST/TOV, shrunk by minutes with k = 400 (0.3). Volume: potential assists per game (0.4) | 300 minutes |
 | Rebounding | OREB% (0.3); DREB% (0.4); rebound chance % (0.3) | 300 minutes |
 | Perimeter defense | Steals/36 (0.3); deflections/36 (0.3); contested threes/36 (0.2); points allowed per partial possession as primary defender, lower is better (0.2) | 300 minutes |
 | Interior defense | Opponent FG% at the rim, shrunk, lower is better (0.4); rim FGA defended/36 (0.2); blocks/36 (0.4) | 40 rim FGA defended |
 | Speed | Average speed (0.7); miles/36 (0.3) | 300 minutes |
+
+**Usage rate (USG%).** The share of his team's plays (FGA + 0.44 x FTA + TOV) a player uses while on the floor. It describes role, not skill, so it is shown as a stat with a league rank (among players with 200+ minutes this season), not as a 0 to 99 rating, beside last season's value. The season value is the NBA's `usg_pct` from the verified player files. The box score computes the same idea per game with 100 x (FGA + 0.44 x FTA + TOV) x (team MIN / 5) / (MIN x (team FGA + 0.44 x team FTA + team TOV)); summed over this season's games for 249 players with 200+ minutes it correlates 0.999 with the NBA's value and runs about 0.7 points higher, because it estimates team plays on the floor from minutes. Under 100 minutes, USG% is marked as a small sample and sorts last. **The matchup model will use USG% to weight scorers**, so the defenders it assigns matter most against the players who use the most plays.
 
 Badges (first four) pool both seasons' raw counts and need at least 500 minutes over the two seasons. Names live in `app/model/badge_config.py`.
 

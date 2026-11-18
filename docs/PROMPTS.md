@@ -338,3 +338,21 @@ Prompt:
 >
 > Then commit and push.
 Result: every per-36 rating component and badge rate is shrunk toward the league by 400 minutes; Poster Maker counts driving, running and cutting dunks only; formula in docs/SPEC.md; 48 tests pass
+
+## 2026-11-18: playmaking, order of operations, usage rate
+Tool: Claude Code
+Prompt:
+> Three follow-ups, then we move on:
+>
+> 1. Playmaking still favors low-minute backup guards, because AST% is a rate that the per-36 shrinkage does not touch. Rework it as skill plus volume, like the shooting attributes: AST% and AST/TO shrunk toward the league by minutes (0.6), plus potential assists per game (0.4). Show me the top ten before and after.
+>
+> 2. Show me Stephen Curry's three-point components this season, last season and blended. Check the order of operations: shrinkage should run once, on the blended two-season numbers, not on this season alone before blending. If it runs before blending, fix that and show the three-point top ten again.
+>
+> 3. Add usage rate (USG%) as a key metric, from usg_pct in the verified player files. It describes role, not skill, so it is a stat with a league rank, not a 0-99 rating.
+>    - Player card: USG% in the season line with its league rank, plus last season's value beside it.
+>    - Players tab and the team page roster: a USG% column, sortable. Sort the scouting Players tab by USG% by default, so the main options are at the top.
+>    - Scouting overview: a small "Who runs the offense" panel with each team's top three players by USG%, alongside their points per game and TS%.
+>    - Use the same USG% formula as the box score, and make sure the season value and the box score agree on what it means. Note in docs/SPEC.md that the matchup model will use it to weight scorers.
+>
+> Show me the top ten by USG% as a sanity check. Then commit and push.
+Result: Playmaking reworked as skill (AST%, AST/TOV shrunk by minutes) plus volume (potential assists per game); ratings now blend the seasons first and shrink once; USG% added to the card, the Players tab (default sort) and a "Who runs the offense" panel, checked against the box score formula; 52 tests pass

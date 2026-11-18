@@ -146,6 +146,7 @@ function howPanel() {
   ];
   const notes = [
     "Minutes in the data are whole numbers, so USG% is slightly rounded.",
+    "USG% means the same thing on player cards: his share of the team's plays while on the floor. The season value there is the NBA's own, which counts team plays actually on the floor; this formula estimates them from minutes and runs about 0.7 points higher on average.",
     "OREB% counts player rebounds only. Team rebounds are not in the player lines.",
     data.starters_known ? "Starters (S) are the five players on the floor at the first play of the game."
       : "Starters could not be identified for this game.",
