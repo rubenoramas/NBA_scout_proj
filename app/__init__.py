@@ -28,6 +28,10 @@ def create_app():
     def scout():
         return render_template("scout.html")
 
+    @app.get("/game/<game_id>")
+    def game_page(game_id):
+        return render_template("game.html")
+
     @app.errorhandler(PyMongoError)
     def database_down(_err):
         return jsonify({"error": "The database is not answering. Try again in a moment."}), 503

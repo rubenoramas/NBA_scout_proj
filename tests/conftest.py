@@ -57,20 +57,39 @@ def game(gid, date, home, away, home_pts=None, away_pts=None, season=SEASON, sea
 
 
 SCHEDULE = [
-    game("L1", "2026-04-30", 3, 1, 110, 101, season=LAST, season_type="playoffs"),
-    game("G1", "2026-10-25", 1, 2, 100, 90),
-    game("G2", "2026-11-01", 2, 1, 95, 105),
-    game("G3", "2026-11-05", 3, 2, 99, 97),
-    game("G4", "2026-11-10", 1, 3, 120, 111),  # AAA's last game, a different season than L1
-    game("G5", "2026-12-01", 2, 1),             # next AAA vs BBB meeting
-    game("G6", "2026-12-20", 1, 2),
+    game("0042500001", "2026-04-30", 3, 1, 110, 101, season=LAST, season_type="playoffs"),
+    game("0022600001", "2026-10-25", 1, 2, 100, 90),
+    game("0022600002", "2026-11-01", 2, 1, 95, 105),
+    game("0022600003", "2026-11-05", 3, 2, 99, 97),
+    game("0022600004", "2026-11-10", 1, 3, 120, 111),  # AAA's last game, a different season than L1
+    game("0022600005", "2026-12-01", 2, 1),             # next AAA vs BBB meeting
+    game("0022600006", "2026-12-20", 1, 2),
 ]
 
 
-def log(gid, date, pid, team, pts=10, reb=4, ast=2, mins=30, name=None):
-    return {"_id": f"{gid}_{pid}", "game_id": gid, "game_date": date, "player_id": pid,
+def log(gid, date, pid, team, pts=10, reb=4, ast=2, mins=30, name=None, season=SEASON):
+    return {"_id": f"{gid}_{pid}", "game_id": gid, "game_date": date, "player_id": pid, "season": season,
             "player_name": name or f"Player {pid}", "team_id": team, "pts": pts, "reb": reb, "ast": ast,
             "min": mins}
+
+
+def box_line(gid, date, pid, team, starter, **stats):
+    """A full box score line for the box score tests."""
+    line = {"_id": f"{gid}_{pid}", "game_id": gid, "game_date": date, "player_id": pid, "season": SEASON,
+            "player_name": f"Box {pid}", "team_id": team, "starter": starter, "plus_minus": 0}
+    line.update(stats)
+    return line
+
+
+# G1: AAA 100, BBB 90. Numbers chosen so every formula can be checked by hand.
+BOX_LINES = [
+    box_line("0022600001", "2026-10-25", 301, 1, True, min=30, pts=40, fgm=15, fga=25, fg3m=4, fg3a=10, ftm=6, fta=8,
+             oreb=2, dreb=6, reb=8, ast=5, stl=2, blk=1, tov=3, pf=2),
+    box_line("0022600001", "2026-10-25", 302, 1, False, min=18, pts=60, fgm=22, fga=40, fg3m=6, fg3a=15, ftm=10, fta=12,
+             oreb=3, dreb=7, reb=10, ast=3, stl=1, blk=0, tov=2, pf=4),
+    box_line("0022600001", "2026-10-25", 401, 2, True, min=48, pts=90, fgm=35, fga=70, fg3m=10, fg3a=30, ftm=10, fta=14,
+             oreb=5, dreb=20, reb=25, ast=20, stl=5, blk=3, tov=10, pf=15),
+]
 
 
 def build_logs():
@@ -84,10 +103,13 @@ def build_logs():
         if i < 4:
             logs.append(log(f"E{i}", d, 102, 1, pts=2, name="New Guy"))
         logs.append(log(f"F{i}", d, 201, 2, pts=12))
-    logs.append(log("G4", "2026-11-10", 101, 1, pts=20, name="Steady Scorer"))
-    logs.append(log("G4", "2026-11-10", 102, 1, pts=30, name="New Guy"))
-    logs.append(log("G3", "2026-11-05", 201, 2, pts=13))
-    return logs
+    logs.append(log("0022600004", "2026-11-10", 101, 1, pts=20, name="Steady Scorer"))
+    logs.append(log("0022600004", "2026-11-10", 102, 1, pts=30, name="New Guy"))
+    logs.append(log("0022600003", "2026-11-05", 201, 2, pts=13))
+    # Last season: a 50 point game for player 101. It must not count in this
+    # season's standout average.
+    logs.append(log("0042500001", "2026-04-30", 101, 1, pts=50, name="Steady Scorer", season=LAST))
+    return logs + BOX_LINES
 
 
 @pytest.fixture()

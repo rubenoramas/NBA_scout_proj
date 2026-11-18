@@ -167,8 +167,11 @@ def team_standout(team_id, game):
         return None
     player_ids = [line["player_id"] for line in last_lines]
     earlier_by_player = {}
+    # Only this season's earlier games count. game_logs also holds last
+    # season's lines (for box scores), which must not leak into the average.
     earlier = db.game_logs.find({
         "player_id": {"$in": player_ids},
+        "season": game["season"],
         "game_date": {"$lt": game["date"]},
     })
     for line in earlier:

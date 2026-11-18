@@ -207,3 +207,40 @@ Prompt (approval):
 >
 > Go ahead and build, then run your checks, commit and push.
 Result: rebuilt the stylesheet on the DESIGN.md color tokens with self-hosted Inter 4.1; rebuilt team selection, the schedule table with running record and sidebar, and the scouting page with matchup band, tabs and three panels; unfinished features marked "Soon"; added the DESIGN.md rule to CLAUDE.md
+
+## 2026-11-18: box scores
+Tool: Claude Code
+Prompt:
+> Plan, then build box scores. Follow docs/DESIGN.md and use only data in docs/DATA_SOURCES.md.
+>
+> Data:
+> - Box scores come from the player game logs already in MongoDB.
+> - Also pull last season's player game logs (regular season, play-in and playoffs) so last meetings from 2025-26 have box scores. Check the seed size afterward.
+>
+> API:
+> - GET /api/games/<game_id>/boxscore: game info and final score, then for each team its player lines, team totals, and four factors for that game.
+>
+> Box score page (/game/<game_id>):
+> - A band with both teams, the final score, the date and the venue.
+> - One table per team, sorted by points by default, with sortable column headers and a team totals row.
+> - A segmented control switches Basic and Advanced.
+>   - Basic: MIN, PTS, FGM-FGA, FG%, 3PM-3PA, 3P%, FTM-FTA, FT%, OREB, DREB, REB, AST, STL, BLK, TOV, PF, +/-.
+>   - Advanced: TS%, eFG%, USG%, Game Score, AST/TOV, plus the team four factors (eFG%, TOV%, OREB%, FT rate). Put each formula in a code comment and in a small "How these are calculated" note on the page.
+> - Mark starters if the game lineups data can tell us who was on the floor at the start. If not, leave it out and tell me.
+>
+> Ways in:
+> - A "Last game" tab on the schedule panel that shows our team's most recent box score inline, beside the Schedule tab.
+> - Played rows in the schedule table get a "Box score" link in the empty last column, and played days on the mini calendar link there too.
+> - On the scouting page, every row in Recent results, including the last meeting, links to its box score.
+>
+> Check one box score by hand: pick a game, and confirm the team totals equal the final score and that one player's TS% and Game Score match the formulas. Add API tests, check every state in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> Approved. Keep all of last season's game logs (about 10 MB).
+>
+> Two notes:
+> 1. Tell me where the 6 play-in games end up, since there is no play-in label. If you can identify them by date or game id, label them Play-in on the box score band.
+> 2. When player cards exist in the next step, player names in the box score should link to them. Note that in the spec so it is not forgotten.
+>
+> Go ahead and build, run the checks and tests, then commit and push.
+Result: added last season's game logs and starters to the pull (seed now 13.4 MB), GET /api/games/<game_id>/boxscore with advanced stats and four factors, the /game page with sortable Basic and Advanced tables, a Last game tab, box score links from the schedule, mini calendar and Recent results, and 9 new tests (24 total)

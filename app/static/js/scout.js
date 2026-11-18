@@ -2,10 +2,14 @@
 // ids, and shows the matchup band plus the Overview panels.
 
 import {
-  MY_TEAM_KEY, SEASON_TYPE_LABEL, chip, el, emptyLine, errorLine, fill, formatDay, getJSON,
+  MY_TEAM_KEY, SEASON_TYPE_LABEL, chevron, chip, el, emptyLine, errorLine, fill, formatDay, getJSON,
   resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag,
 } from "./api.js";
 import { loadTeams, setScoutNav, setSwitcher } from "./topbar.js";
+
+function boxLink(gameId, label) {
+  return el("a", { class: "scout-link", href: `/game/${gameId}`, "aria-label": label }, "Box score", chevron());
+}
 
 const band = document.getElementById("band-teams");
 const root = document.getElementById("scout");
@@ -138,14 +142,15 @@ function lastGameRow(side) {
       el("span", { class: "bold", text: side.team.abbreviation }),
       el("span", { class: "muted", text: "–" }),
       el("span", { class: "muted", text: "No games played yet this season" }),
-      el("span"), el("span"));
+      el("span"), el("span"), el("span"));
   }
   return el("div", { class: "trow cols-recent tall" },
     el("span", { class: "bold", text: side.team.abbreviation }),
     el("span", { class: "text-2", text: formatDay(g.date) }),
     el("span", { class: "text-2" }, `${g.home ? "vs" : "at"} ${g.opponent.abbreviation} · last game`, typeTag(g)),
     el("span", {}, resultChip(g.result)),
-    el("span", { class: "num strong", text: `${g.team_pts}-${g.opp_pts}` }));
+    el("span", { class: "num strong", text: `${g.team_pts}-${g.opp_pts}` }),
+    boxLink(g.game_id, `Box score, ${side.team.abbreviation} last game`));
 }
 
 // The last meeting between the two. Result is from our point of view; the
@@ -163,7 +168,8 @@ function seriesRow(ctx, m) {
     el("span", { class: "text-2", text: formatDay(m.date, { month: "short", day: "numeric", year: "numeric" }) }),
     el("span", { class: "text-2" }, `at ${venue} · ${seasonNote}`, typeTag(m)),
     el("span", {}, resultChip(m.result)),
-    el("span", { class: "num strong", text: `${winner} ${hi}-${lo}` }));
+    el("span", { class: "num strong", text: `${winner} ${hi}-${lo}` }),
+    boxLink(m.game_id, "Box score, last meeting"));
 }
 
 function recentResults(ctx) {
@@ -183,7 +189,7 @@ function recentResults(ctx) {
   return panel("span-7", "Recent results", "Last game and series",
     el("div", { class: "trow thead cols-recent short-head" },
       el("span", { text: "Team" }), el("span", { text: "Date" }), el("span", { text: "Game" }),
-      el("span", { text: "Res" }), el("span", { class: "num", text: "Score" })),
+      el("span", { text: "Res" }), el("span", { class: "num", text: "Score" }), el("span")),
     rows,
     foot ? el("div", { class: "panel-foot", text: foot }) : null);
 }

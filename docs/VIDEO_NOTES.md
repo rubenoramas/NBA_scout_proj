@@ -192,6 +192,23 @@ Questions:
 - How is the running record worked out, and why does it start from the first game of the season instead of the first game of the month?
 - Why are unfinished features shown as disabled "Soon" items instead of placeholder panels?
 
+## Box scores
+
+What it does: every played game, this season and last, has a box score page at `/game/<game id>`. A band shows both teams, the final score, the date and the venue (with a Playoffs or Play-in tag when it applies). Each team gets a table sorted by points, with sortable columns, an S tag on starters and a team totals row. A Basic and Advanced switch changes the columns. Advanced adds TS%, eFG%, USG%, Game Score and assists per turnover, plus each team's four factors and a note that shows every formula. You reach it from the Box score links on the schedule, the mini calendar, a Last game tab on the schedule panel, and every row in Recent results on the scouting page.
+
+How it works, in plain words:
+- The box score is built from the player game log lines already in MongoDB. The pull now also brings in last season's lines, so a last meeting from 2025-26 has a box score too.
+- Starters come from the game lineups file: whoever was on the floor for the first play of the game.
+- All advanced stats are computed once, in Python, and sent with the box score. The tests check them against numbers worked out by hand.
+- Checked by hand on UTA at LAC, Nov 17: both teams' player points add up to the final score (132 and 107), and Keyonte George's TS% (30 / (2 x (17 + 0.44 x 6)) = 76.4) and Game Score (29.0) match the page.
+
+Design decision worth mentioning: the play-in games and the NBA Cup final are not in the NBA's game log file at all. Instead of hiding those games or showing empty tables, the page shows the final score and says plainly that player lines are not in the data. A second decision: adding last season's games meant the standout rule could quietly average in last season's games, so it now filters by season, with a test to prove it.
+
+Questions:
+- Where does the box score data come from, and how do you know the numbers are right?
+- What is True Shooting percentage, and why is it a better measure than field goal percentage?
+- Why did adding last season's game logs risk breaking the standout rule, and how was it fixed?
+
 ## AI in the project
 
 AI shows up in three places:
@@ -214,6 +231,7 @@ Full notes are in `docs/NOTES.md`. Write the README answers in your own words.
 - Taking each player's latest injury row would have marked recovered players as Out.
 - 51 injured players had not played yet, so they were missing from the player bio file and from rosters.
 - The first standout rule favored bench players: a small average makes any good night look huge. A minutes floor (15 a game before, 20 in the last game) fixed it, and the card shows the sample size and the rule so the reader can judge it.
+- The play-in games are not in the NBA's game log file, so they have a score but no box score.
 
 ## Still to come
 

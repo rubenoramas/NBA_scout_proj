@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Box score | Opponent Scout{% endblock %}
+{% block page %}game{% endblock %}
+{% block band %}
+<section class="band" aria-label="Game">
+  <div class="band-inner">
+    <div id="band-teams" class="band-teams" aria-live="polite"></div>
+    <div class="band-row">
+      <nav class="tabs" aria-label="Game sections">
+        <a href="" aria-current="page" id="tab-box">Box score</a>
+      </nav>
+      <div class="band-actions">
+        <div class="seg" role="group" aria-label="Box score view">
+          <button type="button" data-mode="basic" aria-pressed="true">Basic</button>
+          <button type="button" data-mode="advanced" aria-pressed="false">Advanced</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block content %}
+<div id="game" class="dash" aria-live="polite"></div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/game.js') }}"></script>
+{% endblock %}

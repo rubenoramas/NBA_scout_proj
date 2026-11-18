@@ -22,9 +22,14 @@
 <div id="schedule-view" class="twocol" hidden>
   <section class="panel twocol-main" aria-labelledby="schedule-title">
     <div class="panel-head">
-      <h1 id="schedule-title" class="panel-title">Schedule</h1>
+      <h1 class="sr-only">Schedule</h1>
+      <div class="panel-tabs" role="tablist" aria-label="Schedule views">
+        <button id="tab-schedule" type="button" role="tab" aria-selected="true" aria-controls="schedule-pane">Schedule</button>
+        <button id="tab-last" type="button" role="tab" aria-selected="false" aria-controls="last-pane">Last game</button>
+      </div>
       <span id="schedule-note" class="panel-note"></span>
       <div class="spacer"></div>
+      <div id="schedule-controls" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
       <div class="month-nav">
         <button id="prev-month" class="btn btn-icon" type="button" aria-label="Previous month">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M6.5 2l-3 3 3 3" stroke="currentColor" stroke-width="1.4"></path></svg>
@@ -39,8 +44,10 @@
         <button type="button" data-filter="home" aria-pressed="false">Home</button>
         <button type="button" data-filter="road" aria-pressed="false">Road</button>
       </div>
+      </div>
     </div>
-    <div class="table-scroll">
+    <div id="last-pane" role="tabpanel" aria-labelledby="tab-last" hidden></div>
+    <div id="schedule-pane" role="tabpanel" aria-labelledby="tab-schedule" class="table-scroll">
       <div class="minw-640">
         <div class="trow thead cols-schedule">
           <span>Date</span><span>Opponent</span><span>Result</span><span>Score</span><span class="num">Margin</span><span class="num">Record</span><span></span>

@@ -72,6 +72,12 @@ schedule_raw  <- suppressMessages(load_nba_stats_schedule(seasons = season_start
 # teams that have not played each other yet this season.
 last_schedule_raw <- suppressMessages(load_nba_stats_schedule(seasons = season_start - 1))
 logs_raw      <- suppressMessages(load_nba_stats_player_game_logs(seasons = season_start))
+# Last season's game logs give box scores for last meetings from 2025-26.
+last_logs_raw <- suppressMessages(load_nba_stats_player_game_logs(seasons = season_start - 1))
+# Game lineups list the five players on the floor for every play. They are
+# only used to find each game's starters, then thrown away.
+lineups_raw      <- suppressMessages(load_nba_stats_game_lineups(seasons = season_start))
+last_lineups_raw <- suppressMessages(load_nba_stats_game_lineups(seasons = season_start - 1))
 injury_raw    <- suppressMessages(load_nba_stats_injury_report(seasons = season_start))
 
 if (nrow(standings_raw) == 0 || nrow(bio_raw) == 0 || nrow(schedule_raw) == 0) {
@@ -163,28 +169,65 @@ standings <- standings_raw %>%
   arrange(conference, seed)
 
 # 6. Game logs --------------------------------------------------------------
-# One document per player per game. The id joins game and player, such as
-# "0022600002_1628369", so the same line can never load twice.
-game_logs <- logs_raw %>%
-  filter(season_type != "preseason", !grepl("pre", season_type, ignore.case = TRUE)) %>%
-  transmute(
-    `_id` = paste(game_id, player_id, sep = "_"),
-    game_id,
-    game_date = substr(as.character(game_date), 1, 10),
-    player_id = as.integer(player_id),
-    player_name,
-    team_id = as.integer(team_id),
-    team_abbr = team_abbreviation,
-    matchup, wl, min,
-    pts = as.integer(pts), reb = as.integer(reb), ast = as.integer(ast),
-    stl = as.integer(stl), blk = as.integer(blk), tov = as.integer(tov),
-    pf = as.integer(pf),
-    fgm = as.integer(fgm), fga = as.integer(fga),
-    fg3m = as.integer(fg3m), fg3a = as.integer(fg3a),
-    ftm = as.integer(ftm), fta = as.integer(fta),
-    oreb = as.integer(oreb), dreb = as.integer(dreb),
-    plus_minus = as.integer(plus_minus)
-  ) %>%
+# One document per player per game, for this season and last season. The id
+# joins game and player, such as "0022600002_1628369", so the same line can
+# never load twice. Box scores are built from these lines.
+#
+# Starters: the lineup file lists the ten players on the floor for every
+# play. The first play of the first period shows who started. For each game
+# we keep that one row, then turn its ten id columns into a long list of
+# (game, player) pairs with tidyr-free base R.
+find_starters <- function(lineups) {
+  first_play <- lineups %>%
+    filter(period == 1) %>%
+    group_by(game_id) %>%
+    slice_min(action_number, n = 1, with_ties = FALSE) %>%
+    ungroup()
+  id_columns <- c(paste0("home_player_", 1:5), paste0("away_player_", 1:5))
+  # For each of the ten columns, take (game_id, that column) and stack them.
+  pairs <- lapply(id_columns, function(col) {
+    data.frame(game_id = first_play$game_id, player_id = as.integer(first_play[[col]]))
+  })
+  starters <- distinct(bind_rows(pairs))
+  starters$starter <- TRUE
+  starters
+}
+
+tidy_logs <- function(raw, lineups, label) {
+  raw %>%
+    filter(!grepl("pre", season_type, ignore.case = TRUE)) %>%
+    transmute(
+      `_id` = paste(game_id, player_id, sep = "_"),
+      game_id,
+      season = label,
+      game_date = substr(as.character(game_date), 1, 10),
+      player_id = as.integer(player_id),
+      player_name,
+      team_id = as.integer(team_id),
+      team_abbr = team_abbreviation,
+      # The matchup reads "BOS vs. ORL" at home and "BOS @ ORL" on the road.
+      home = grepl(" vs. ", matchup, fixed = TRUE),
+      matchup, wl, min,
+      pts = as.integer(pts), reb = as.integer(reb), ast = as.integer(ast),
+      stl = as.integer(stl), blk = as.integer(blk), tov = as.integer(tov),
+      pf = as.integer(pf),
+      fgm = as.integer(fgm), fga = as.integer(fga),
+      fg3m = as.integer(fg3m), fg3a = as.integer(fg3a),
+      ftm = as.integer(ftm), fta = as.integer(fta),
+      oreb = as.integer(oreb), dreb = as.integer(dreb),
+      plus_minus = as.integer(plus_minus)
+    ) %>%
+    left_join(find_starters(lineups), by = c("game_id", "player_id")) %>%
+    # Games with no lineup data get NA for every player; mark those NA
+    # instead of FALSE so the app knows it cannot tell.
+    group_by(game_id) %>%
+    mutate(starter = if (any(!is.na(starter))) !is.na(starter) else NA) %>%
+    ungroup()
+}
+
+this_logs <- tidy_logs(logs_raw, lineups_raw, season_label)
+last_logs <- tidy_logs(last_logs_raw, last_lineups_raw, last_season_label)
+game_logs <- bind_rows(last_logs, this_logs) %>%
   arrange(game_date, game_id, team_id, player_id)
 
 # 7. Injuries ---------------------------------------------------------------
@@ -291,7 +334,7 @@ meta <- list(
   `_id` = "seed",
   season = season_label,
   last_season = last_season_label,
-  data_as_of = max(game_logs$game_date),
+  data_as_of = max(this_logs$game_date),
   pulled_at = as_utc_text(Sys.time()),
   latest_injury_report = as_utc_text(max(reports$report_datetime)),
   counts = list(
@@ -311,6 +354,10 @@ if (nrow(injured_without_stats) > 0) {
 cat("Schedule rows by season and type:\n")
 print(as.data.frame(count(schedule, season, season_type)), row.names = FALSE)
 cat("This season played / still to play:", sum(this_season_games$played), "/", sum(!this_season_games$played), "\n")
+cat("Game log lines this season / last: ", nrow(this_logs), "/", nrow(last_logs), "\n")
+starters_per_game <- game_logs %>% group_by(season, game_id) %>% summarise(n = sum(starter %in% TRUE), .groups = "drop")
+cat("Games with 10 starters marked:     ", sum(starters_per_game$n == 10), "of", nrow(starters_per_game), "\n")
+print(as.data.frame(count(starters_per_game, season, starters = n)), row.names = FALSE)
 cat("Data as of:                       ", meta$data_as_of, "\n")
 
 files <- list.files(seed_dir, full.names = TRUE)

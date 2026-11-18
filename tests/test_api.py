@@ -25,7 +25,7 @@ def test_schedule_returns_this_season_from_team_view(client_app):
     assert body["team"]["abbreviation"] == "AAA"
     games = body["games"]
     # Last season's playoff game is not on this season's calendar.
-    assert [g["game_id"] for g in games] == ["G1", "G2", "G4", "G5", "G6"]
+    assert [g["game_id"] for g in games] == ["0022600001", "0022600002", "0022600004", "0022600005", "0022600006"]
     away_win = games[1]
     assert away_win["home"] is False
     assert (away_win["team_pts"], away_win["opp_pts"], away_win["result"]) == (105, 95, "W")
@@ -61,10 +61,10 @@ def test_context_this_season(client_app):
     assert (last["date"], last["opponent"]["abbreviation"], last["result"]) == ("2026-11-10", "CCC", "W")
 
     meeting = ctx["last_meeting"]
-    assert meeting["game_id"] == "G2" and meeting["season"] == "2026-27"
+    assert meeting["game_id"] == "0022600002" and meeting["season"] == "2026-27"
     assert meeting["result"] == "W" and meeting["playoffs"] is False
 
-    assert ctx["next_meeting"]["game_id"] == "G5"
+    assert ctx["next_meeting"]["game_id"] == "0022600005"
     assert ctx["next_meeting"]["home"] is False
 
 
@@ -72,18 +72,18 @@ def test_context_last_meeting_from_last_season_playoffs(client_app):
     ctx = client_app.get("/api/games/context?us=1&them=3").get_json()
     meeting = ctx["last_meeting"]
     # G4 (this season) is more recent than L1, so it wins.
-    assert meeting["game_id"] == "G4"
+    assert meeting["game_id"] == "0022600004"
 
     ctx = client_app.get("/api/games/context?us=3&them=1").get_json()
-    assert ctx["last_meeting"]["game_id"] == "G4"
+    assert ctx["last_meeting"]["game_id"] == "0022600004"
 
 
 def test_context_playoff_meeting_labeled(client_app):
     from app.db import db
-    db.schedule.delete_one({"_id": "G4"})
+    db.schedule.delete_one({"_id": "0022600004"})
     ctx = client_app.get("/api/games/context?us=1&them=3").get_json()
     meeting = ctx["last_meeting"]
-    assert meeting["game_id"] == "L1"
+    assert meeting["game_id"] == "0042500001"
     assert meeting["season"] == "2025-26"
     assert meeting["season_type"] == "playoffs" and meeting["playoffs"] is True
     assert meeting["result"] == "L"
@@ -91,7 +91,7 @@ def test_context_playoff_meeting_labeled(client_app):
 
 def test_context_never_met(client_app):
     from app.db import db
-    db.schedule.delete_one({"_id": "G3"})
+    db.schedule.delete_one({"_id": "0022600003"})
     ctx = client_app.get("/api/games/context?us=2&them=3").get_json()
     assert ctx["last_meeting"] is None
     assert ctx["next_meeting"] is None

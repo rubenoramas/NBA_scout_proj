@@ -52,3 +52,8 @@ What I learned: (yours to fill in)
 What happened: after the redesign, the Recent results panel showed the text "[object HTMLDivElement]" instead of its rows.
 What fixed it: the helper that builds page elements flattened nested lists only one level deep, so a list of rows inside a list was turned into text. Flattening all the way down (flat(Infinity)) fixed it.
 What I learned: (yours to fill in)
+
+## 2026-11-18: last season's data could leak into this season's numbers
+What happened: box scores needed last season's player game logs in the same collection. The standout rule averages each player's earlier games, and without a filter those averages would have quietly included last season.
+What fixed it: every game log line now carries a season, the standout query filters on it, and a test adds a 50 point game from last season to prove it is ignored. Also found: the play-in games are missing from the NBA game log file, so they show a score with a plain note instead of a box score.
+What I learned: (yours to fill in)

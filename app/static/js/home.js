@@ -6,6 +6,7 @@ import {
   MY_TEAM_KEY, SEASON_TYPE_LABEL, chevron, chip, el, emptyLine, errorLine, fill, formatDay, getJSON,
   parseDay, resultChip, scoutUrl, seedText, shortStreak, skeletonRows, store, streakClass, tag,
 } from "./api.js";
+import { defaultState, nextSort, renderBoxTable } from "./boxtable.js";
 import { loadTeams, matchTeams, setScoutNav, setSwitcher } from "./topbar.js";
 
 const loadView = document.getElementById("load-view");
@@ -126,6 +127,8 @@ let filter = "all";
 
 function showSchedule(team) {
   myTeam = team;
+  lastBox = null;
+  showTab("schedule");
   setSwitcher(team);
   document.getElementById("nav-schedule").setAttribute("aria-current", "page");
   document.getElementById("snapshot-title").textContent = `${team.abbreviation} snapshot`;
@@ -220,7 +223,11 @@ function scheduleRow(game) {
       el("span", { class: "strong", text: `${game.team_pts}-${game.opp_pts}` }),
       el("span", { class: "num text-2", text: margin > 0 ? `+${margin}` : String(margin) }),
       el("span", { class: "num text-2", text: recordAfter.get(game.game_id) || "–" }),
-      el("span"));
+      el("a", {
+        class: "scout-link",
+        href: `/game/${game.game_id}`,
+        "aria-label": `Box score, ${formatDay(game.date)} ${game.home ? "vs" : "at"} ${opp.abbreviation}`,
+      }, "Box score", chevron()));
   }
   return el("div", { class: "trow cols-schedule" },
     el("span", { class: "text-2", text: formatDay(game.date) }),
@@ -314,9 +321,16 @@ function renderMini() {
     }
     const cls = `mini-day${key === asOf ? " asof" : ""}`;
     const content = [el("span", { text: day }), el("span", { class: "mini-mark" }, mark)];
-    cells.push(game && !game.played
-      ? el("a", { class: cls, href: scoutUrl(myTeam.abbreviation, game.opponent.abbreviation), "aria-label": label }, content)
-      : el("div", { class: cls, "aria-label": game ? label : null }, content));
+    let href = null;
+    if (game && game.played) {
+      href = `/game/${game.game_id}`;
+      label += ", open box score";
+    } else if (game) {
+      href = scoutUrl(myTeam.abbreviation, game.opponent.abbreviation);
+    }
+    cells.push(href
+      ? el("a", { class: cls, href, "aria-label": label }, content)
+      : el("div", { class: cls }, content));
   }
   fill(document.getElementById("mini-body"),
     el("div", { class: "mini-head", "aria-hidden": "true" }, ["S", "M", "T", "W", "T", "F", "S"].map((d) => el("span", { text: d }))),
@@ -417,6 +431,85 @@ function renderSnapshot(standing) {
     tile("Last 10", standing.last_ten),
     tile("Home", standing.home_record),
     tile("Road", standing.road_record)));
+}
+
+// ---- Schedule panel tabs: Schedule and Last game -----------------------
+
+const tabSchedule = document.getElementById("tab-schedule");
+const tabLast = document.getElementById("tab-last");
+const schedulePane = document.getElementById("schedule-pane");
+const lastPane = document.getElementById("last-pane");
+const scheduleControls = document.getElementById("schedule-controls");
+let lastBox = null;
+const lastState = defaultState();
+
+function showTab(which) {
+  const last = which === "last";
+  tabSchedule.setAttribute("aria-selected", String(!last));
+  tabLast.setAttribute("aria-selected", String(last));
+  schedulePane.hidden = last;
+  scheduleControls.hidden = last;
+  lastPane.hidden = !last;
+  if (last) loadLastGame();
+}
+
+tabSchedule.addEventListener("click", () => showTab("schedule"));
+tabLast.addEventListener("click", () => showTab("last"));
+// Arrow keys move between the two tabs.
+for (const tab of [tabSchedule, tabLast]) {
+  tab.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      const other = tab === tabSchedule ? tabLast : tabSchedule;
+      other.focus();
+      showTab(other === tabLast ? "last" : "schedule");
+    }
+  });
+}
+
+async function loadLastGame() {
+  const team = myTeam;
+  const last = [...games].reverse().find((g) => g.played);
+  if (!last) {
+    fill(lastPane, emptyLine(games.length ? "No games played yet this season." : "Waiting for the schedule."));
+    return;
+  }
+  if (lastBox && lastBox.game.game_id === last.game_id) {
+    renderLastGame();
+    return;
+  }
+  fill(lastPane, skeletonRows(8, [180, 40, 40, 60, 40, 60]));
+  try {
+    const box = await getJSON(`/api/games/${last.game_id}/boxscore`);
+    if (team !== myTeam) return;
+    lastBox = box;
+  } catch (err) {
+    fill(lastPane, errorLine(err.message, loadLastGame));
+    return;
+  }
+  renderLastGame();
+}
+
+function renderLastGame() {
+  const box = lastBox;
+  const ours = box.home.team.team_id === myTeam.team_id ? box.home : box.away;
+  const theirs = ours === box.home ? box.away : box.home;
+  const result = ours.pts > theirs.pts ? "W" : "L";
+  const tableBox = el("div");
+  fill(lastPane,
+    el("div", { class: "score-line" },
+      resultChip(result),
+      el("span", { class: "final", text: `${ours.pts}-${theirs.pts}` }),
+      el("span", { class: "text-2" }, `${ours.home ? "vs" : "at"} `, chip(theirs.team.abbreviation), ` ${theirs.team.name || ""}`),
+      el("span", { class: "muted", text: formatDay(box.game.date) }),
+      el("span", { class: "spacer" }),
+      el("a", { class: "scout-link", href: `/game/${box.game.game_id}` }, "Full box score", chevron())),
+    tableBox);
+  renderBoxTable(tableBox, ours, lastState, {
+    onSort: (key) => {
+      nextSort(lastState, key);
+      renderLastGame();
+    },
+  });
 }
 
 start();

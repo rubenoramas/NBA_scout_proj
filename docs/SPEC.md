@@ -36,6 +36,10 @@ All eight are in the first version.
 7. **Player one-pager.** A one-page sheet on each opponent player, written for a player on our team.
 8. **Rotation scouting.** The opponent's likely lineups with tags, and counter lineups from our roster.
 
+Added Nov 18: **box scores** for every played game this season and last, with Basic and Advanced views (TS%, eFG%, USG%, Game Score, AST/TOV, team four factors). Reached from the schedule (Box score links, the mini calendar, and a Last game tab) and from Recent results on the scouting page.
+
+**To do with player cards:** player names in the box score link to that player's card once player cards exist.
+
 ## Game context header
 
 The top of the scouting page sets the scene before any analysis.
@@ -227,7 +231,7 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | `teams` | Team info and the style fingerprint | Seed loader |
 | `players` | Bio, headshot link, role, play type and tracking stats. Injured players who have not played yet get a basic document with `has_stats` false | Seed loader |
 | `schedule` | Games for the calendar, with results. Holds this season and last season (for the last meeting), with a `season` field | Seed loader |
-| `game_logs` | Per-game player lines, for last game and form | Seed loader |
+| `game_logs` | Per-game player lines for this season and last, with `season`, `home` and `starter`. Used for box scores, last game and form | Seed loader |
 | `shots` | One document per shot: location, shot type, zone, result | Seed loader |
 | `matchups` | Totals for each defender and scorer pair | Seed loader |
 | `injuries` | Latest status per player | Seed loader |
@@ -247,6 +251,7 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | GET | `/api/teams/<id>/schedule` | Games for the calendar |
 | GET | `/api/teams/<id>/profile` | Team style fingerprint and roster |
 | GET | `/api/games/context?us=<team id>&them=<team id>` | Records, seeds, streaks, last games, last meeting, game type |
+| GET | `/api/games/<game_id>/boxscore` | Box score: game info, each team's player lines with advanced stats, team totals and four factors |
 | GET | `/api/teams/<id>/lineups` | Most-used lineups with tags |
 | GET | `/api/players/<id>` | Player card data |
 | GET | `/api/players/<id>/shots` | Shots for the shot chart, with filters |
@@ -313,6 +318,7 @@ Made on Nov 16, 2026.
 - **The loader is its own Compose service.** It runs once after MongoDB is healthy, swaps each changed collection in whole, skips files whose SHA-256 fingerprint has not changed, and exits. `web` waits for it.
 - **Injury status comes from each team's latest report.** A player who dropped off his team's latest report counts as available.
 - **"Data as of" is the date of the latest game in the game logs.** The time of the pull is stored separately.
+- **Box scores come from player game logs.** Last season's logs are kept in full (about 10 MB). Starters are the five players on the floor at the first play, from the game lineups file. Advanced stats are computed in Python in one place, and the page shows every formula.
 - **Badge names live in one config file.** Renaming a badge is one edit.
 - **The cut list is the real rule.** The order is in the Timeline section.
 
