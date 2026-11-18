@@ -7,7 +7,8 @@ docker-compose.yml, then exits. Run it by hand with:
 
 How it works
 - Each .jsonl file holds one MongoDB document per line, and becomes one
-  collection with the same name (players.jsonl -> players).
+  collection with the same name (players.jsonl -> players). The two big
+  files are gzip-compressed (.jsonl.gz) and are read the same way.
 - Every document carries its own _id (an NBA id), so the same row can never
   be stored twice.
 - A collection loads into a temporary collection first, gets its indexes,
@@ -19,6 +20,7 @@ How it works
   still loads, and the loader always exits normally so the app still starts.
 """
 
+import gzip
 import hashlib
 import json
 import sys
@@ -60,6 +62,17 @@ INDEXES = {
     "injuries": [
         IndexModel([("team_id", ASCENDING)]),
     ],
+    "shots": [
+        IndexModel([("player_id", ASCENDING), ("zone", ASCENDING)]),
+        IndexModel([("team_id", ASCENDING)]),
+        IndexModel([("zone", ASCENDING)]),
+    ],
+    "shot_zones_last": [
+        IndexModel([("player_id", ASCENDING)]),
+    ],
+    "shot_types_last": [
+        IndexModel([("player_id", ASCENDING)]),
+    ],
 }
 
 
@@ -76,10 +89,21 @@ def fingerprint(path):
     return digest.hexdigest()
 
 
+def collection_name(path):
+    """players.jsonl -> players, shots.jsonl.gz -> shots"""
+    name = path.name
+    for suffix in (".jsonl.gz", ".jsonl"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return path.stem
+
+
 def read_jsonl(path):
-    """Read one JSON document per line. Blank lines are ignored."""
+    """Read one JSON document per line. Blank lines are ignored.
+    A .gz file is decompressed on the fly."""
     docs = []
-    with path.open(encoding="utf-8") as f:
+    opener = gzip.open if path.name.endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8") as f:
         for line_number, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
@@ -124,7 +148,7 @@ def main():
         log(f"No seed folder at {SEED_DIR}. Nothing to load. Run the R pulls first.")
         return
 
-    seed_files = sorted(SEED_DIR.glob("*.jsonl"))
+    seed_files = sorted(list(SEED_DIR.glob("*.jsonl")) + list(SEED_DIR.glob("*.jsonl.gz")))
     meta_file = SEED_DIR / "meta.json"
     if not seed_files and not meta_file.exists():
         log("The seed folder is empty. Nothing to load. Run the R pulls first.")
@@ -138,7 +162,7 @@ def main():
     loaded, skipped, failed = [], [], []
 
     for path in seed_files:
-        name = path.stem
+        name = collection_name(path)
         try:
             file_hash = fingerprint(path)
             # Skip only when the file is unchanged AND the collection is
@@ -150,7 +174,7 @@ def main():
             replace_collection(name, docs)
             known[path.name] = file_hash
             loaded.append(f"{name} ({len(docs)})")
-        except (OSError, ValueError, PyMongoError) as err:
+        except (OSError, ValueError, EOFError, PyMongoError) as err:
             failed.append(name)
             log(f"Could not load {path.name}: {err}. Skipped it, the rest still loads.")
 

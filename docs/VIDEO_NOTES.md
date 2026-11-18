@@ -224,6 +224,26 @@ Questions:
 - What two facts does the top bar show about the data, and why both?
 - What does `./refresh.sh` do, step by step, and what happens if one pull fails?
 
+## Shots and player cards
+
+What it does: the scouting page's Players tab lists the opponent's roster as a sortable table with position, minutes, points, rebounds, assists, shooting and an injury tag. Clicking a name, there or in any box score, opens the player card: headshot, height, weight, wingspan, his season line, his last five games with links to their box scores, and his shot profile. The shot profile is a half court drawn in the browser with every shot he took this season, filters for shot type and zone, a zone table comparing his FG% with the league in each zone, and his top three shot types at the rim, in the midrange and from three.
+
+How it works, in plain words:
+- A new R script, `pull_shots.R`, takes all 36,829 shots of this season one by one, and squeezes last season's 234,876 shots into per-player totals by zone and shot type.
+- The shots file has no zones, so the script works them out from each shot's position: the restricted area is within 4 feet of the basket, the paint is the rest of the lane, a corner three is a three taken below the point where the line starts to curve, and so on. It checks itself every run: the distance it computes matches the distance written in the play description for every shot that has one.
+- Makes are filled blue dots and misses are hollow gray rings, so the chart works without color.
+- League averages per zone are computed from every shot in the database when the card loads, so they are always current.
+- Wingspan comes from the NBA draft combine, back to 2000. Positions come from the NBA matchup files, with ESPN filling the gaps through a name-matching helper.
+- The two biggest seed files are now gzip-compressed, which cut the seed folder from 13 MB to 5 MB.
+
+Design decision worth mentioning: the app does not say which side of the floor a shot came from yet. The data does not say whether positive x means the shooter's left or right, and guessing wrong would flip every scouting note. A small script checks it against the live NBA site, which is blocked on campus, so sides stay hidden until it is run from home.
+
+Questions:
+- How does the app decide a shot's zone, and how do you know the rule is right?
+- Why are makes and misses drawn as different shapes, not only different colors?
+- What share of players have a wingspan, and why not all of them?
+- Why is "which side of the floor" left out for now?
+
 ## AI in the project
 
 AI shows up in three places:

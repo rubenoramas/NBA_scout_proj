@@ -38,7 +38,7 @@ All eight are in the first version.
 
 Added Nov 18: **box scores** for every played game this season and last, with Basic and Advanced views (TS%, eFG%, USG%, Game Score, AST/TOV, team four factors). Reached from the schedule (Box score links, the mini calendar, and a Last game tab) and from Recent results on the scouting page.
 
-**To do with player cards:** player names in the box score link to that player's card once player cards exist.
+Added Nov 18: **player cards** at `/player/<id>` (headshot, height, weight, wingspan, season line, last five games, shot chart, zone table against league average, favorite shot types), reached from the Players tab on the scouting page and from player names in box scores.
 
 ## Game context header
 
@@ -232,7 +232,8 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | `players` | Bio, headshot link, role, play type and tracking stats. Injured players who have not played yet get a basic document with `has_stats` false | Seed loader |
 | `schedule` | Games for the calendar, with results. Holds this season and last season (for the last meeting), with a `season` field | Seed loader |
 | `game_logs` | Per-game player lines for this season and last, with `season`, `home` and `starter`. Used for box scores, last game and form | Seed loader |
-| `shots` | One document per shot: location, shot type, zone, result | Seed loader |
+| `shots` | One document per shot this season: location, shot type, zone, side, result | Seed loader |
+| `shot_zones_last`, `shot_types_last` | Last season's per-player shot totals by zone and by shot type | Seed loader |
 | `matchups` | Totals for each defender and scorer pair | Seed loader |
 | `injuries` | Latest status per player | Seed loader |
 | `attributes` | Ratings and badges per player | Seed loader, computed in Python at load time |
@@ -253,6 +254,7 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | GET | `/api/games/context?us=<team id>&them=<team id>` | Records, seeds, streaks, last games, last meeting, game type |
 | GET | `/api/games/<game_id>/boxscore` | Box score: game info, each team's player lines with advanced stats, team totals and four factors |
 | GET | `/api/teams/<id>/lineups` | Most-used lineups with tags |
+| GET | `/api/teams/<id>/roster` | Roster with position, per-game line, shooting and injury status |
 | GET | `/api/players/<id>` | Player card data |
 | GET | `/api/players/<id>/shots` | Shots for the shot chart, with filters |
 | GET | `/api/players/<id>/onepager?vs=<team id>` | Player one-pager against a chosen team |
@@ -320,6 +322,10 @@ Made on Nov 16, 2026.
 - **The app shows both the latest game date and the pull time.** "Data as of" alone made people expect today's date, so the top bar reads "Games through ... · pulled ...", and the dot turns amber when the pull is more than 2 days old (changed Nov 18).
 - **One command refreshes the data.** `./refresh.sh` runs every R pull script in order, stops with a plain message if one fails, reloads MongoDB and prints the row count change per seed file.
 - **Box scores come from player game logs.** Last season's logs are kept in full (about 10 MB). Starters are the five players on the floor at the first play, from the game lineups file. Advanced stats are computed in Python in one place, and the page shows every formula.
+- **Big seed files are gzipped, and seed data is committed only at milestones.** `game_logs` and `shots` are `.jsonl.gz`. Refreshed seed data is committed before the demo video and before submitting, not after every refresh, to keep the repo history small.
+- **The zone rule lives in R.** Last season's shots have to be grouped by zone inside R to keep the repo small, so the rule is written once there, with checks printed on every run.
+- **Positions come from the matchup files, then ESPN.** ESPN players are matched to NBA ids by `pulls/espn_match.R` (name key with suffixes stripped, team tie-breaker, manual overrides, unmatched names printed).
+- **Shot sides stay out of the UI** until `pulls/check_sides.R` confirms which way x points.
 - **Badge names live in one config file.** Renaming a badge is one edit.
 - **The cut list is the real rule.** The order is in the Timeline section.
 

@@ -256,3 +256,38 @@ Prompt:
 >
 > Then commit and push.
 Result: the top bar and schedule divider now read "Games through ... · pulled ...", with an amber dot after 2 days; added refresh.sh (runs the pulls, stops on failure, reloads MongoDB, prints row count changes) and documented it
+
+## 2026-11-18: shots and player cards
+Tool: Claude Code
+Prompt:
+> Plan, then build shots and player cards. Follow docs/DESIGN.md for every screen, and use only data verified in docs/DATA_SOURCES.md.
+>
+> Data:
+> 1. pulls/pull_shots.R: this season shot by shot for all 30 teams, and last season as per-player totals by zone and shot type. Add it to the list in refresh.sh.
+> 2. The shots file has no zone columns. Write the rule that turns x_legacy, y_legacy and shot_distance into a zone (restricted area, paint, midrange, corner three, above-the-break three) and a side (left, center, right). Show me the rule and check it against a few shots whose description states the distance.
+> 3. Add wingspan from the draft combine files. Pull enough draft classes to cover current players, and tell me what share of players end up with a wingspan.
+> 4. Load everything with the seed loader, and check the size of data/seed/. Tell me if it is too big to commit, with options.
+>
+> API:
+> - GET /api/teams/<id>/roster: players with key stats and injury status
+> - GET /api/players/<id>: the player card data, including height, weight and wingspan
+> - GET /api/players/<id>/shots with filters for shot type and zone
+>
+> Screens:
+> - Turn on the Players tab of the scouting page: the opponent's roster as a table (player, position, minutes, points, rebounds, assists, shooting, injury tag), sortable by column.
+> - Clicking a player opens his card: headshot (with the placeholder image when missing), height, weight, wingspan, season line, his last five games linking to their box scores, and his shot profile.
+> - Shot profile: a half court drawn in SVG in the design's colors. Makes are filled accent-blue dots and misses are hollow muted rings, so it works for color-blind viewers. Next to it, a zone table with attempts, FG% and the gap to league average in each zone, plus his top three shot types at the rim, in the midrange and from three.
+> - Player names in box scores now link to their cards, as noted in the spec.
+>
+> Add API tests, check every state in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> Approved, with these choices:
+>
+> 1. Seed size: option A plus B. Gzip game_logs and shots as .jsonl.gz, and only commit refreshed seed data at milestones (before the video and before submitting), not on every refresh. Make refresh.sh say this at the end.
+> 2. Zone rule in R is fine.
+> 3. Positions: fill the players with no matchup position from ESPN box score positions, using the ESPN-to-NBA name matching already built for steals. Report the coverage after.
+> 4. Left and right: instead of a video check, add a small optional script, pulls/check_sides.R, that calls the live nba_shotchartdetail for one player and compares the sign of LOC_X with its SHOT_ZONE_AREA (Left Side, Right Side). I will run it from home internet, since the live site is blocked on campus. Keep sides out of the UI until it confirms.
+>
+> Go ahead and build, then run the checks and tests, then commit and push.
+Result: added pulls/pull_shots.R (zone rule with checks), pulls/espn_match.R, pulls/check_sides.R, season lines, positions (97%) and wingspans (60%) to the core pull; gzipped the big seed files (seed now 5.4 MB); built the roster, player card and shot endpoints, the Players tab, the player card with an SVG shot chart and zone table, and box score name links; 9 new tests (33 total)

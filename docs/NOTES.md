@@ -67,3 +67,13 @@ Run this from the repo root on your laptop, with Docker running:
 ```
 
 It runs every R pull script in `pulls/` in order (today only `pull_core.R`), stops with a plain message if one fails, reloads MongoDB with the loader, and prints the row count of each seed file before and after. It needs R with hoopR, arrow, dplyr and jsonlite. The optional live pull (`pulls/pull_live.R`, hotspot only) is not part of it. The top bar then shows "Games through <latest game> · pulled <time>", with an amber dot if the pull is more than 2 days old.
+
+## 2026-11-18: which way is left on the shot chart?
+What happened: the shots file gives x and y for every shot, but nothing in the pre-pulled files says whether positive x is the shooter's left or right. Every zone could be checked against the written distance, but the side could not.
+What fixed it: the app keeps sides out of the UI, and pulls/check_sides.R compares the sign of x with the live shot chart's "Left Side" and "Right Side" labels. The live site is blocked on campus, so it has to be run from home internet.
+What I learned: (yours to fill in)
+
+## 2026-11-18: the seed folder was getting too big
+What happened: adding shot-by-shot data would have pushed data/seed/ to about 20 MB, and every committed refresh would add that much to the repo history again.
+What fixed it: the two biggest files are gzip-compressed (13 MB down to about 3 MB) and the loader reads them directly. Refreshed seed data is committed only at milestones, and refresh.sh says so when it finishes.
+What I learned: (yours to fill in)

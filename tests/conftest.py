@@ -112,6 +112,40 @@ def build_logs():
     return logs + BOX_LINES
 
 
+# Players: 101 has stats and a wingspan, 102 is injured with no stats yet,
+# 201 plays for BBB.
+PLAYERS = [
+    {"_id": 101, "player_id": 101, "player_name": "Steady Scorer", "team_id": 1, "team_abbr": "AAA",
+     "position": "G", "height": "6-5", "height_inches": 77, "weight_lbs": 200, "wingspan_inches": 80.5,
+     "has_stats": True, "gp": 4, "min_total": 120, "pts_total": 80, "reb_total": 20, "ast_total": 12,
+     "stl_total": 4, "blk_total": 2, "tov_total": 8, "fgm_total": 30, "fga_total": 60, "fg3m_total": 8,
+     "fg3a_total": 20, "ftm_total": 12, "fta_total": 16},
+    {"_id": 102, "player_id": 102, "player_name": "New Guy", "team_id": 1, "team_abbr": "AAA",
+     "position": None, "has_stats": False},
+    {"_id": 201, "player_id": 201, "player_name": "Player 201", "team_id": 2, "team_abbr": "BBB",
+     "position": "C", "has_stats": True, "gp": 2, "min_total": 40, "pts_total": 20, "fgm_total": 8, "fga_total": 16,
+     "fg3m_total": 0, "fg3a_total": 0, "ftm_total": 4, "fta_total": 4},
+]
+INJURIES = [{"_id": 102, "player_id": 102, "team_id": 1, "status": "Out", "reason": "Injury/Illness - Left Knee"}]
+
+
+def shot(n, pid, team, zone, made, shot_type, x=0, y=10):
+    return {"_id": f"S{n}", "game_id": "0022600004", "game_date": "2026-11-10", "player_id": pid, "team_id": team,
+            "x": x, "y": y, "distance": 1, "value": 3 if "three" in zone else 2, "made": made,
+            "shot_type": shot_type, "zone": zone, "side": "center", "period": 1}
+
+
+SHOTS = [
+    shot(1, 101, 1, "restricted_area", True, "Driving Layup Shot"),
+    shot(2, 101, 1, "restricted_area", False, "Driving Layup Shot"),
+    shot(3, 101, 1, "corner_three", True, "Jump Shot", x=-230, y=0),
+    shot(4, 101, 1, "above_break_three", False, "Pullup Jump shot", x=0, y=260),
+    shot(5, 201, 2, "restricted_area", True, "Dunk Shot"),
+    shot(6, 201, 2, "midrange", False, "Jump Shot", x=150, y=60),
+]
+ZONES_LAST = [{"_id": "101_corner_three", "player_id": 101, "zone": "corner_three", "fga": 10, "fgm": 4, "season": LAST}]
+
+
 @pytest.fixture()
 def client_app():
     db.teams.delete_many({})
@@ -119,6 +153,12 @@ def client_app():
     db.schedule.delete_many({})
     db.game_logs.delete_many({})
     db.meta.delete_many({})
+    for name in ("players", "injuries", "shots", "shot_zones_last", "shot_types_last"):
+        db[name].delete_many({})
+    db.players.insert_many([dict(p) for p in PLAYERS])
+    db.injuries.insert_many([dict(i) for i in INJURIES])
+    db.shots.insert_many([dict(x) for x in SHOTS])
+    db.shot_zones_last.insert_many([dict(z) for z in ZONES_LAST])
     db.teams.insert_many(TEAMS)
     db.standings.insert_many(STANDINGS)
     db.schedule.insert_many(SCHEDULE)

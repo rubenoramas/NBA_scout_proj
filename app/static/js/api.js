@@ -164,3 +164,26 @@ export const MY_TEAM_KEY = "opponentScout.myTeam";
 export function scoutUrl(usAbbr, themAbbr) {
   return `/scout?${new URLSearchParams({ us: usAbbr, them: themAbbr })}`;
 }
+
+// Injury status as a tag: Out in red, Doubtful and Questionable in gold
+// (warning), Probable and Available muted.
+export function injuryTag(injury) {
+  if (!injury || !injury.status) return null;
+  const s = injury.status;
+  const kind = s === "Out" ? "loss" : s === "Doubtful" || s === "Questionable" ? "gold" : "";
+  const node = tag(s, kind);
+  if (injury.reason) node.title = injury.reason.replace(/^Injury\/Illness - /, "");
+  return node;
+}
+
+// 77 -> 6'5"   78.75 -> 6'6.75"
+export function feetInches(inches) {
+  if (inches === null || inches === undefined) return null;
+  const ft = Math.floor(inches / 12);
+  const rest = Math.round((inches - ft * 12) * 100) / 100;
+  return `${ft}'${rest}"`;
+}
+
+export function pct1(v) {
+  return v === null || v === undefined ? "–" : (v * 100).toFixed(1);
+}

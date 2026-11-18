@@ -92,7 +92,7 @@ export function renderBoxTable(container, side, state, { onSort, starterNote = t
   const rows = sorted.map((line) =>
     el("div", { class: "trow", role: "row", style: `grid-template-columns: ${template}` },
       el("span", { role: "cell", class: "player-cell" },
-        el("span", { class: "strong", text: line.player_name }),
+        el("a", { class: "name-link", href: `/player/${line.player_id}`, text: line.player_name }),
         line.starter ? tag("S") : null),
       columns.map((c) => el("span", { role: "cell", class: `num${c.strong ? " strong" : " text-2"}`, text: c.show(line) }))));
 

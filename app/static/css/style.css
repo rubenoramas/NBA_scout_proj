@@ -199,6 +199,39 @@ button, input { font: inherit; color: inherit; }
 .score-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--row-border); }
 .score-line .final { font-size: 16px; font-weight: 700; }
 
+/* ---- Player card --------------------------------------------------- */
+.headshot { display: block; width: 110px; height: auto; border: 1px solid var(--border); border-radius: 4px; background: var(--panel-head); }
+.measures { display: flex; flex-wrap: wrap; gap: 24px; margin-left: auto; }
+.measure-value { font-size: 16px; font-weight: 700; margin-top: 2px; }
+.tiles.tiles-wide { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.tiles.tiles-wide .tile:nth-child(3n) { border-right: 1px solid var(--row-border); }
+.tiles.tiles-wide .tile:nth-child(6n) { border-right: 0; }
+.tiles.tiles-wide .tile { border-bottom: 1px solid var(--row-border); }
+.tiles.tiles-wide .tile:nth-last-child(-n + 6) { border-bottom: 0; }
+.cols-last5 { grid-template-columns: 96px minmax(120px, 1fr) 40px 48px 48px 48px 48px 56px 56px 56px 96px; }
+.cols-zones { grid-template-columns: minmax(150px, 1fr) 48px 56px 56px 60px 60px 64px 68px 110px; }
+.cols-types { grid-template-columns: minmax(0, 1fr) 64px 56px; padding: 0; }
+.cols-roster { grid-template-columns: minmax(180px, 1fr) 48px 44px 56px 56px 56px 56px 60px 60px 60px 110px; }
+.chart-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--row-border); }
+.chart-body { padding: 8px 12px 12px; }
+.select {
+  height: 30px; padding: 0 8px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--control-border); border-radius: 4px;
+}
+.select:focus { border-color: var(--accent); outline: none; }
+.shotchart { display: block; width: 100%; height: auto; }
+.court-lines { stroke: var(--chip-border); stroke-width: 2; }
+.shot-make { fill: var(--accent); stroke: var(--bg); stroke-width: 1; }
+.shot-miss { fill: none; stroke: var(--muted); stroke-width: 1.6; }
+.legend-text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+.levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.level { padding: 4px 16px 10px; border-right: 1px solid var(--row-border); }
+.level:last-child { border-right: 0; }
+.level-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 4px; }
+.name-link { color: var(--text); font-weight: 600; }
+.name-link:hover { color: var(--accent-text); text-decoration: underline; }
+.tag-loss { color: var(--loss); border-color: var(--loss-tint); }
+
 /* ---- Chips and tags -------------------------------------------------- */
 .chip {
   display: inline-block; flex: none; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
@@ -327,6 +360,8 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
   .span-4, .span-5, .span-7 { grid-column: span 12; }
 }
 @media (max-width: 760px) {
+  .levels, .tiles.tiles-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .measures { margin-left: 0; }
   .topbar { padding: 8px 16px; gap: 10px; }
   .main { padding: 16px 16px 32px; }
   .band-inner { padding: 14px 16px 0; }

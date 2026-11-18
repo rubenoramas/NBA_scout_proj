@@ -8,6 +8,7 @@ from pymongo.errors import PyMongoError
 
 from app.routes.games import games_bp
 from app.routes.health import health_bp
+from app.routes.players import players_bp
 from app.routes.teams import teams_bp
 
 
@@ -19,6 +20,7 @@ def create_app():
     app.register_blueprint(health_bp)
     app.register_blueprint(teams_bp)
     app.register_blueprint(games_bp)
+    app.register_blueprint(players_bp)
 
     @app.get("/")
     def index():
@@ -27,6 +29,10 @@ def create_app():
     @app.get("/scout")
     def scout():
         return render_template("scout.html")
+
+    @app.get("/player/<player_id>")
+    def player_page(player_id):
+        return render_template("player.html")
 
     @app.get("/game/<game_id>")
     def game_page(game_id):

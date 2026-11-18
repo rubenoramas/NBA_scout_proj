@@ -25,6 +25,7 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(jsonlite)
 })
+source("pulls/espn_match.R")
 
 if (!requireNamespace("arrow", quietly = TRUE)) {
   stop("The arrow package is missing, so the files would load empty. In R, run: install.packages(\"arrow\")",
@@ -48,9 +49,11 @@ cat("Opponent Scout core pull, season", season_label, "\n\n")
 # Writes a data frame as JSON Lines and prints how many rows it wrote.
 #   na = "null" writes missing values as null, so every document has the
 #   same fields. digits = NA keeps full precision on numbers.
-write_jsonl <- function(df, name) {
-  path <- file.path(seed_dir, paste0(name, ".jsonl"))
-  con <- file(path, open = "w", encoding = "UTF-8")
+# gz = TRUE writes a gzip-compressed .jsonl.gz file, used for the two big
+# files (game logs and shots) to keep the repo small.
+write_jsonl <- function(df, name, gz = FALSE) {
+  path <- file.path(seed_dir, paste0(name, if (gz) ".jsonl.gz" else ".jsonl"))
+  con <- if (gz) gzfile(path, open = "w", encoding = "UTF-8") else file(path, open = "w", encoding = "UTF-8")
   stream_out(df, con, na = "null", digits = NA, verbose = FALSE)
   close(con)
   cat(sprintf("  %-16s %6d rows\n", basename(path), nrow(df)))
@@ -79,6 +82,19 @@ last_logs_raw <- suppressMessages(load_nba_stats_player_game_logs(seasons = seas
 lineups_raw      <- suppressMessages(load_nba_stats_game_lineups(seasons = season_start))
 last_lineups_raw <- suppressMessages(load_nba_stats_game_lineups(seasons = season_start - 1))
 injury_raw    <- suppressMessages(load_nba_stats_injury_report(seasons = season_start))
+# Season totals per player, for the season line on player cards.
+base_raw      <- suppressMessages(load_nba_stats_leaguedash(seasons = season_start, table = "player_stats_base"))
+# Positions: the per-game matchup files list a position (C, F or G) for
+# many players. ESPN box scores fill the rest.
+matchups_raw      <- suppressMessages(load_nba_stats_game_matchups(seasons = season_start))
+last_matchups_raw <- suppressMessages(load_nba_stats_game_matchups(seasons = season_start - 1))
+# ESPN functions take the END year of the season (2027 for 2026-27).
+espn_box_raw  <- suppressMessages(load_nba_player_box(seasons = season_start + 1))
+# Draft combine measurements, one file per draft class. Classes back to 2000
+# cover nearly every current player who attended a combine.
+combine_raw <- bind_rows(lapply(2000:(season_start - 1), function(cl) {
+  tryCatch(suppressMessages(load_nba_stats_draft_combine_anthro(seasons = cl)), error = function(e) NULL)
+}))
 
 if (nrow(standings_raw) == 0 || nrow(bio_raw) == 0 || nrow(schedule_raw) == 0) {
   stop("A core file came back empty. Nothing was written. Rerun pulls/test_pulls.R to see which.",
@@ -316,7 +332,62 @@ injured_without_stats <- injuries %>%
 
 # bind_rows() stacks the two tables. Columns that only one table has are
 # filled with missing values for the other.
-players <- bind_rows(players_with_stats, injured_without_stats) %>%
+players <- bind_rows(players_with_stats, injured_without_stats)
+
+# Season line: totals from player_stats_base. Per-game numbers are worked
+# out in the app (totals divided by games).
+season_line <- base_raw %>%
+  transmute(
+    player_id = as.integer(player_id),
+    gp = as.integer(gp), min_total = min,
+    pts_total = pts, reb_total = reb, ast_total = ast, stl_total = stl, blk_total = blk, tov_total = tov,
+    oreb_total = oreb, dreb_total = dreb, pf_total = pf,
+    fgm_total = fgm, fga_total = fga, fg3m_total = fg3_m, fg3a_total = fg3_a,
+    ftm_total = ftm, fta_total = fta, plus_minus_total = plus_minus
+  )
+
+# Position, step 1: the most common position in the matchup files.
+most_common <- function(x) names(sort(table(x), decreasing = TRUE))[1]
+matchup_position <- bind_rows(
+  matchups_raw %>% select(player_id = off_person_id, position = off_position),
+  last_matchups_raw %>% select(player_id = off_person_id, position = off_position)
+) %>%
+  filter(!is.na(position), position != "") %>%
+  group_by(player_id = as.integer(player_id)) %>%
+  summarise(position = most_common(position), .groups = "drop")
+
+# Position, step 2: ESPN box scores for players the matchup files miss.
+espn_positions <- espn_box_raw %>%
+  filter(!is.na(athlete_position_abbreviation), athlete_position_abbreviation != "") %>%
+  group_by(espn_name = athlete_display_name, espn_team = team_abbreviation) %>%
+  summarise(position = most_common(athlete_position_abbreviation), .groups = "drop")
+espn_matched <- match_espn_players(espn_positions,
+                                   players %>% select(player_id, player_name, team_abbr),
+                                   label = "ESPN box score players")
+espn_position <- espn_matched %>%
+  filter(!is.na(nba_player_id)) %>%
+  distinct(player_id = as.integer(nba_player_id), .keep_all = TRUE) %>%
+  select(player_id, espn_position = position)
+
+# Wingspan: the most recent combine measurement for each player, in inches.
+wingspans <- combine_raw %>%
+  filter(!is.na(wingspan)) %>%
+  group_by(player_id = as.integer(player_id)) %>%
+  slice_max(as.integer(substr(as.character(season), 1, 4)), n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  transmute(player_id, wingspan_inches = round(as.numeric(wingspan), 2),
+            standing_reach_inches = round(as.numeric(standing_reach), 2))
+
+players <- players %>%
+  left_join(season_line, by = "player_id") %>%
+  left_join(matchup_position, by = "player_id") %>%
+  left_join(espn_position, by = "player_id") %>%
+  mutate(
+    position_source = case_when(!is.na(position) ~ "matchups", !is.na(espn_position) ~ "espn", TRUE ~ NA_character_),
+    position = coalesce(position, espn_position)
+  ) %>%
+  select(-espn_position) %>%
+  left_join(wingspans, by = "player_id") %>%
   arrange(team_id, player_name)
 
 # 9. Write ------------------------------------------------------------------
@@ -324,7 +395,7 @@ write_jsonl(teams, "teams")
 write_jsonl(players, "players")
 write_jsonl(standings, "standings")
 write_jsonl(schedule, "schedule")
-write_jsonl(game_logs, "game_logs")
+write_jsonl(game_logs, "game_logs", gz = TRUE)
 write_jsonl(injuries, "injuries")
 
 # The meta file is a single document, so it is plain JSON and not JSON Lines.
@@ -359,6 +430,11 @@ starters_per_game <- game_logs %>% group_by(season, game_id) %>% summarise(n = s
 cat("Games with 10 starters marked:     ", sum(starters_per_game$n == 10), "of", nrow(starters_per_game), "\n")
 print(as.data.frame(count(starters_per_game, season, starters = n)), row.names = FALSE)
 cat("Games through:                    ", meta$data_as_of, "\n")
+cat("Players with a position:           ", sum(!is.na(players$position)), "of", nrow(players),
+    sprintf("(%d from matchups, %d from ESPN)\n", sum(players$position_source %in% "matchups"), sum(players$position_source %in% "espn")))
+cat("Players with a wingspan:           ", sum(!is.na(players$wingspan_inches)), "of", nrow(players),
+    sprintf("(%.0f%%; %d of %d players with stats)\n", 100 * mean(!is.na(players$wingspan_inches)),
+            sum(!is.na(players$wingspan_inches) & players$has_stats), sum(players$has_stats)))
 
 files <- list.files(seed_dir, full.names = TRUE)
 total_mb <- sum(file.size(files)) / 1024^2

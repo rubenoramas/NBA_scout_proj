@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Player | Opponent Scout{% endblock %}
+{% block page %}player{% endblock %}
+{% block band %}
+<section class="band" aria-label="Player">
+  <div class="band-inner" style="padding-bottom: 14px">
+    <div id="band-player" class="band-teams" aria-live="polite"></div>
+  </div>
+</section>
+{% endblock %}
+{% block content %}
+<div id="player" class="dash" aria-live="polite"></div>
+{% endblock %}
+{% block scripts %}
+<script>window.PLACEHOLDER_HEADSHOT = "{{ url_for('static', filename='img/headshot-placeholder.svg') }}";</script>
+<script type="module" src="{{ url_for('static', filename='js/player.js') }}"></script>
+{% endblock %}

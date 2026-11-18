@@ -2,9 +2,10 @@
 // ids, and shows the matchup band plus the Overview panels.
 
 import {
-  MY_TEAM_KEY, SEASON_TYPE_LABEL, chevron, chip, el, emptyLine, errorLine, fill, formatDay, getJSON,
+  MY_TEAM_KEY, SEASON_TYPE_LABEL, chevron, chip, el, injuryTag, pct1, emptyLine, errorLine, fill, formatDay, getJSON,
   resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag,
 } from "./api.js";
+import { renderSortTable } from "./sorttable.js";
 import { loadTeams, setScoutNav, setSwitcher } from "./topbar.js";
 
 function boxLink(gameId, label) {
@@ -17,8 +18,19 @@ const params = new URLSearchParams(window.location.search);
 const usAbbr = (params.get("us") || "").trim().toUpperCase();
 const themAbbr = (params.get("them") || "").trim().toUpperCase();
 
-document.getElementById("tab-overview").setAttribute("href", window.location.pathname + window.location.search);
-setScoutNav(window.location.pathname + window.location.search, { current: true });
+// Tabs: Overview (no tab parameter) and Players (?tab=players).
+const activeTab = params.get("tab") === "players" ? "players" : "overview";
+function tabUrl(tab) {
+  const q = new URLSearchParams({ us: usAbbr, them: themAbbr });
+  if (tab !== "overview") q.set("tab", tab);
+  return `/scout?${q}`;
+}
+for (const tab of ["overview", "players"]) {
+  const link = document.getElementById(`tab-${tab}`);
+  link.setAttribute("href", tabUrl(tab));
+  if (tab === activeTab) link.setAttribute("aria-current", "page");
+}
+setScoutNav(tabUrl("overview"), { current: true });
 
 function panel(span, title, note, ...body) {
   return el("section", { class: `panel ${span}`, "aria-label": title },
@@ -39,6 +51,10 @@ function showProblem(message, retry) {
 
 function showLoading() {
   fill(band, el("div", { class: "band-side" }, skeletonRows(2, [60, 160])));
+  if (activeTab === "players") {
+    fill(root, panel("span-12", "Roster", null, skeletonRows(10, [180, 30, 30, 40, 40, 40, 40, 50, 50])));
+    return;
+  }
   fill(root,
     panel("span-5", "Head to head", null, skeletonRows(6, [120, 60, 60])),
     panel("span-7", "Recent results", null, skeletonRows(3, [40, 80, 180, 24, 80])),
@@ -229,7 +245,53 @@ function standouts(ctx) {
 
 function render(ctx) {
   renderBand(ctx);
+  if (activeTab === "players") {
+    renderPlayers(ctx);
+    return;
+  }
   fill(root, headToHead(ctx), recentResults(ctx), standouts(ctx));
+}
+
+// ---- Players tab: the opponent's roster ------------------------------
+
+const rosterState = { sortKey: "min", sortDir: "desc" };
+
+async function renderPlayers(ctx) {
+  const them = ctx.them.team;
+  const body = el("div");
+  fill(root, panel("span-12", `${them.full_name} roster`, `${ctx.season} · per game · click a name for the player card`, body));
+  fill(body, skeletonRows(10, [180, 30, 30, 40, 40, 40, 40, 50, 50]));
+  let data;
+  try {
+    data = await getJSON(`/api/teams/${them.team_id}/roster`);
+  } catch (err) {
+    fill(body, errorLine(err.message, () => renderPlayers(ctx)));
+    return;
+  }
+  const s = (key) => (r) => (r.season ? r.season[key] : null);
+  const num = (key, digits = 1) => (r) => (r.season ? Number(r.season[key]).toFixed(digits) : "–");
+  const columns = [
+    { key: "name", label: "Player", width: "minmax(200px, 1fr)", firstDir: "asc", value: (r) => r.player_name.toLowerCase(),
+      cell: (r) => el("span", { class: "player-cell" },
+        el("a", { class: "name-link", href: `/player/${r.player_id}`, text: r.player_name }),
+        r.has_stats ? null : el("span", { class: "muted", text: "No stats yet" })) },
+    { key: "pos", label: "Pos", width: "48px", firstDir: "asc", value: (r) => r.position, cell: (r) => r.position || "–", className: "text-2" },
+    { key: "gp", label: "GP", width: "44px", align: "num", value: s("gp"), cell: (r) => (r.season ? r.season.gp : "–"), className: "text-2" },
+    { key: "min", label: "MIN", width: "56px", align: "num", value: s("min"), cell: num("min"), className: "text-2" },
+    { key: "pts", label: "PTS", width: "56px", align: "num", value: s("pts"), cell: num("pts"), className: "strong" },
+    { key: "reb", label: "REB", width: "56px", align: "num", value: s("reb"), cell: num("reb"), className: "text-2" },
+    { key: "ast", label: "AST", width: "56px", align: "num", value: s("ast"), cell: num("ast"), className: "text-2" },
+    { key: "fg", label: "FG%", width: "60px", align: "num", value: s("fg_pct"), cell: (r) => pct1(r.season && r.season.fg_pct), className: "text-2" },
+    { key: "fg3", label: "3P%", width: "60px", align: "num", value: s("fg3_pct"), cell: (r) => pct1(r.season && r.season.fg3_pct), className: "text-2" },
+    { key: "ts", label: "TS%", width: "60px", align: "num", value: s("ts_pct"), cell: (r) => pct1(r.season && r.season.ts_pct), className: "text-2" },
+    { key: "status", label: "Status", width: "120px", align: "num", firstDir: "asc",
+      value: (r) => (r.injury ? r.injury.status : null), cell: (r) => injuryTag(r.injury) || el("span", { class: "muted", text: "" }) },
+  ];
+  const draw = () => renderSortTable(body, {
+    columns, rows: data.players, state: rosterState, onSort: draw,
+    label: `${them.full_name} roster`, emptyNode: emptyLine("No players are loaded for this team."),
+  });
+  draw();
 }
 
 load();

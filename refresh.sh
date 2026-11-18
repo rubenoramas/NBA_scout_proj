@@ -21,6 +21,7 @@ cd "$(dirname "$0")"
 # The pull scripts, in the order they must run. Add new ones here.
 PULL_SCRIPTS=(
   pulls/pull_core.R
+  pulls/pull_shots.R
 )
 
 SEED_DIR="data/seed"
@@ -46,11 +47,14 @@ else
 fi
 
 # Prints "file rows" for every seed file. A .jsonl file has one row per
-# line; meta.json is a single document.
+# line, a .jsonl.gz file is the same but compressed, and meta.json is a
+# single document.
 count_rows() {
-  for f in "$SEED_DIR"/*.jsonl "$SEED_DIR"/*.json; do
+  for f in "$SEED_DIR"/*.jsonl "$SEED_DIR"/*.jsonl.gz "$SEED_DIR"/*.json; do
     [ -e "$f" ] || continue
-    if [[ "$f" == *.jsonl ]]; then
+    if [[ "$f" == *.jsonl.gz ]]; then
+      echo "$(basename "$f") $(gzip -cd "$f" | wc -l | tr -d ' ')"
+    elif [[ "$f" == *.jsonl ]]; then
       echo "$(basename "$f") $(wc -l < "$f" | tr -d ' ')"
     else
       echo "$(basename "$f") 1"
@@ -83,13 +87,13 @@ fi
 count_rows > "$AFTER"
 echo
 echo "==> What changed"
-printf "%-20s %10s %10s %8s\n" "file" "before" "after" "change"
+printf "%-24s %10s %10s %8s\n" "file" "before" "after" "change"
 # join the before and after lists on the file name. Files that are new or
 # gone show 0 on the missing side.
 join -a1 -a2 -e 0 -o 0,1.2,2.2 <(sort "$BEFORE") <(sort "$AFTER") | while read -r file before after; do
   diff=$((after - before))
   if [ "$diff" -gt 0 ]; then sign="+$diff"; else sign="$diff"; fi
-  printf "%-20s %10s %10s %8s\n" "$file" "$before" "$after" "$sign"
+  printf "%-24s %10s %10s %8s\n" "$file" "$before" "$after" "$sign"
 done
 
 games_through=$(grep -o '"data_as_of": *"[^"]*"' "$SEED_DIR/meta.json" | sed 's/.*"\([^"]*\)"$/\1/')
@@ -97,3 +101,8 @@ pulled=$(grep -o '"pulled_at": *"[^"]*"' "$SEED_DIR/meta.json" | sed 's/.*"\([^"
 echo
 echo "Games through $games_through, pulled $pulled (UTC)."
 echo "Done. Reload the app in the browser to see the new data."
+echo
+echo "Note: commit refreshed seed data only at milestones (before the demo video"
+echo "and before submitting), not after every refresh. Each commit of data/seed/"
+echo "adds a few MB to the repo history. To keep your working copy clean between"
+echo "milestones, you can undo a refresh with: git checkout -- data/seed"
