@@ -113,7 +113,7 @@ The twelve attributes and the data behind each:
 R pulls and trims; Python in `app/model/ratings.py` computes. Only regular-season numbers are used.
 
 1. **Blend.** For each component, w = MIN_this / (MIN_this + 600) and value = w x this season + (1 - w) x last season. With no last-season data, w = 1. With no minutes this season, w = 0 and the rating is tagged "Last season only".
-2. **Shrinkage.** Shooting percentages are pulled toward the league rate before blending: shrunk% = (makes + k x league%) / (attempts + k), with k = 50 for field goal types, 30 for free throws, and 25 possessions for post-up PPP.
+2. **Shrinkage.** Shooting percentages are pulled toward the league rate before blending: shrunk% = (makes + k x league%) / (attempts + k), with k = 50 for field goal types, 30 for free throws, and 25 possessions for post-up PPP. Every per-36 rate is shrunk the same way by minutes (added Nov 18): shrunk per 36 = (his count + league rate per minute x 400) / (his minutes + 400) x 36, where the league rate per minute is the season's total count divided by total minutes. The badge rates per 36 (lost-ball steals, deflections, dunks) use the same formula over both seasons pooled.
 3. **Qualified players.** At least 200 minutes this season, or at least 500 last season. Others show "Not enough minutes".
 4. **Component percentile.** Each component is ranked among qualified players as a share from 0 to 1 (flipped where lower is better).
 5. **Rating.** composite = weighted average of component percentiles; rating = round(99 x percentile rank of the composite among qualified players). 50 is a typical qualified player.
@@ -139,7 +139,7 @@ Badges (first four) pool both seasons' raw counts and need at least 500 minutes 
 - **Deep Range:** at least 40 three-point attempts from 28 to 39 ft (heaves of 40 ft or more excluded); at least 20% of his threes from 28+ ft; deep 3P% at or above the league's overall 3P%.
 - **Streaky Shooter:** at least 300 field goal attempts that followed another attempt in the same game. One-sided two-proportion z-test that his make rate after a make is higher than after a miss, with p below 0.05 divided by the number of players tested (Bonferroni). Comparing rates after makes and misses within games is biased slightly against finding streakiness (Miller and Sanjurjo, 2018), so the test is conservative.
 - **On-Ball Pest:** at least 15 lost-ball steals (ESPN play-by-play); top 10% of qualified players in lost-ball steals/36, and deflections/36 above the qualified median.
-- **Poster Maker:** at least 25 dunks; top 10% of qualified players in dunks/36. Shows the dunk mix by type and max vertical where a combine measurement exists.
+- **Poster Maker:** counts driving, running and cutting dunks only; alley-oops and putbacks are left out (they fit a future Lob Threat badge). At least 25 of those dunks and top 10% of qualified players in those dunks/36. Shows the mix, the number of alley-oops and putbacks left out, and max vertical where a combine measurement exists (changed Nov 18).
 
 Skipped because they need live-only data: Tough Shot Maker, defended FG% for perimeter defense, dunk score, clutch stats (Closer).
 

@@ -27,13 +27,15 @@ BADGES = {
         "short": "Pest",
         "meaning": "Takes the ball off the dribbler.",
         "rule": "At least 15 lost-ball steals, top 10% of qualified players in lost-ball steals per "
-                "36 minutes, and deflections per 36 above the median.",
+                "36 minutes, and deflections per 36 above the median. Per-36 rates are pulled toward "
+                "the league average by 400 minutes.",
     },
     "poster_maker": {
         "name": "Poster Maker",
         "short": "Poster",
-        "meaning": "Dunks a lot.",
-        "rule": "At least 25 dunks and top 10% of qualified players in dunks per 36 minutes.",
+        "meaning": "Creates his own dunks on the move.",
+        "rule": "Counts driving, running and cutting dunks only (alley-oops and putbacks are left out). "
+                "At least 25 of them, and top 10% of qualified players in those dunks per 36 minutes.",
     },
 }
 

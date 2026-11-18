@@ -326,3 +326,15 @@ Prompt (approval):
 >
 > Write the final formulas into docs/SPEC.md, then build, run the checks and tests, and commit and push.
 Result: wrote the formulas into docs/SPEC.md; added pulls/pull_stats.R (stats, play types, hustle, ESPN steals, shot extras, matchup defense, combine drills); built app/model/ (ratings, badges, badge_config) computed by the loader; ratings panel, badge tooltips and a Players tab badges column; 14 new tests (47 total). No player passed the Streaky Shooter test.
+
+## 2026-11-18: per-36 shrinkage and Poster Maker dunk types
+Tool: Claude Code
+Prompt:
+> Good work. Two changes, then show me the affected top-ten lists again before and after:
+>
+> 1. Per-36 components inflate low-minute players (see Playmaking, Speed, Interior defense). Shrink every per-36 rate toward the league average by minutes, the same way shooting percentages are shrunk: shrunk rate = (his count + league rate per minute × K) / (his minutes + K), scaled to 36, with K = 400 minutes. Record the formula in docs/SPEC.md.
+>
+> 2. Poster Maker: count only driving, running and cutting dunks. Leave out alley-oops and putbacks (those fit the future Lob Threat badge). Update the badge text.
+>
+> Then commit and push.
+Result: every per-36 rating component and badge rate is shrunk toward the league by 400 minutes; Poster Maker counts driving, running and cutting dunks only; formula in docs/SPEC.md; 48 tests pass

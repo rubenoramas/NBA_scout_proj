@@ -4,7 +4,7 @@ import pytest
 
 from app.model.badges import compute_badges, quantile, two_proportion_z
 from app.model.ratings import (
-    blend, blend_weight, compute_ratings, percentile_ranks, rating_from_percentile, shrink,
+    blend, blend_weight, compute_ratings, per36, percentile_ranks, rating_from_percentile, shrink,
 )
 
 # ---- Rating building blocks ----------------------------------------------
@@ -30,6 +30,18 @@ def test_shrink_pulls_small_samples_toward_league():
     assert shrink(0, 0, 0.35, 50) == pytest.approx(0.35)
     # A big sample barely moves
     assert shrink(400, 1000, 0.35, 50) == pytest.approx(417.5 / 1050)
+
+
+def test_per36_shrinks_by_minutes():
+    # League 0.1 per minute (3.6 per 36). 20 in 50 minutes is 14.4 per 36 raw;
+    # shrunk: (20 + 0.1 x 400) / (50 + 400) x 36 = 4.8
+    assert per36(20, 50, 0.1) == pytest.approx(4.8)
+    # 200 in 1000 minutes: (200 + 40) / 1400 x 36 = 6.17, close to the raw 7.2
+    assert per36(200, 1000, 0.1) == pytest.approx(240 / 1400 * 36)
+    # No minutes gives the league rate; no league rate gives the plain rate
+    assert per36(0, 0, 0.1) == pytest.approx(3.6)
+    assert per36(10, 360) == pytest.approx(1.0)
+    assert per36(None, 100, 0.1) is None
 
 
 def test_percentile_ranks_ties_and_direction():
@@ -144,12 +156,17 @@ def test_streaky_needs_strict_significance():
 
 
 def test_pest_and_poster_top_ten_percent():
-    pooled = {pid: base(lost_ball_steals=5, deflections=50, dunks=5) for pid in range(1, 21)}
-    pooled[1] = base(lost_ball_steals=40, deflections=100, dunks=60)   # top in both
-    pooled[2] = base(lost_ball_steals=14, deflections=100, dunks=24)   # under both minimums
+    pooled = {pid: base(lost_ball_steals=5, deflections=50, dunks_driving=5) for pid in range(1, 21)}
+    pooled[1] = base(lost_ball_steals=40, deflections=100, dunks_driving=30, dunks_running=20, dunks_cutting=10)
+    pooled[2] = base(lost_ball_steals=14, deflections=100, dunks_driving=24)   # under both minimums
+    # Many dunks, but all alley-oops and putbacks: they do not count
+    pooled[3] = base(dunks_alley_oop=80, dunks_putback=40)
     out, _ = compute_badges(pooled)
     assert set(names(out, 1)) == {"on_ball_pest", "poster_maker"}
+    poster = next(b for b in out[1]["badges"] if b["key"] == "poster_maker")
+    assert poster["numbers"]["dunks"] == 60
     assert names(out, 2) == []
+    assert "poster_maker" not in names(out, 3)
 
 
 def test_api_includes_ratings_and_badges(client_app):

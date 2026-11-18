@@ -246,12 +246,12 @@ Questions:
 
 ## Ratings and trait badges
 
-What it does: every player with enough minutes gets twelve ratings from 0 to 99, such as Finishing, Three-point shooting and Interior defense, shown as bars on his card. Hovering or focusing a bar shows what feeds it and where he ranks on each part. Badges mark traits the ratings hide: Deep Range, Streaky Shooter, On-Ball Pest and Poster Maker. Each badge explains its rule and his numbers on hover, and the Players tab shows every player's badges.
+What it does: every player with enough minutes gets twelve ratings from 0 to 99, such as Finishing, Three-point shooting and Interior defense, shown as bars on his card. Hovering or focusing a bar shows what feeds it and where he ranks on each part. Badges mark traits the ratings hide: Deep Range, Streaky Shooter, On-Ball Pest and Poster Maker (driving, running and cutting dunks only, so a big who catches lobs does not earn it). Each badge explains its rule and his numbers on hover, and the Players tab shows every player's badges.
 
 How it works, in plain words:
 - A rating is a percentile. Each attribute combines two to four stats (for example 3P% and threes per 36 minutes), each stat is ranked against every qualified player, and the weighted result is ranked again. 50 means typical, 99 means best in the league.
 - This season is blended with last season: w = minutes this season / (minutes + 600). At 300 minutes this season counts a third, at 1,800 minutes three quarters. So early in the season, last season carries the rating, and it fades as games pile up.
-- Shooting percentages are pulled toward the league average until the sample is large: (makes + 50 x league rate) / (attempts + 50). A player who is 4 of 5 does not top the list.
+- Shooting percentages are pulled toward the league average until the sample is large: (makes + 50 x league rate) / (attempts + 50). A player who is 4 of 5 does not top the list. Per-36 rates get the same treatment by minutes, (count + league rate per minute x 400) / (minutes + 400) x 36, so a player who blocked 3 shots in 40 minutes does not look like the league's best rim protector.
 - Badges use both seasons' counts and need 500 minutes. On-Ball Pest uses steals from ESPN's play-by-play, because the NBA's play-by-play never says who made a steal, and only counts steals where the ball handler lost the ball.
 - The ratings are computed in Python when the loader runs, and only when their data changed.
 

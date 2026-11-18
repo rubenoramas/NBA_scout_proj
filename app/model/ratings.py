@@ -5,6 +5,8 @@ Every formula here is written out in docs/SPEC.md, "How ratings are computed".
 1. Blend: w = MIN_this / (MIN_this + 600); value = w x this + (1 - w) x last.
 2. Shrink shooting percentages toward the league:
    shrunk = (makes + k x league) / (attempts + k).
+   Per-36 rates are shrunk the same way, by minutes:
+   shrunk per 36 = (count + league rate per minute x 400) / (minutes + 400) x 36.
 3. Qualified: 200+ minutes this season or 500+ last season.
 4. Each component becomes a percentile (0 to 1) among qualified players.
 5. composite = weighted average of component percentiles;
@@ -12,6 +14,8 @@ Every formula here is written out in docs/SPEC.md, "How ratings are computed".
 """
 
 BLEND_MINUTES = 600
+# Per-36 rates are pulled toward the league by this many minutes.
+PER36_K = 400
 QUALIFY_THIS = 200
 QUALIFY_LAST = 500
 SMALL_MINUTES = 300
@@ -39,10 +43,56 @@ def shrink(makes, attempts, league, k):
     return (makes + k * league) / (attempts + k)
 
 
-def per36(count, minutes):
-    if not minutes or count is None:
+def per36(count, minutes, league_per_min=None, k=PER36_K):
+    """Count per 36 minutes, shrunk toward the league rate:
+    (count + league_per_min x k) / (minutes + k) x 36.
+    Without a league rate it is the plain rate."""
+    if count is None:
         return None
-    return count / minutes * 36
+    if league_per_min is None:
+        return count / minutes * 36 if minutes else None
+    return (count + league_per_min * k) / ((minutes or 0) + k) * 36
+
+
+def zone_count(row, zones, field):
+    z = row.get("zones", {})
+    return sum(z.get(name, {}).get(field, 0) for name in zones)
+
+
+# The count behind every per-36 component. A count of None (no data for him
+# in that table) leaves the component out for that season.
+PER36_COUNTS = {
+    "ra_fga36": lambda r: zone_count(r, ["restricted_area"], "fga"),
+    "drive_pts36": lambda r: r.get("drive_pts"),
+    "post_poss36": lambda r: r.get("postup_poss") or 0,
+    "post_touch_pts36": lambda r: r.get("post_touch_pts"),
+    "mid_fga36": lambda r: zone_count(r, ["paint", "midrange"], "fga"),
+    "fg3a36": lambda r: r.get("fg3a"),
+    "cs_fga36": lambda r: r.get("catch_shoot_fga"),
+    "pu_fga36": lambda r: r.get("pull_up_fga"),
+    "potential_ast36": lambda r: r.get("potential_ast"),
+    "stl36": lambda r: r.get("stl"),
+    "defl36": lambda r: r.get("deflections"),
+    "contested3_36": lambda r: r.get("contested_3pt"),
+    "rim_fga_def36": lambda r: r.get("def_rim_fga"),
+    "blk36": lambda r: r.get("blk"),
+    "miles36": lambda r: r.get("dist_miles"),
+}
+
+
+def league_per_minute(rows):
+    """League rate per minute for every per-36 count, for one season:
+    total count / total minutes over players who have that count."""
+    out = {}
+    for key, fn in PER36_COUNTS.items():
+        count = minutes = 0
+        for r in rows:
+            c = fn(r)
+            if c is not None and r.get("min"):
+                count += c
+                minutes += r["min"]
+        out[key] = count / minutes if minutes else None
+    return out
 
 
 def safe_div(a, b):
@@ -84,6 +134,11 @@ def rating_from_percentile(p):
 
 def season_metrics(row, league):
     m = row.get("min") or 0
+    per_min = league.get("per_min", {})
+
+    def rate(key):
+        return per36(PER36_COUNTS[key](row), m, per_min.get(key))
+
     z = row.get("zones", {})
     ra = z.get("restricted_area", {"fga": 0, "fgm": 0})
     mid_fga = sum(z.get(k, {}).get("fga", 0) for k in ("paint", "midrange"))
@@ -96,46 +151,46 @@ def season_metrics(row, league):
     return {
         # Finishing
         "ra_fg": shrink(ra["fgm"], ra["fga"], league["ra_fg"], 50),
-        "ra_fga36": per36(ra["fga"], m),
-        "drive_pts36": per36(row.get("drive_pts"), m),
+        "ra_fga36": rate("ra_fga36"),
+        "drive_pts36": rate("drive_pts36"),
         # Post scoring
         "post_ppp": shrink(row.get("postup_pts") or 0, postup_poss, league["post_ppp"], 25),
-        "post_poss36": per36(postup_poss, m),
-        "post_touch_pts36": per36(row.get("post_touch_pts"), m),
+        "post_poss36": rate("post_poss36"),
+        "post_touch_pts36": rate("post_touch_pts36"),
         # Midrange
         "mid_fg": shrink(mid_fgm, mid_fga, league["mid_fg"], 50),
-        "mid_fga36": per36(mid_fga, m),
+        "mid_fga36": rate("mid_fga36"),
         # Three-point shooting
         "fg3": shrink(row.get("fg3m") or 0, row.get("fg3a") or 0, league["fg3"], 50),
-        "fg3a36": per36(row.get("fg3a"), m),
+        "fg3a36": rate("fg3a36"),
         # Catch-and-shoot and pull-up: eFG% x FGA gives "effective makes"
         "cs_efg": shrink((row.get("catch_shoot_efg_pct") or 0) * cs_fga, cs_fga, league["cs_efg"], 50),
-        "cs_fga36": per36(cs_fga, m),
+        "cs_fga36": rate("cs_fga36"),
         "pu_efg": shrink((row.get("pull_up_efg_pct") or 0) * pu_fga, pu_fga, league["pu_efg"], 50),
-        "pu_fga36": per36(pu_fga, m),
+        "pu_fga36": rate("pu_fga36"),
         # Free throws and drawing fouls
         "ft": shrink(row.get("ftm") or 0, row.get("fta") or 0, league["ft"], 30),
         "fta_per_fga": safe_div(row.get("fta"), row.get("fga")),
         # Playmaking
         "ast_pct": row.get("ast_pct"),
-        "potential_ast36": per36(row.get("potential_ast"), m),
+        "potential_ast36": rate("potential_ast36"),
         "ast_to": row.get("ast_to"),
         # Rebounding
         "oreb_pct": row.get("oreb_pct"),
         "dreb_pct": row.get("dreb_pct"),
         "reb_chance_pct": row.get("reb_chance_pct"),
         # Perimeter defense
-        "stl36": per36(row.get("stl"), m),
-        "defl36": per36(row.get("deflections"), m),
-        "contested3_36": per36(row.get("contested_3pt"), m),
+        "stl36": rate("stl36"),
+        "defl36": rate("defl36"),
+        "contested3_36": rate("contested3_36"),
         "pts_allowed_per_poss": safe_div(row.get("def_player_pts"), def_poss) if def_poss >= 50 else None,
         # Interior defense
         "rim_fg_allowed": shrink(row.get("def_rim_fgm") or 0, rim_fga, league["rim_def"], 50) if m else None,
-        "rim_fga_def36": per36(rim_fga, m),
-        "blk36": per36(row.get("blk"), m),
+        "rim_fga_def36": rate("rim_fga_def36"),
+        "blk36": rate("blk36"),
         # Speed
         "avg_speed": row.get("avg_speed"),
-        "miles36": per36(row.get("dist_miles"), m),
+        "miles36": rate("miles36"),
     }
 
 

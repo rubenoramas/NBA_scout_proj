@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from app.db import db
 from app.model.badges import compute_badges
-from app.model.ratings import compute_ratings
+from app.model.ratings import compute_ratings, league_per_minute
 
 # Collections the ratings and badges read. The loader recomputes when any
 # of their seed files changed.
@@ -63,6 +63,7 @@ def league_rates(rows):
         "pu_efg": ratio(sum((r.get("pull_up_efg_pct") or 0) * (r.get("pull_up_fga") or 0) for r in rows), pu_fga),
         "ft": ratio(total("ftm"), total("fta")),
         "rim_def": ratio(total("def_rim_fgm"), total("def_rim_fga")),
+        "per_min": league_per_minute(rows),
     }
 
 
@@ -110,7 +111,7 @@ def build_inputs(this_season, last_season, rows, league, vertical, extras, playe
                 for k in ("lost_ball_steals", "other_steals", "deflections"):
                     pooled[k] = pooled.get(k, 0) + (r.get(k) or 0)
             if ex:
-                for k in ("fg3a", "deep3_fga", "deep3_fgm", "dunks", "dunks_driving", "dunks_cutting",
+                for k in ("fg3a", "deep3_fga", "deep3_fgm", "dunks_driving", "dunks_cutting",
                           "dunks_running", "dunks_putback", "dunks_alley_oop", "after_make_fga",
                           "after_make_fgm", "after_miss_fga", "after_miss_fgm"):
                     pooled[k] = pooled.get(k, 0) + (ex.get(k) or 0)

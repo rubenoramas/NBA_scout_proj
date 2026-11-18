@@ -45,8 +45,21 @@ def two_proportion_z(made_a, n_a, made_b, n_b):
     return z, p_value
 
 
-def per36(count, minutes):
-    return count / minutes * 36 if minutes else None
+# Per-36 rates are pulled toward the league by this many minutes, as in the
+# ratings: (count + league rate per minute x 400) / (minutes + 400) x 36.
+PER36_K = 400
+
+
+def shrunk_per36(counts, minutes):
+    """{pid: count}, {pid: minutes} -> {pid: shrunk rate per 36}."""
+    total_min = sum(minutes.values())
+    league = sum(counts.values()) / total_min if total_min else 0
+    return {pid: (counts[pid] + league * PER36_K) / (minutes[pid] + PER36_K) * 36 for pid in counts}
+
+
+# Poster Maker counts only dunks a player creates on the move. Alley-oops
+# and putbacks are left out (they fit a future Lob Threat badge).
+POSTER_KINDS = ("driving", "running", "cutting")
 
 
 def compute_badges(pooled):
@@ -59,9 +72,11 @@ def compute_badges(pooled):
     out = {pid: {"badges": [], "streaky_test": None} for pid in pooled}
 
     # Thresholds that depend on the whole group.
-    lb36 = {pid: per36(p.get("lost_ball_steals") or 0, p["min"]) for pid, p in eligible.items()}
-    defl36 = {pid: per36(p.get("deflections") or 0, p["min"]) for pid, p in eligible.items()}
-    dunks36 = {pid: per36(p.get("dunks") or 0, p["min"]) for pid, p in eligible.items()}
+    minutes = {pid: p["min"] for pid, p in eligible.items()}
+    poster_dunks = {pid: sum(p.get(f"dunks_{k}") or 0 for k in POSTER_KINDS) for pid, p in eligible.items()}
+    lb36 = shrunk_per36({pid: p.get("lost_ball_steals") or 0 for pid, p in eligible.items()}, minutes)
+    defl36 = shrunk_per36({pid: p.get("deflections") or 0 for pid, p in eligible.items()}, minutes)
+    dunks36 = shrunk_per36(poster_dunks, minutes)
     lb36_cut = quantile(lb36.values(), 1 - TOP_SHARE)
     defl36_median = quantile(defl36.values(), 0.5)
     dunks36_cut = quantile(dunks36.values(), 1 - TOP_SHARE)
@@ -110,19 +125,21 @@ def compute_badges(pooled):
                 "lost_ball_steals": lb, "lost_ball_steals_36": lb36[pid],
                 "other_steals": p.get("other_steals") or 0, "deflections_36": defl36[pid],
                 "cutoff_36": lb36_cut,
-            }, f"{lb} lost-ball steals ({lb36[pid]:.2f} per 36, top 10% starts at {lb36_cut:.2f}), "
+            }, f"{lb} lost-ball steals ({lb36[pid]:.2f} per 36 after shrinkage, top 10% starts at {lb36_cut:.2f}), "
                f"{p.get('other_steals') or 0} other steals, {defl36[pid]:.1f} deflections per 36."))
 
-        # Poster Maker
-        dunks = p.get("dunks") or 0
+        # Poster Maker: driving, running and cutting dunks only
+        dunks = poster_dunks[pid]
         if dunks >= POSTER_MIN_DUNKS and dunks36_cut is not None and dunks36[pid] >= dunks36_cut:
-            mix = {k: p.get(f"dunks_{k}") or 0 for k in ("driving", "cutting", "running", "putback", "alley_oop")}
-            mix_text = ", ".join(f"{v} {k.replace('_', '-')}" for k, v in mix.items() if v)
+            mix = {k: p.get(f"dunks_{k}") or 0 for k in POSTER_KINDS}
+            mix_text = ", ".join(f"{v} {k}" for k, v in mix.items())
+            left_out = (p.get("dunks_alley_oop") or 0) + (p.get("dunks_putback") or 0)
             vert = p.get("max_vertical_in")
             earned.append(badge("poster_maker", {
                 "dunks": dunks, "dunks_36": dunks36[pid], "cutoff_36": dunks36_cut, "mix": mix,
-                "max_vertical_in": vert,
-            }, f"{dunks} dunks ({dunks36[pid]:.2f} per 36, top 10% starts at {dunks36_cut:.2f}): {mix_text}."
+                "alley_oop_and_putback": left_out, "max_vertical_in": vert,
+            }, f"{dunks} driving, running and cutting dunks ({dunks36[pid]:.2f} per 36, top 10% starts at "
+               f"{dunks36_cut:.2f}): {mix_text}. Not counted: {left_out} alley-oops and putbacks."
                + (f" Combine max vertical {vert:g} in." if vert else "")))
 
         out[pid]["badges"] = earned
