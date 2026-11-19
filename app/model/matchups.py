@@ -6,11 +6,16 @@ scorer finishes only a small share of the possessions he is on the floor.
 
 1. League rate L = total points / total partial possessions.
 2. Scorer baseline B = (pts + 200 x L) / (poss + 200)        (k = 200)
-3. Defender effect  D = (actual - expected) / (poss + 300)    (k = 300, toward 0)
-   where expected = sum over his pairs of poss x B_scorer.
+3. Defender effect  D = (actual - expected - poss x P) / (poss + 300)   (k = 300, toward 0)
+   where expected = sum over his pairs of poss x B_scorer, and P is the
+   average (actual - expected) per possession of all defenders at his
+   position. So each defender is measured against the average defender at
+   his own position: bigs are matched to scorers near the rim, where scoring
+   is easier, and without this every guard looked like a better defender.
 4. Size fit S = b_h x height gap + b_w x weight gap / 10 + b_ws x wingspan gap,
    fitted by weighted least squares on what is left after B + D.
-5. Pair prior mu = B + D + S; pair estimate E = (pts + 50 x mu) / (poss + 50).
+5. Pair prior mu = B + D + S; pair estimate E = (pts + k x mu) / (poss + k),
+   with k = K_PAIR (picked from 50, 100 and 200 on the test games).
 Seasons are blended like the ratings: rate and sample each weighted by
 w = MIN_this / (MIN_this + 600), with the scorer's minutes for B and pair
 history and the defender's minutes for D.
@@ -22,7 +27,9 @@ from app.model.ratings import blend_weight
 
 K_SCORER = 200
 K_DEFENDER = 300
-K_PAIR = 50
+# Pair history weight. 50, 100 and 200 were tried on the games since Nov 1
+# and the best kept (see docs/SPEC.md: picked on the test window itself).
+K_PAIR = 200
 GUARD_CENTER_MIN_POSS = 20
 SMALL_HISTORY = 20
 
@@ -80,7 +87,7 @@ def size_gaps(scorer, defender):
     return gap("height_inches"), gap("weight_lbs", 10.0), gap("wingspan_inches")
 
 
-def fit(pairs, minutes_this, this_season, bios):
+def fit(pairs, minutes_this, this_season, bios, k_pair=None, position_relative=True):
     """pairs: [{"season", "off_id", "def_id", "poss", "pts"}]
     minutes_this: {pid: minutes this season}; bios: {pid: {height_inches, ...}}
     Returns a model dict with L, B, D, beta and pair histories."""
@@ -123,15 +130,33 @@ def fit(pairs, minutes_this, this_season, bios):
     def baseline(pid):
         return B.get(pid, league_all)
 
-    # 3. Defender effects
-    D, D_sample = {}, {}
+    # 3. Defender effects, measured against the average defender at his position
+    def position_of(pid):
+        return (bios.get(pid) or {}).get("position")
+
+    season_totals = {}
+    pos_sum = {}
     for pid, by_season in dfn.items():
-        parts = []
         for s, rows in by_season.items():
             actual = sum(r["pts"] for r in rows)
             expected = sum(r["poss"] * baseline(r["off_id"]) for r in rows)
             poss = sum(r["poss"] for r in rows)
-            parts.append((season_weight(pid, s), actual - expected, poss))
+            season_totals[(pid, s)] = (actual - expected, poss)
+            a = pos_sum.setdefault(position_of(pid), [0.0, 0.0])
+            a[0] += actual - expected
+            a[1] += poss
+    # Average excess points per possession at each position (unknown: league-wide 0)
+    position_avg = {pos: (v[0] / v[1] if v[1] else 0.0) for pos, v in pos_sum.items() if pos}
+    if not position_relative:
+        position_avg = {}
+
+    D, D_sample = {}, {}
+    for pid, by_season in dfn.items():
+        offset = position_avg.get(position_of(pid), 0.0)
+        parts = []
+        for s in by_season:
+            excess, poss = season_totals[(pid, s)]
+            parts.append((season_weight(pid, s), excess - poss * offset, poss))
         rate, sample = blend_rate(parts)
         D[pid] = shrink_toward(rate, sample, 0.0, K_DEFENDER)
         D_sample[pid] = sample
@@ -144,7 +169,10 @@ def fit(pairs, minutes_this, this_season, bios):
         if p["poss"] <= 0:
             continue
         x = size_gaps(bios.get(p["off_id"]), bios.get(p["def_id"]))
-        y = p["pts"] / p["poss"] - baseline(p["off_id"]) - D.get(p["def_id"], 0.0)
+        # The position offset is a matching artifact, so it is taken out
+        # here too; otherwise the size fit would soak it up (bigs are taller).
+        offset = position_avg.get(position_of(p["def_id"]), 0.0)
+        y = p["pts"] / p["poss"] - baseline(p["off_id"]) - offset - D.get(p["def_id"], 0.0)
         wt = p["poss"]
         yy += wt * y * y
         for i in range(3):
@@ -159,6 +187,7 @@ def fit(pairs, minutes_this, this_season, bios):
         "league": league, "league_all": league_all, "this_season": this_season,
         "B": B, "B_sample": B_sample, "D": D, "D_sample": D_sample,
         "beta": beta, "size_r2": r2, "hist": hist, "minutes_this": minutes_this, "bios": bios,
+        "position_avg": position_avg, "k_pair": k_pair if k_pair is not None else K_PAIR,
     }
 
 
@@ -177,7 +206,7 @@ def pair_estimate(model, off_id, def_id):
     parts = [((w if s == model["this_season"] else 1 - w), v[0], v[1]) for s, v in h.items()]
     rate, sample = blend_rate(parts)
     raw_poss = sum(v[1] for v in h.values())
-    E = shrink_toward(rate, sample, mu, K_PAIR) if sample > 0 else mu
+    E = shrink_toward(rate, sample, mu, model.get("k_pair", K_PAIR)) if sample > 0 else mu
     return {
         "expected": E, "baseline": B, "defender_effect": D, "size": S, "prior": mu,
         "history_poss": raw_poss, "history_rate": rate, "history_shift": E - mu,

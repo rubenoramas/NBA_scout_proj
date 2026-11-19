@@ -254,12 +254,13 @@ How it works, in plain words:
 - The pair's own history only nudges the estimate. Ten possessions of history count about a sixth.
 - The app tries all 120 ways to match our five to their five and picks the one with the fewest expected points, weighting each scorer by his usage, so the best defender goes where it matters most. A guard is not put on a center, or the other way round, without real history between them.
 
-Design decision worth mentioning: the model was tested honestly. Trained on games before Nov 1 and tested on games after, its predictions line up with what happened only a little better than knowing each scorer's norm (correlation 0.18 against 0.16). Its picks match the defender who actually guarded each scorer most 37% of the time, below a simple same-position guess at 43%. The test also exposed a flaw: the defender effect partly measures position, because centers are matched to scorers near the rim, so guards look like better defenders against everyone. The tab says plainly that the data is noisy, and the fix is the next step.
+Design decision worth mentioning: the model was tested honestly, and the test changed it. Trained on games before Nov 1 and tested on games after, it showed that the defender effect was partly measuring position: centers are matched to scorers near the rim, where scoring is easy, so every guard looked like a better defender (centers +5.3 per 100, guards -1.5). Now each defender is measured against the average defender at his own position, and those averages are close to zero. The same test also showed pair history was trusted too early, so it now takes 200 possessions, not 50, before a pair's own record counts half. The predictions line up with what happened a little better than knowing each scorer's norm (0.18 against 0.16), and the picks match the real top defender 36% of the time, below a same-position guess at 43%. The tab says plainly that the data is noisy.
 
 Questions:
 - What is a scorer's "norm", and why do the numbers lead with the effect against it?
 - Why does the app weight each scorer by usage rate?
 - How was the model tested, and what did the test show?
+- Why is each defender compared with the average defender at his own position?
 
 ## Team pages
 

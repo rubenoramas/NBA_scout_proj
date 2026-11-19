@@ -97,3 +97,8 @@ What I learned: (yours to fill in)
 What happened: the matchup model looked sensible on one game but ranked Damian Lillard as the best option against every scorer, and said a top rim protector allowed 15 points per 100 above expected. Averaging the defender effect by position showed why: centers average +5.3 and guards -1.5, because bigs are matched to scorers near the rim.
 What fixed it: not fixed yet. The validation (train before Nov 1, test after) is reported honestly: the model's picks match the real top defender 37% of the time, below a same-position guess at 43%. A position-relative defender effect is the proposed fix. A unit test also caught a bug where a player with no minutes on record lost all his data in the blend.
 What I learned: (yours to fill in)
+
+## 2026-11-19: the position problem in the matchup model, fixed
+What happened: the matchup model rated Damian Lillard as the best option against every scorer and a top rim protector as one of the worst. The defender effect compared every defender with the whole league, but bigs are matched to scorers in high-scoring moments near the rim, so centers averaged +5.3 points per 100 above expected and guards -1.5.
+What fixed it: each defender is now measured against the average defender at his own position (that average is taken out before the shrinkage and before the size fit). The averages by position went from C +5.3, F -1.0, G -1.5 to C -0.2, F -0.0, G -0.1. The same validation showed pair history was trusted too early, so its k went from 50 to 200 (picked on the test window itself, so slightly optimistic). Raw prediction dropped slightly (0.181 to 0.178), which is the honest cost of removing an offset that is real in the data but is not defense.
+What I learned: (yours to fill in)

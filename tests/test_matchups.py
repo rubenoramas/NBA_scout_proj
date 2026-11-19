@@ -169,3 +169,29 @@ def test_matchups_validation(client_app, matchup_data):
     res = post({"us": 1, "them": 2, "us_lineup": [110, 111, 113, 114, 115]})
     assert res.status_code == 200 and res.get_json()["us_default"] is False
     assert client_app.post("/api/matchups", data="nope", content_type="text/plain").status_code == 400
+
+
+def test_defender_effect_is_relative_to_position():
+    # Two centers allow 40 per 100 and two guards 20, against the same
+    # scorers. Without the adjustment every guard looks far better; with it,
+    # each defender is measured against his own position and the average
+    # defender at each position has an effect near 0.
+    rows = []
+    for d, rate in (("C1", 0.40), ("C2", 0.40), ("G1", 0.20), ("G2", 0.20)):
+        for o in ("A", "B"):
+            rows.append((o, d, 500, 500 * rate))
+    bios = {"C1": {"position": "C"}, "C2": {"position": "C"}, "G1": {"position": "G"}, "G2": {"position": "G"}}
+    raw = fit(pairs_for(rows), {}, "2026-27", bios, position_relative=False)
+    rel = fit(pairs_for(rows), {}, "2026-27", bios, position_relative=True)
+    assert raw["D"]["G1"] < -0.05 and raw["D"]["C1"] > 0.05
+    for d in ("C1", "C2", "G1", "G2"):
+        assert rel["D"][d] == pytest.approx(0.0, abs=1e-9)
+    assert rel["position_avg"]["C"] > 0 > rel["position_avg"]["G"]
+
+
+def test_k_pair_setting_is_used():
+    rows = [("A", "X", 40, 20), ("A", "Y", 1000, 250), ("B", "X", 1000, 250)]
+    for k in (50, 100, 200):
+        m = fit(pairs_for(rows), {}, "2026-27", {}, k_pair=k)
+        e = pair_estimate(m, "A", "X")
+        assert e["expected"] == pytest.approx((0.5 * 40 + k * e["prior"]) / (40 + k))

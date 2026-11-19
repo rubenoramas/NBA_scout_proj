@@ -415,3 +415,16 @@ Prompt (approval):
 >
 > Build it, run the validation and report the numbers, add the tests, check it in the browser, then commit and push and add the VIDEO_NOTES section.
 Result: matchup pair and game seed files; app/model/matchups.py (norm, defender effect, size fit, pair history, 120-ordering assignment with a position guard); POST /api/matchups; the Matchups tab; app/model/validate_matchups.py; 7 new tests (61 total). Validation: picks match the real top defender 36.7% vs 43.3% for a same-position guess; the defender effect is confounded with position (centers +5.3, guards -1.5 per 100)
+
+## 2026-11-19: position-relative defender effect and pair history k
+Tool: Claude Code
+Prompt:
+> Yes, make the position-relative change, and tune one more thing while you are in there:
+>
+> 1. Defender effect: measure each defender against the average defender at his own position, as you recommended.
+> 2. Pair history slightly hurts, so it is trusted too early. Try k = 50, 100 and 200 for the pair estimate and keep the best on the test games. Report all three, and note in docs/SPEC.md that k was picked on the same test window, so the result is slightly optimistic.
+> 3. Rerun the full validation and show both tables again, before and after. Also show the new defender effect averages by position, and what the model now says about Lillard and Clingan.
+> 4. Run the fresh-clone test, since it was skipped for the last two commits.
+>
+> Record the position problem and its fix in docs/NOTES.md. It is a good README challenge. Then commit and push.
+Result: defender effect measured against the average defender at his position (position averages now near 0); pair history k = 200 picked from 50, 100 and 200; validation rerun and recorded in docs/SPEC.md; 2 new tests (63 total); fresh clone checked

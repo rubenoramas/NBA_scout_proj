@@ -199,19 +199,27 @@ Formulas (seasons blended like the ratings: rate and sample each weighted by w =
 
 1. League rate L = total points / total partial possessions.
 2. **Scorer baseline (his norm)** B = (pts + 200 x L) / (poss + 200).
-3. **Defender effect** D = (actual points allowed - expected) / (his poss + 300), where expected = sum over his pairs of poss x B of that scorer. Shrinks toward 0.
+3. **Defender effect, relative to his position** D = (actual points allowed - expected - his poss x P) / (his poss + 300), where expected = sum over his pairs of poss x B of that scorer, and P is the average (actual - expected) per possession of all defenders at his position (G, F or C). Shrinks toward 0. (Changed Nov 19: without P, centers averaged +5.3 per 100 and guards -1.5, because bigs are matched to scorers near the rim, so every guard looked like a better defender. P on Nov 19: C +6.4, F -1.2, G -1.7. After the change the averages by position are C -0.2, F -0.0, G -0.1.) The position offset is also removed before the size fit, so the size fit cannot soak it up.
 4. **Size fit** S = b_h x height gap + b_w x weight gap / 10 lb + b_ws x wingspan gap (scorer minus defender; a missing measurement gives 0), fitted by weighted least squares on what is left after B + D. On Nov 18 it explains 0.1% of the leftover variance, so it barely matters.
-5. **Pair estimate** E = (pair pts + 50 x mu) / (pair poss + 50), with prior mu = B + D + S. Ten possessions of history count about 17%.
+5. **Pair estimate** E = (pair pts + 200 x mu) / (pair poss + 200), with prior mu = B + D + S. Ten possessions of history count about 5%. k was picked from 50, 100 and 200 on the same test window used to report the validation below, so the reported result for the chosen k is slightly optimistic.
 
 Assignment: each opposing scorer is weighted by his USG% (this season with 100+ minutes, else last season). The app checks all 120 orderings of our five against their five and picks the lowest sum of USG% x E. **Position guard:** a guard may not guard a center, or a center a guard, unless the pair has 20+ partial possessions of history; the same rule applies to the top three lists. Players marked Out are excluded. Until the lineup editor exists, both lineups default to each team's most common starting five this season, with Out players replaced by the healthy players with the most minutes. The top three per opposing player come from our whole healthy roster (100+ minutes this season or 500+ last season).
 
 Display: each pairing leads with E - B, "holds him 3.4 below his norm" (green) or "allows 1.2 above his norm" (red), with E per 100, the history size (small sample under 20 possessions) and a one-line reason built from the parts.
 
-Validation (Nov 18; trained on last season plus this season before Nov 1, tested on games since):
-- Pair predictions against actual points per 100, weighted by possessions: correlation 0.18 for the full model, 0.18 for B + D, 0.16 for the scorer norm alone, 0 for the league average. On pairs with 10+ test possessions: 0.32 full, 0.35 B + D, 0.33 norm only. Calibration by fifths: predicted 13.9 / 19.4 / 23.4 / 27.7 / 36.7, actual 16.6 / 20.0 / 22.3 / 25.7 / 36.9.
-- The pick matched the defender who actually guarded each starting scorer most 36.7% of the time with the position guard (32.4% without), against 43.3% for a same-position guess and 20% for random. Without the guard the model picked a guard-center pairing 8.3% of the time; in the games the top defender was a guard-center pairing 0.7% of the time.
+Validation (trained on last season plus this season before Nov 1, tested on the 21,605 pairs and 105,863 partial possessions since; run with `docker compose exec web python -m app.model.validate_matchups`). Correlation with actual points per 100, weighted by possessions:
 
-Known limits: public matchup data is noisy because of switches and help defense. The defender effect also picks up position: weighted by possessions, centers average +5.3 per 100 above expected and guards -1.5, because bigs are matched to scorers in high-scoring moments near the rim. This makes guards look like better defenders against everyone. A position-relative defender effect is the proposed next fix. Matching "who guarded him most" also measures coaches' choices, not what is best.
+| Model | All pairs | Pairs with 10+ poss | Pick matches top defender (with position guard) |
+| --- | --- | --- | --- |
+| Scorer norm only (B) | 0.162 | 0.330 | |
+| Before (no position adjustment, k = 50), full model | 0.181 | 0.323 | 36.7% |
+| Position-relative, k = 50 | 0.170 | 0.315 | 36.2% |
+| Position-relative, k = 100 | 0.177 | 0.334 | 36.2% |
+| **Position-relative, k = 200 (chosen)** | **0.178** | **0.342** | **36.4%** |
+
+A same-position guess matches the top defender 43.3% of the time, and random 20%. Calibration of the chosen model by fifths: predicted 15.2 / 20.4 / 23.8 / 27.7 / 35.2, actual 16.1 / 20.2 / 23.1 / 25.6 / 36.5. The position adjustment costs a little raw prediction (0.181 to 0.178), because the center offset is real in the data, but it reflects when bigs are matched, not how well they defend, and it was distorting every comparison between positions.
+
+Known limits: public matchup data is noisy because of switches and help defense. A rim protector may still rate poorly within his position if he is logged as the matched defender when he rotates over to help and the scorer finishes anyway (Donovan Clingan is +9.5 per 100 against other centers on Nov 19). Matching "who guarded him most" also measures coaches' choices, not what is best.
 
 ## Data window
 
