@@ -245,14 +245,14 @@ export function rankText(rank) {
 }
 
 // POST JSON to our API with the same plain-language errors as getJSON.
-export async function postJSON(url, payload) {
+export async function postJSON(url, payload, { timeoutMs = 20000 } = {}) {
   let response;
   try {
     response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
     if (err.name === "TimeoutError") throw new Error("The server took too long to answer.");

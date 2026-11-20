@@ -5,6 +5,7 @@ import {
   MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, chevron, chip, el, injuryTag, pct1, postJSON, rankText, sendJSON, emptyLine, errorLine, fill, formatDay, getJSON,
   resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag,
 } from "./api.js";
+import { aiLoading, aiSections, factsPanel, modelLine } from "./aireport.js";
 import { lineupLine, matchupNotes, matchupTable } from "./matchtable.js";
 import { newRosterState, renderRoster } from "./roster.js";
 import { loadTeams, setScoutNav, setSwitcher } from "./topbar.js";
@@ -58,6 +59,27 @@ window.addEventListener("popstate", () => {
   if (currentCtx) render(currentCtx);
 });
 setScoutNav(tabUrl("overview"), { current: true });
+
+// "Generate report" in the band: switch to the Report tab and start a draft.
+const generateButton = document.getElementById("generate-report");
+const NO_KEY_TEXT = "AI reports need an API key. Add ANTHROPIC_API_KEY to the .env file and restart the app. Everything else works without it.";
+getJSON("/api/health").then((h) => {
+  editor.ai.keySet = Boolean(h.ai_key_set);
+  generateButton.disabled = false;
+  if (!editor.ai.keySet) generateButton.title = NO_KEY_TEXT;
+  if (currentCtx && activeTab === "report") render(currentCtx);
+}).catch(() => { editor.ai.keySet = null; generateButton.disabled = false; });
+generateButton.addEventListener("click", () => {
+  if (!currentCtx) return;
+  if (activeTab !== "report") {
+    activeTab = "report";
+    window.history.pushState({ tab: "report" }, "", tabUrl("report"));
+    markTabs();
+  }
+  if (editor.ai.keySet === false) { render(currentCtx); return; }
+  if (editor.ai.state !== "loading" && editor.ai.state !== "ready") generateDraft(currentCtx);
+  else render(currentCtx);
+});
 
 function panel(span, title, note, ...body) {
   return el("section", { class: `panel ${span}`, "aria-label": title },
@@ -364,6 +386,8 @@ const editor = {
   loading: false,
   version: 0,       // ignore answers that arrive after a newer request
   draft: { title: null, notes: "" },
+  // AI report: state is idle, loading, ready or error.
+  ai: { state: "idle", draft: null, error: null, facts: null, keySet: null, request: 0 },
 };
 const rosters = {}; // team_id -> roster players (with the official injury status)
 
@@ -721,6 +745,89 @@ function savedBar(ctx, side, say, redraw) {
 
 // ---- Report tab ---------------------------------------------------------
 
+// Ask the server for an AI draft built from the current lineups and overrides.
+async function generateDraft(ctx) {
+  const ai = editor.ai;
+  const problem = lineupProblem(ctx, "us") || lineupProblem(ctx, "them");
+  if (problem) { ai.state = "error"; ai.error = problem; render(ctx); return; }
+  const request = ++ai.request;
+  ai.state = "loading"; ai.error = null;
+  generateButton.disabled = true;
+  if (activeTab === "report") render(ctx);
+  try {
+    const draft = await postJSON("/api/reports/draft", {
+      us: ctx.us.team.team_id, them: ctx.them.team.team_id,
+      us_lineup: editor.us.ids || undefined, them_lineup: editor.them.ids || undefined,
+      us_overrides: overridesPayload("us"), them_overrides: overridesPayload("them"),
+    }, { timeoutMs: 300000 });
+    if (request !== ai.request) return;
+    draft.edited = false;
+    ai.draft = draft; ai.state = "ready";
+  } catch (err) {
+    if (request !== ai.request) return;
+    ai.state = "error"; ai.error = err.message;
+  }
+  generateButton.disabled = false;
+  if (activeTab === "report") render(ctx);
+}
+
+// The AI part of the Report tab: idle, loading, error or the editable draft.
+function aiPanels(ctx) {
+  const ai = editor.ai;
+  const head = (note) => el("div", { class: "panel-head", style: "justify-content: space-between" },
+    el("h2", { class: "panel-title", text: "AI scouting report" }),
+    el("span", { class: "panel-note", text: note }));
+  const generate = (text) => {
+    const b = el("button", { type: "button", class: "btn btn-primary", text });
+    b.addEventListener("click", () => generateDraft(ctx));
+    return b;
+  };
+  if (ai.keySet === false) {
+    return [el("section", { class: "panel span-12", "aria-label": "AI scouting report" },
+      head("Needs an API key"),
+      el("div", { class: "ai-idle" }, el("button", { type: "button", class: "btn", disabled: true, text: "Generate report" }),
+        el("span", { class: "muted", text: NO_KEY_TEXT })))];
+  }
+  if (ai.state === "idle") {
+    return [el("section", { class: "panel span-12", "aria-label": "AI scouting report" },
+      head("Written only from the numbers this app computed"),
+      el("div", { class: "ai-idle" }, generate("Generate report"),
+        el("span", { class: "muted", text: "Claude writes four sections from the lineups and numbers on this page. Every number in the text is checked against those facts." })))];
+  }
+  if (ai.state === "loading") {
+    return [el("section", { class: "panel span-12", "aria-label": "AI scouting report" }, head("Writing..."), aiLoading())];
+  }
+  if (ai.state === "error") {
+    return [el("section", { class: "panel span-12", "aria-label": "AI scouting report" }, head("Something went wrong"),
+      el("div", { class: "state-error", role: "alert" }, el("span", { text: ai.error }), generate("Try again")))];
+  }
+  // Ready: editable sections on the left, the facts used on the right.
+  const draft = ai.draft;
+  const regen = el("button", { type: "button", class: "btn", text: "Regenerate" });
+  const confirm = el("div", { class: "confirm-row", hidden: true });
+  regen.addEventListener("click", () => {
+    if (!draft.edited) { generateDraft(ctx); return; }
+    const yes = el("button", { type: "button", class: "btn btn-danger", text: "Yes, replace it" });
+    const no = el("button", { type: "button", class: "btn", text: "Cancel" });
+    fill(confirm, el("span", { text: "Replace your edited text with a new draft?" }), yes, no);
+    confirm.hidden = false;
+    no.addEventListener("click", () => { confirm.hidden = true; regen.focus(); });
+    yes.addEventListener("click", () => generateDraft(ctx));
+    yes.focus();
+  });
+  let meta = modelLine(draft);
+  const sections = aiSections(draft, { onEdit: () => {
+    const fresh = modelLine(draft);
+    if (fresh.textContent !== meta.textContent) { meta.replaceWith(fresh); meta = fresh; }
+  } });
+  return [
+    el("section", { class: "panel span-8", "aria-label": "AI scouting report" },
+      head("Edit anything before saving"), sections, meta,
+      el("div", { class: "ai-actions" }, regen, confirm)),
+    el("section", { class: "panel span-4", "aria-label": "Facts used" }, factsPanel(draft.facts)),
+  ];
+}
+
 function renderReport(ctx) {
   const next = ctx.next_meeting;
   if (editor.draft.title === null) {
@@ -728,30 +835,37 @@ function renderReport(ctx) {
       (next ? `, ${formatDay(next.date, { month: "short", day: "numeric" })}` : "");
   }
   const title = el("input", { class: "input input-wide", type: "text", maxlength: "120", id: "report-title", value: editor.draft.title });
-  const notes = el("textarea", { class: "textarea", id: "report-notes", rows: "10", maxlength: "10000",
-    placeholder: "Keys to the game, coverages, who to load up on..." });
+  const notes = el("textarea", { class: "textarea", id: "report-notes", rows: "6", maxlength: "10000",
+    placeholder: "Your own notes: coverages, who to load up on..." });
   notes.value = editor.draft.notes;
   title.addEventListener("input", () => { editor.draft.title = title.value; });
   notes.addEventListener("input", () => { editor.draft.notes = notes.value; });
   const message = el("p", { class: "side-message", role: "status" });
   const save = el("button", { type: "button", class: "btn btn-primary", text: "Save report" });
   const box = el("div", { "data-matchup-box": "summary" });
+  const ai = editor.ai;
 
   save.addEventListener("click", async () => {
     const problem = lineupProblem(ctx, "us") || lineupProblem(ctx, "them");
     if (!title.value.trim()) { message.textContent = "Give the report a title."; message.className = "side-message loss"; title.focus(); return; }
     if (problem) { message.textContent = problem; message.className = "side-message loss"; return; }
+    if (ai.state === "loading") { message.textContent = "Wait for the AI report to finish, or save after it is done."; message.className = "side-message loss"; return; }
     save.disabled = true; save.textContent = "Saving...";
     message.textContent = ""; message.className = "side-message";
     const lineup = (side) => ({ player_ids: editor[side].ids || undefined, overrides: overridesPayload(side) });
+    const d = ai.state === "ready" ? ai.draft : null;
     try {
       const report = await postJSON("/api/reports", {
         us_team_id: ctx.us.team.team_id, them_team_id: ctx.them.team.team_id,
         game_id: next ? next.game_id : null, title: title.value, notes: notes.value,
         us_lineup: lineup("us"), them_lineup: lineup("them"),
+        ai_text: d ? {
+          sections: d.sections, model: d.model, requested_model: d.requested_model, prompt_version: d.prompt_version,
+          generated_at: d.generated_at, flags: d.flags, facts: d.facts, edited: Boolean(d.edited), usage: d.usage,
+        } : null,
       });
       fill(message, "Saved. ", el("a", { href: `/reports/${report.id}`, text: "Open the saved report" }),
-        el("span", { class: "muted", text: " The matchups are stored as they are now." }));
+        el("span", { class: "muted", text: d ? " The AI text, matchups and facts are stored as they are now." : " The matchups are stored as they are now." }));
       message.className = "side-message";
     } catch (err) {
       message.textContent = err.message;
@@ -761,17 +875,18 @@ function renderReport(ctx) {
   });
 
   fill(root,
+    aiPanels(ctx),
     el("section", { class: "panel span-12", "aria-label": "Report" },
       el("div", { class: "panel-head", style: "justify-content: space-between" },
-        el("h2", { class: "panel-title", text: "Scouting report" }),
-        el("span", { class: "panel-note", text: "Notes only for now. AI-written text comes later." })),
+        el("h2", { class: "panel-title", text: "Save the report" }),
+        el("span", { class: "panel-note", text: ai.state === "ready" ? "Saves the AI text above with your notes" : "You can save notes only, or generate the AI report first" })),
       el("div", { class: "form-body" },
         el("label", { class: "field" }, el("span", { class: "label", text: "Title" }), title),
-        el("label", { class: "field" }, el("span", { class: "label", text: "Notes" }), notes),
+        el("label", { class: "field" }, el("span", { class: "label", text: "Your notes" }), notes),
         el("div", { class: "form-actions" }, save, message))),
     el("section", { class: "panel span-12", "aria-label": "What will be saved" },
       el("div", { class: "panel-head", style: "justify-content: space-between" },
-        el("h2", { class: "panel-title", text: "What will be saved" }),
+        el("h2", { class: "panel-title", text: "Lineups and matchups" }),
         el("span", { class: "panel-note", text: "Both lineups and the matchups at this moment" })),
       box));
   drawMatchupBox(box, ctx);

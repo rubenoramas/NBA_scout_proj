@@ -3,6 +3,7 @@
 // lineups and matchups are locked.
 
 import { MY_TEAM_KEY, chip, el, errorLine, fill, formatDay, getJSON, sendJSON, skeletonRows, store } from "./api.js";
+import { aiSections, factsPanel, modelLine } from "./aireport.js";
 import { lineupLine, matchupNotes, matchupTable } from "./matchtable.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
 
@@ -51,7 +52,9 @@ function render(r) {
     if (!title.value.trim()) { message.textContent = "Give the report a title."; message.className = "side-message loss"; title.focus(); return; }
     save.disabled = true; save.textContent = "Saving...";
     try {
-      const updated = await sendJSON("PUT", `/api/reports/${r.id}`, { title: title.value, notes: notes.value });
+      const payload = { title: title.value, notes: notes.value };
+      if (r.ai_text) payload.ai_text = r.ai_text;
+      const updated = await sendJSON("PUT", `/api/reports/${r.id}`, payload);
       r.title = updated.title; r.notes = updated.notes; r.updated_at = updated.updated_at;
       setMeta();
       document.title = `${r.title} | Opponent Scout`;
@@ -104,7 +107,27 @@ function render(r) {
     panel("Matchups as saved", "A snapshot from the moment of saving. It does not change when the data is refreshed.",
       snap ? [lineupLine(snap, r.us_abbr, r.them_abbr, { saved: true }), matchupTable(snap), matchupNotes(snap)]
         : el("p", { class: "state-line", text: "This report has no matchup snapshot." })),
-    r.ai_text ? panel("AI report", null, el("p", { class: "form-body", text: r.ai_text })) : null);
+    aiBlock(r));
+}
+
+// The saved AI text: editable sections (saved with "Save changes") and the
+// facts it was written from.
+function aiBlock(r) {
+  const ai = r.ai_text;
+  if (!ai || !ai.sections) return null;
+  let meta = modelLine(ai);
+  const sections = aiSections(ai, { onEdit: () => {
+    const fresh = modelLine(ai);
+    if (fresh.textContent !== meta.textContent) { meta.replaceWith(fresh); meta = fresh; }
+  } });
+  return [
+    el("section", { class: "panel span-8", "aria-label": "AI scouting report" },
+      el("div", { class: "panel-head", style: "justify-content: space-between" },
+        el("h2", { class: "panel-title", text: "AI scouting report" }),
+        el("span", { class: "panel-note", text: "Edit here, then Save changes above" })),
+      sections, meta, el("div", { style: "height: 16px" })),
+    ai.facts ? el("section", { class: "panel span-4", "aria-label": "Facts used" }, factsPanel(ai.facts)) : null,
+  ];
 }
 
 load();

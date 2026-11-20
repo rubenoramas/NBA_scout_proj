@@ -324,6 +324,24 @@ Questions:
 - Why does nobody have the Streaky Shooter badge, and why is that the right answer?
 - Why do steals come from ESPN instead of the NBA's own play-by-play?
 
+## The AI scouting report
+
+What it does: "Generate report" in the scouting band, or on the Report tab, asks Claude to write a pregame report in four sections: who the opponent is, three keys to the game, players to watch, and one note per matchup. It takes about 10 seconds and shows a loading state. Every section can be edited before saving, Regenerate writes a new draft, and the "Facts used" panel beside the text shows every number Claude was given. Saving stores the text with the model name, the prompt version and the facts.
+
+How it works, in plain words:
+- **Facts first.** `app/report/facts.py` gathers numbers the app already computed (records, streaks, last meeting, usage leaders, standouts, injuries with your overrides, the matchup assignment with each history size, and the key opposing players' ratings and badges) into one object. Every number is rounded once, there.
+- **Then text.** `app/report/writer.py` sends the facts and the system prompt (`app/report/system_prompt.md`) to `claude-sonnet-5-5`. The prompt says to use only the facts, add no outside knowledge, call out small samples, and never describe drive direction or set plays. The reply must match a JSON schema with the four sections, so it can be read reliably.
+- **Number check.** `app/report/check.py` finds every number in the text and looks for it in the facts. Dates and seasons from the facts, small counts from 1 to 5, and "per 100" are allowed. Anything else is flagged in gold on the page.
+- **Errors in plain words.** No key, a rejected key, a rate limit, a timeout, a network problem, or a cut-off reply each give a clear message. Without a key the rest of the app still works.
+
+Design decision worth mentioning: the model never sees raw data or the internet, only a facts object the app built, and the page shows that same object beside the text. That makes the AI a writer, not a source: any claim can be traced to a number on the page. The number check fired 0 times in 20 real reports, but it is a safety net, not proof. Most whole numbers from 0 to 99 appear somewhere in the facts, so a wrong rating could still pass, which is why the facts stay visible.
+
+Questions:
+- What exactly does Claude receive when you click Generate report?
+- How does the app catch a number the AI made up, and what can that check miss?
+- What happens if the API key is missing or the AI service is slow?
+- Why does a saved report store the model name and prompt version?
+
 ## AI in the project
 
 AI shows up in three places:
@@ -351,4 +369,4 @@ Full notes are in `docs/NOTES.md`. Write the README answers in your own words.
 
 ## Still to come
 
-Sections for these get added as they are built: shot charts and zones, ratings, trait badges, the matchup model, the lineup editor, the player one-pager, rotation scouting, the AI report, and tests.
+Sections for these get added as they are built: the player one-pager, rotation scouting, and tests.

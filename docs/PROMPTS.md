@@ -466,3 +466,60 @@ Prompt (approval):
 >
 > Go ahead and build, check every screen and state, then commit and push and add the VIDEO_NOTES section.
 Result: status overrides in POST /api/matchups; lineups and reports CRUD endpoints over two MongoDB collections with indexes; Lineups tab (editor, overrides, saved lineups), live matchup recompute, Report tab, Saved reports list and report pages; scouting tabs switch without a reload; 8 new tests (71 total)
+
+
+## 2026-11-20: AI scouting report
+
+Prompt:
+> Plan, then build the AI scouting report. Follow docs/DESIGN.md and the honesty rules in CLAUDE.md. The API key is in .env as ANTHROPIC_API_KEY.
+>
+> Setup:
+> - Use the official anthropic Python package, pinned. Pin the model in config: claude-sonnet-5-5 by default, so it is easy to switch to claude-haiku-5-5 if cost matters. Cap max_tokens.
+>
+> Facts, then text:
+> - app/report/facts.py builds one structured facts object from data the app already computes: game context, head to head, who runs the offense, last game standouts, injuries with overrides, the matchup assignment with each effect and its history size, and the key opposing players' ratings and badges.
+> - app/report/writer.py sends the facts to Claude with a system prompt that says: use only the numbers in the facts, add no outside knowledge, write in plain coach-style sentences, and say when a sample is small. Ask for JSON with four sections: opponent identity, three keys to the game, players to watch, and matchup notes.
+> - After the reply, check that every number in the text appears in the facts. Flag any number that does not, and show the flag on the page. Show me how often it fires on ten test reports.
+>
+> Screens:
+> - Turn on "Generate report" in the scouting band and the Report tab. Clicking it shows a loading state, then the four sections, with the facts used shown beside them in a collapsible panel so every claim can be checked.
+> - I can edit the generated text before saving. Saving stores the text, the model name, and a prompt version in the report's AI field. A Regenerate button makes a new draft.
+> - Plain errors for no API key (the rest of the app keeps working), an API failure, a timeout, and a rate limit.
+>
+> Docs: the README must state the exact model and the prompts. Put the system prompt in its own file under app/report/ and log it in docs/PROMPTS.md.
+>
+> Tests must not call the real API: mock it. Test the facts builder, the number check, the no-key path and the error paths. Then generate one real report for POR vs LAL, check the screens in the browser, commit and push, and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> The .env file is in place now with my key. Restart the stack so it picks it up.
+>
+> Plan approved as written: medium effort, keep the refusal fallback, keep the 1 to 5 allowance, and the ten test reports are fine.
+>
+> One addition to the number check: also allow dates and season labels that appear in the facts (like "Nov 17" or "2025-26") so they are not flagged.
+>
+> Build it, run the ten real reports and the POR vs LAL report, tell me the flag rate and which numbers were flagged, then commit and push and add the VIDEO_NOTES section.
+
+Result: app/report/ (facts builder, system prompt file, writer using the anthropic package 2.12.0 with structured JSON output, number check); POST /api/reports/draft with plain errors for no key, rejected key, rate limit, timeout, connection and server errors, refusals and cut-off replies; Generate report in the band and the Report tab with loading, editable sections, Regenerate, number-check flags and a collapsible Facts used panel; AI text saved with model, prompt version, facts and an edited flag; 30 new tests with a mocked client (101 total); 0 flags in 10 real reports on each prompt version
+
+### Model endpoint and system prompt used by the app
+
+Model: `claude-sonnet-5-5` through the Anthropic Messages API (`POST /v1/messages`), effort medium, max_tokens 4000, JSON schema output, server-side refusal fallback (`server-side-fallback-2026-07-01`, fallbacks "default"). `REPORT_MODEL=claude-haiku-5-5` in .env switches to Claude Haiku 5.5. The user message is the word "Facts:" followed by the facts object as JSON.
+
+System prompt, version report-v2 (`app/report/system_prompt.md`):
+> You write pregame scouting reports for an NBA coaching staff. You are given one JSON object called the facts. It holds every number you may use.
+>
+> Rules:
+> - Use only the facts. Every number you write must appear in the facts exactly as given (the same rounding, and percentages as given, for example 61.8%). Do not compute new numbers, averages or differences.
+> - Add no outside knowledge: no player history, reputations, contracts, injuries or stats that are not in the facts. If the facts do not support a point, leave it out.
+> - Say when a sample is small. Anything marked small_sample, small_history or last_season_only must be called out in plain words, for example "on a small sample" or "based on last season".
+> - Describe where shots come from and how possessions end. Never describe which way a player drives or dribbles, and never name set plays.
+> - "vs_his_norm_per100" below zero means our defender holds the scorer below what he usually scores. Expected points are per 100 partial possessions, the time a defender spends guarding a scorer, and the league average is about 24.
+> - Write for coaches: short, plain sentences, no hype, no emoji, no em dashes.
+>
+> Write four sections:
+> 1. opponent_identity: two to four sentences on who the opponent is and how they play, from their record, streak, who runs their offense and their key players.
+> 2. keys_to_the_game: exactly three keys, each with a short title and one or two sentences.
+> 3. players_to_watch: up to five opposing players who are expected to play, each with a one or two sentence note. A player whose status_for_this_game is Out does not play; mention him only as missing.
+> 4. matchup_notes: one note for each pairing in the facts' matchups, naming their player and our defender.
+
+report-v1 was the same text without the last sentence of item 3 (about players whose status is Out). It changed after a POR vs LAL draft could have listed Austin Reaves, who is Out, among the players to watch, because the facts did not say who was playing.

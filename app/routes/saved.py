@@ -10,8 +10,11 @@
 
 from flask import Blueprint, jsonify, request
 
+from app.report.facts import build_facts
+from app.report.writer import ReportError, generate
 from app.routes.errors import error, parse_team_id
 from app.services import saved
+from app.services.context import get_team
 
 saved_bp = Blueprint("saved", __name__)
 
@@ -126,3 +129,35 @@ def delete_report(report_id):
     if err:
         return err
     return ("", 204) if saved.delete_report(oid) else error("No saved report has this id.", 404)
+
+
+# ---- AI draft --------------------------------------------------------------
+
+@saved_bp.post("/api/reports/draft")
+def draft_report():
+    """Build the facts, ask Claude for the four sections, check the numbers.
+    Nothing is saved; the browser saves the (possibly edited) draft later."""
+    body = json_body()
+    if body is None:
+        return error("Send the teams and lineups as JSON.", 400)
+    us_id, err = parse_team_id(body.get("us"), "\"us\" team id")
+    if err:
+        return err
+    them_id, err = parse_team_id(body.get("them"), "\"them\" team id")
+    if err:
+        return err
+    if us_id == them_id:
+        return error("Pick two different teams.", 400)
+    for tid in (us_id, them_id):
+        if not get_team(tid):
+            return error(f"No team has the id {tid}.", 404)
+    built, message = build_facts(us_id, them_id, body.get("us_lineup"), body.get("them_lineup"),
+                                 body.get("us_overrides"), body.get("them_overrides"))
+    if message:
+        return error(message, 400)
+    try:
+        draft = generate(built["facts"])
+    except ReportError as err:
+        return jsonify({"error": err.message, "facts": built["facts"]}), err.status
+    draft["facts"] = built["facts"]
+    return jsonify(draft)

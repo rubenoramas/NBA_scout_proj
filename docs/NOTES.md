@@ -110,3 +110,17 @@ The app has no user accounts or logins. All saved lineups and reports live in on
 What happened: a saved report would read differently every day if it recomputed its matchups from the latest data, so notes written last week could stop matching the numbers beside them.
 What fixed it: the report stores a snapshot of the full matchup result when it is saved, computed by the server from the saved lineups. Only the title and notes can change afterwards; a test changes the data and checks the snapshot stays the same.
 What I learned: (yours to fill in)
+
+
+## 2026-11-20: checking that the AI report uses only our numbers
+What happened: the AI report must not invent stats, but reading every draft by hand does not scale. The number check compares every number in the text with every number in the facts. In 20 real reports (10 matchups on each prompt version, about 710 numbers per 10 reports) it fired 0 times. A test with made-up numbers showed why that is not the whole story: the facts hold about 66 of the 100 whole numbers from 0 to 99 (mostly ratings), so a random wrong whole number slips through about two times in three. A random wrong decimal like 38.2% is caught about 8 times in 10.
+What fixed it: the check flags anything not in the facts and shows the flag on the page, and the Facts used panel sits beside the text so a reader can check the rest. A stronger check would tie each number to the player named in the same sentence.
+What I learned: (yours to fill in)
+
+## 2026-11-20: the AI almost featured an injured player
+What happened: the key opposing players in the facts include anyone with a 25% usage rate, and Austin Reaves qualified even though he is Out. Nothing in his entry said so, so the model could list him as a player to watch.
+What fixed it: each key player now carries status_for_this_game, and the system prompt says an Out player is mentioned only as missing (prompt version report-v2). In the 10-report rerun, the one Out player named under players to watch was described as missing.
+What I learned: (yours to fill in)
+
+## For the README: the AI model and prompts
+The AI report uses `claude-sonnet-5-5` through the Anthropic Messages API with the official `anthropic` Python package 2.12.0, effort medium, max_tokens 4000 and JSON schema output. Set `REPORT_MODEL=claude-haiku-5-5` in .env to use Claude Haiku 5.5 instead. The system prompt is in `app/report/system_prompt.md` (version report-v2) and is quoted in `docs/PROMPTS.md`. A report costs about 3.3 cents with Sonnet 5.5 (about 9,000 input and 1,450 output tokens) and takes about 10 seconds. Without ANTHROPIC_API_KEY the app starts normally and the report screens say to add a key.

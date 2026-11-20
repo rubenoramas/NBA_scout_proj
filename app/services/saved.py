@@ -177,6 +177,23 @@ def check_title_notes(body, required_title):
     return changes, None
 
 
+AI_FIELDS = {"sections", "model", "requested_model", "prompt_version", "generated_at", "flags", "facts", "edited", "usage"}
+
+
+def check_ai_text(ai):
+    """The AI part of a report: the four sections plus how they were made.
+    None clears it."""
+    if ai is None:
+        return None, None
+    if not isinstance(ai, dict) or not isinstance(ai.get("sections"), dict):
+        return None, "The AI text must be an object with its sections."
+    if not ai.get("model") or not ai.get("prompt_version"):
+        return None, "The AI text must say which model and prompt version wrote it."
+    if len(str(ai)) > 200000:
+        return None, "The AI text is too long to save."
+    return {k: v for k, v in ai.items() if k in AI_FIELDS}, None
+
+
 def create_report(body):
     try:
         us_id, them_id = int(body.get("us_team_id")), int(body.get("them_team_id"))
@@ -214,6 +231,11 @@ def create_report(body):
         "ai_text": None,
         "created_at": stamp, "updated_at": stamp,
     }
+    if body.get("ai_text") is not None:
+        ai, err = check_ai_text(body.get("ai_text"))
+        if err:
+            return None, (err, 400)
+        doc["ai_text"] = ai
     result = db.reports.insert_one(doc)
     doc["_id"] = result.inserted_id
     return report_out(doc), None
@@ -239,7 +261,10 @@ def update_report(oid, body):
     if err:
         return None, (err, 400)
     if "ai_text" in body:
-        changes["ai_text"] = body["ai_text"]
+        ai, err = check_ai_text(body["ai_text"])
+        if err:
+            return None, (err, 400)
+        changes["ai_text"] = ai
     if not changes:
         return None, ("Nothing to change: send a title or notes.", 400)
     changes["updated_at"] = now()
