@@ -287,8 +287,8 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | `team_stats` | Offensive, defensive and net rating, pace and the four factors per team, this season | Seed loader |
 | `meta` | The latest game date (`data_as_of`) and the pull time (`pulled_at`) | Seed loader |
 | `opponent_lineups` | Most-used fives with tags | Seed loader, tags computed in Python at load time |
-| `lineups` | User-set fives with injury tags | User (CRUD) |
-| `reports` | Saved scouting reports: inputs, model output, AI text, user notes | User (CRUD) |
+| `lineups` | User-set fives: team, name, five player ids, status overrides, created and updated times. Index (team_id, updated_at) | User (CRUD) |
+| `reports` | Saved reports: both teams, game, title, notes, both lineups with overrides, a snapshot of the matchup result at save time, "data as of", an empty AI text field, created and updated times. Indexes created_at, us_team_id, them_team_id | User (CRUD) |
 
 ## REST API
 
@@ -374,6 +374,7 @@ Made on Nov 16, 2026.
 - **The zone rule lives in R.** Last season's shots have to be grouped by zone inside R to keep the repo small, so the rule is written once there, with checks printed on every run.
 - **Positions come from the matchup files, then ESPN.** ESPN players are matched to NBA ids by `pulls/espn_match.R` (name key with suffixes stripped, team tie-breaker, manual overrides, unmatched names printed).
 - **Shot sides stay out of the UI** until `pulls/check_sides.R` confirms which way x points.
+- **Lineups and reports are user data in MongoDB.** The loader never touches them. Ids are MongoDB ObjectIds, sent as 24-character text. Status overrides apply to one game: only Out excludes a player, default lineups also skip Doubtful players, and a Doubtful player picked by hand gets a warning tag. A report stores a snapshot of the matchup result from the moment it was saved (the server reruns the model on the given lineups, so the snapshot always matches them); its lineups and snapshot cannot be changed later, only its title and notes (and the AI text, later). The app has no user accounts, so saved lineups and reports are shared by everyone using that copy of the app.
 - **Badge names live in one config file.** Renaming a badge is one edit.
 - **The cut list is the real rule.** The order is in the Timeline section.
 

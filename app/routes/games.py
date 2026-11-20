@@ -58,7 +58,8 @@ def suggest_matchups():
     for tid in (us_id, them_id):
         if not get_team(tid):
             return error(f"No team has the id {tid}.", 404)
-    result, message = matchups(us_id, them_id, body.get("us_lineup"), body.get("them_lineup"))
+    result, message = matchups(us_id, them_id, body.get("us_lineup"), body.get("them_lineup"),
+                               body.get("us_overrides"), body.get("them_overrides"))
     if message:
         return error(message, 400)
     return jsonify(result)

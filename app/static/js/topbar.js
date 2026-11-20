@@ -173,3 +173,9 @@ document.addEventListener("keydown", (event) => {
     input.focus();
   }
 });
+
+// Mark "Saved reports" as the current page on /reports and /reports/<id>.
+if (window.location.pathname.startsWith("/reports")) {
+  const link = document.getElementById("nav-reports");
+  if (link) link.setAttribute("aria-current", "page");
+}

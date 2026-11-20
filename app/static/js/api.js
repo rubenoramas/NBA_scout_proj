@@ -264,3 +264,24 @@ export async function postJSON(url, payload) {
   if (body === null) throw new Error("The server sent a reply that could not be read.");
   return body;
 }
+
+// PUT or DELETE with the same plain-language errors. DELETE answers 204 with no body.
+export async function sendJSON(method, url, payload) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: payload === undefined ? {} : { "Content-Type": "application/json" },
+      body: payload === undefined ? undefined : JSON.stringify(payload),
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch (err) {
+    if (err.name === "TimeoutError") throw new Error("The server took too long to answer.");
+    throw new Error("Could not reach the server. Check that the app is running.");
+  }
+  if (response.status === 204) return null;
+  let body = null;
+  try { body = await response.json(); } catch { /* handled below */ }
+  if (!response.ok) throw new Error((body && body.error) || `The server answered with an error (${response.status}).`);
+  return body;
+}

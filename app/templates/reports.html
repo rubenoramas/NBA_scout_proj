@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Saved reports | Opponent Scout{% endblock %}
+{% block page %}reports{% endblock %}
+{% block content %}
+<div class="dash">
+  <section class="panel span-12" aria-labelledby="reports-title">
+    <div class="panel-head" style="justify-content: space-between">
+      <h1 id="reports-title" class="panel-title">Saved reports</h1>
+      <span class="panel-note">Newest first. Reports are saved from a scouting page's Report tab.</span>
+    </div>
+    <div id="reports-body" aria-live="polite"></div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}

@@ -99,42 +99,6 @@ def test_reason_line_leads_with_largest_part():
 # ---- API ------------------------------------------------------------------
 
 
-@pytest.fixture()
-def matchup_data(client_app):
-    import app.services.matchups as svc
-    from app.db import db
-
-    svc._cache.update(key=None, model=None)
-    players = []
-    for team, base in ((1, 110), (2, 210)):
-        for i, pos in enumerate(["G", "G", "F", "F", "C", "G"]):
-            pid = base + i
-            players.append({"_id": pid, "player_id": pid, "player_name": f"P{pid}", "team_id": team,
-                            "position": pos, "height_inches": 74 + 2 * i, "min_total": 300 - i, "has_stats": True})
-    db.players.insert_many(players)
-    db.player_stats.delete_many({})
-    db.player_stats.insert_many([{"player_id": p["_id"], "season": "2026-27", "min": 300, "usg_pct": 0.15 + (p["_id"] % 10) / 100}
-                                 for p in players])
-    pairs = []
-    for o in range(210, 216):
-        for d in range(110, 116):
-            pairs.append({"_id": f"{o}_{d}", "season": "2026-27", "off_id": o, "def_id": d,
-                          "poss": 30.0, "pts": 6.0 + (o + d) % 5})
-    db.matchup_pairs.delete_many({})
-    db.matchup_pairs.insert_many(pairs)
-    # Most common starters: 110-114 for AAA and 210-214 for BBB
-    logs = []
-    for gid in ("M1", "M2"):
-        for team, base in ((1, 110), (2, 210)):
-            for i in range(5):
-                logs.append({"_id": f"{gid}_{base + i}", "game_id": gid, "season": "2026-27", "player_id": base + i,
-                             "team_id": team, "starter": True, "game_date": "2026-11-01"})
-    db.game_logs.insert_many(logs)
-    db.injuries.insert_one({"_id": 112, "player_id": 112, "team_id": 1, "status": "Out"})
-    yield
-    svc._cache.update(key=None, model=None)
-
-
 def test_matchups_default_lineups_exclude_out(client_app, matchup_data):
     res = client_app.post("/api/matchups", json={"us": 1, "them": 2})
     assert res.status_code == 200

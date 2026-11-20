@@ -428,3 +428,41 @@ Prompt:
 >
 > Record the position problem and its fix in docs/NOTES.md. It is a good README challenge. Then commit and push.
 Result: defender effect measured against the average defender at his position (position averages now near 0); pair history k = 200 picked from 50, 100 and 200; validation rerun and recorded in docs/SPEC.md; 2 new tests (63 total); fresh clone checked
+
+## 2026-11-20: lineup editor, saved lineups and saved reports
+Tool: Claude Code
+Prompt:
+> Plan, then build the lineup editor and saved reports. Follow docs/DESIGN.md. This step covers the class requirements for REST create, read, update and delete and MongoDB persistence, so make both clear in the code and the VIDEO_NOTES section.
+>
+> Lineup editor (turn on the Lineups tab of the scouting page):
+> - Two panels, us and them. Each starts from the default lineup (most common healthy starters) and lets me pick exactly five from that team's roster.
+> - Injury tags prefill from the official report. I can override any player's status (Out, Doubtful, Questionable, Probable, Available) for this game. An Out player cannot be in a lineup unless I override him.
+> - Every change re-runs POST /api/matchups with fetch, and the Matchups tab updates without a page reload. Show a loading state on the matchup table while it recomputes.
+> - Validation in the browser and the API: exactly five, no duplicates, nobody Out. Plain error messages.
+>
+> Saved lineups:
+> - POST /api/lineups, GET /api/lineups?team=<id>, GET /api/lineups/<id>, PUT /api/lineups/<id>, DELETE /api/lineups/<id>.
+> - A lineup stores its team, a name I give it, the five player ids, the injury overrides, and created and updated times.
+> - In the editor: save the current lineup, load a saved one from a dropdown, rename it, and delete it.
+>
+> Saved reports (notes only for now, AI text comes later):
+> - POST /api/reports, GET /api/reports, GET /api/reports/<id>, PUT /api/reports/<id>, DELETE /api/reports/<id>.
+> - A report stores both teams, the game if there is one, a title, my notes, both lineups and a snapshot of the matchup assignment at the moment I saved it, created and updated times, and an empty field for the AI text.
+> - Report tab on the scouting page: write notes and save the report.
+> - Turn on "Saved reports" in the top bar: a page listing reports newest first, with open, edit notes and title, and delete. Delete asks for confirmation inline, not with a browser pop-up.
+> - Opening a saved report shows its snapshot as saved, even if the data has changed since.
+>
+> Explain the MongoDB parts I need to know: how the ids work, why the report keeps a snapshot instead of recomputing, and which indexes you added.
+>
+> Add tests for every endpoint: create, read one, list, update, delete, validation errors, 404s, and that an injury override changes the matchup result. Check every screen and state in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> Approved. Answers:
+> - Keep report lineups and snapshots locked after saving.
+> - Only Out excludes a player, but default lineups also skip Doubtful players. I can still pick a Doubtful player by hand, and he gets a warning tag.
+> - The 300 ms wait is good.
+>
+> Also note in docs/NOTES.md, for the README, that the app has no user accounts, so all saved lineups and reports are shared by everyone using that copy of the app.
+>
+> Go ahead and build, check every screen and state, then commit and push and add the VIDEO_NOTES section.
+Result: status overrides in POST /api/matchups; lineups and reports CRUD endpoints over two MongoDB collections with indexes; Lineups tab (editor, overrides, saved lineups), live matchup recompute, Report tab, Saved reports list and report pages; scouting tabs switch without a reload; 8 new tests (71 total)

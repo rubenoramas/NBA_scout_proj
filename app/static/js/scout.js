@@ -2,9 +2,10 @@
 // ids, and shows the matchup band plus the Overview panels.
 
 import {
-  MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, chevron, chip, el, injuryTag, pct1, postJSON, rankText, emptyLine, errorLine, fill, formatDay, getJSON,
+  MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, chevron, chip, el, injuryTag, pct1, postJSON, rankText, sendJSON, emptyLine, errorLine, fill, formatDay, getJSON,
   resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag,
 } from "./api.js";
+import { lineupLine, matchupNotes, matchupTable } from "./matchtable.js";
 import { newRosterState, renderRoster } from "./roster.js";
 import { loadTeams, setScoutNav, setSwitcher } from "./topbar.js";
 
@@ -18,18 +19,44 @@ const params = new URLSearchParams(window.location.search);
 const usAbbr = (params.get("us") || "").trim().toUpperCase();
 const themAbbr = (params.get("them") || "").trim().toUpperCase();
 
-// Tabs: Overview (no tab parameter) and Players (?tab=players).
-const activeTab = ["players", "matchups"].includes(params.get("tab")) ? params.get("tab") : "overview";
+// Tabs switch in place, without a page reload, so the lineups and status
+// changes made in the Lineups tab carry over to Matchups and Report. The
+// address still changes (?tab=...), so a refresh or bookmark lands on the
+// same tab.
+const TABS = ["overview", "players", "matchups", "lineups", "report"];
+let activeTab = TABS.includes(params.get("tab")) ? params.get("tab") : "overview";
+let currentCtx = null;
 function tabUrl(tab) {
   const q = new URLSearchParams({ us: usAbbr, them: themAbbr });
   if (tab !== "overview") q.set("tab", tab);
   return `/scout?${q}`;
 }
-for (const tab of ["overview", "players", "matchups"]) {
-  const link = document.getElementById(`tab-${tab}`);
-  link.setAttribute("href", tabUrl(tab));
-  if (tab === activeTab) link.setAttribute("aria-current", "page");
+function markTabs() {
+  for (const tab of TABS) {
+    const link = document.getElementById(`tab-${tab}`);
+    link.setAttribute("href", tabUrl(tab));
+    if (tab === activeTab) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  }
 }
+markTabs();
+for (const tab of TABS) {
+  document.getElementById(`tab-${tab}`).addEventListener("click", (event) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || !currentCtx) return; // new tab or not loaded yet
+    event.preventDefault();
+    if (tab === activeTab) return;
+    activeTab = tab;
+    window.history.pushState({ tab }, "", tabUrl(tab));
+    markTabs();
+    render(currentCtx);
+  });
+}
+window.addEventListener("popstate", () => {
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  activeTab = TABS.includes(tab) ? tab : "overview";
+  markTabs();
+  if (currentCtx) render(currentCtx);
+});
 setScoutNav(tabUrl("overview"), { current: true });
 
 function panel(span, title, note, ...body) {
@@ -51,9 +78,9 @@ function showProblem(message, retry) {
 
 function showLoading() {
   fill(band, el("div", { class: "band-side" }, skeletonRows(2, [60, 160])));
-  if (activeTab === "players" || activeTab === "matchups") {
-    fill(root, panel("span-12", activeTab === "players" ? "Roster" : "Suggested matchups", null,
-      skeletonRows(10, [180, 30, 30, 40, 40, 40, 40, 50, 50])));
+  if (activeTab !== "overview") {
+    const titles = { players: "Roster", matchups: "Suggested matchups", lineups: "Lineups", report: "Report" };
+    fill(root, panel("span-12", titles[activeTab], null, skeletonRows(10, [180, 30, 30, 40, 40, 40, 40, 50, 50])));
     return;
   }
   fill(root,
@@ -245,6 +272,7 @@ function standouts(ctx) {
 }
 
 function render(ctx) {
+  currentCtx = ctx;
   renderBand(ctx);
   if (activeTab === "players") {
     renderPlayers(ctx);
@@ -252,6 +280,14 @@ function render(ctx) {
   }
   if (activeTab === "matchups") {
     renderMatchups(ctx);
+    return;
+  }
+  if (activeTab === "lineups") {
+    renderLineups(ctx);
+    return;
+  }
+  if (activeTab === "report") {
+    renderReport(ctx);
     return;
   }
   const usagePanel = el("section", { class: "panel span-12", "aria-label": "Who runs the offense" },
@@ -315,78 +351,429 @@ async function renderPlayers(ctx) {
 load();
 
 
+
+
+// ---- Lineup editor state (shared by Lineups, Matchups and Report) ---------
+
+const STATUSES = ["Available", "Probable", "Questionable", "Doubtful", "Out"];
+const editor = {
+  us: { ids: null, overrides: {}, loaded: null },
+  them: { ids: null, overrides: {}, loaded: null },
+  result: null,     // the latest matchup answer
+  error: null,      // the latest error message, if the request failed
+  loading: false,
+  version: 0,       // ignore answers that arrive after a newer request
+  draft: { title: null, notes: "" },
+};
+const rosters = {}; // team_id -> roster players (with the official injury status)
+
+function sideTeam(ctx, side) {
+  return side === "us" ? ctx.us.team : ctx.them.team;
+}
+
+function officialStatus(teamId, pid) {
+  const p = (rosters[teamId] || []).find((x) => x.player_id === pid);
+  return (p && p.injury && p.injury.status) || "Available";
+}
+
+function statusOf(ctx, side, pid) {
+  return editor[side].overrides[pid] || officialStatus(sideTeam(ctx, side).team_id, pid);
+}
+
+function playerName(teamId, pid) {
+  const p = (rosters[teamId] || []).find((x) => x.player_id === pid);
+  return p ? p.player_name : `Player ${pid}`;
+}
+
+function overridesPayload(side) {
+  return Object.entries(editor[side].overrides).map(([pid, status]) => ({ player_id: Number(pid), status }));
+}
+
+// Browser-side check, the same rules as the API: five players, no
+// duplicates, nobody Out.
+function lineupProblem(ctx, side) {
+  const ids = editor[side].ids;
+  const abbr = sideTeam(ctx, side).abbreviation;
+  if (!ids) return null;
+  if (ids.length !== 5) return `${abbr}: pick exactly five players (${ids.length} picked).`;
+  if (new Set(ids).size !== 5) return `${abbr}: a player is listed twice.`;
+  const out = ids.find((pid) => statusOf(ctx, side, pid) === "Out");
+  if (out) return `${abbr}: ${playerName(sideTeam(ctx, side).team_id, out)} is Out. Change his status or take him out of the lineup.`;
+  return null;
+}
+
+async function fetchMatchups(ctx) {
+  const version = ++editor.version;
+  editor.loading = true;
+  refreshMatchupViews(ctx);
+  const payload = {
+    us: ctx.us.team.team_id, them: ctx.them.team.team_id,
+    us_overrides: overridesPayload("us"), them_overrides: overridesPayload("them"),
+  };
+  if (editor.us.ids) payload.us_lineup = editor.us.ids;
+  if (editor.them.ids) payload.them_lineup = editor.them.ids;
+  try {
+    const data = await postJSON("/api/matchups", payload);
+    if (version !== editor.version) return;
+    editor.result = data;
+    editor.error = null;
+    // The first answer fills the editor with the default lineups.
+    if (!editor.us.ids) editor.us.ids = data.us_lineup.map((p) => p.player_id);
+    if (!editor.them.ids) editor.them.ids = data.them_lineup.map((p) => p.player_id);
+  } catch (err) {
+    if (version !== editor.version) return;
+    editor.error = err.message;
+  }
+  editor.loading = false;
+  refreshMatchupViews(ctx);
+}
+
+// Every change waits 300 ms after the last click, then recomputes once.
+let matchupTimer = null;
+function scheduleMatchups(ctx) {
+  clearTimeout(matchupTimer);
+  if (lineupProblem(ctx, "us") || lineupProblem(ctx, "them")) {
+    editor.version += 1; // drop any answer still on its way
+    editor.loading = false;
+    refreshMatchupViews(ctx);
+    return;
+  }
+  editor.loading = true;
+  refreshMatchupViews(ctx);
+  matchupTimer = setTimeout(() => fetchMatchups(ctx), 300);
+}
+
+// Draw the matchup result into every matchup box on the current tab.
+function refreshMatchupViews(ctx) {
+  for (const box of document.querySelectorAll("[data-matchup-box]")) drawMatchupBox(box, ctx);
+}
+
+function drawMatchupBox(box, ctx) {
+  const problem = lineupProblem(ctx, "us") || lineupProblem(ctx, "them");
+  if (problem) {
+    fill(box, el("p", { class: "state-error", role: "alert", text: `${problem} Matchups update once both lineups are valid.` }));
+    return;
+  }
+  if (editor.error && !editor.loading) {
+    fill(box, errorLine(editor.error, () => fetchMatchups(ctx)));
+    return;
+  }
+  if (!editor.result) {
+    fill(box, skeletonRows(6, [180, 50, 160, 200, 60, 60]));
+    return;
+  }
+  const data = editor.result;
+  fill(box,
+    editor.loading ? el("p", { class: "recompute", role: "status", text: "Recomputing matchups..." }) : null,
+    el("div", { class: editor.loading ? "is-stale" : "" },
+      lineupLine(data, ctx.us.team.abbreviation, ctx.them.team.abbreviation),
+      matchupTable(data),
+      box.dataset.matchupBox === "full" ? matchupNotes(data) : null));
+}
+
 // ---- Matchups tab -------------------------------------------------------
 
-// Lead with the effect against the scorer's norm: negative is good for us.
-function normEffect(m) {
-  const v = m.vs_norm_per100;
-  if (Math.abs(v) < 0.05) return el("span", { class: "text-2", text: "matches his norm" });
-  return el("span", { class: `strong ${v < 0 ? "win" : "loss"}` },
-    v < 0 ? `holds him ${Math.abs(v).toFixed(1)} below his norm` : `allows ${v.toFixed(1)} above his norm`);
-}
-
-function historyCell(m) {
-  return el("span", { class: "history-cell" },
-    el("span", { class: "text-2", text: `${Math.round(m.history_poss)} poss` }),
-    m.small_history ? tag("Small sample", "gold") : null);
-}
-
-async function renderMatchups(ctx) {
-  const body = el("div");
+function renderMatchups(ctx) {
+  const box = el("div", { "data-matchup-box": "full" });
   fill(root, el("section", { class: "panel span-12", "aria-label": "Suggested matchups" },
     el("div", { class: "panel-head", style: "justify-content: space-between" },
       el("h2", { class: "panel-title", text: "Suggested matchups" }),
-      el("span", { class: "panel-note", text: `Our five against their five, sorted by their USG%` })),
-    body));
-  fill(body, skeletonRows(6, [180, 50, 160, 200, 60, 60]));
-  let data;
+      el("span", { class: "panel-note", text: "Our five against their five, sorted by their USG%. Change the lineups in the Lineups tab." })),
+    box));
+  drawMatchupBox(box, ctx);
+  if (!editor.result && !editor.loading) fetchMatchups(ctx);
+}
+
+// ---- Lineups tab --------------------------------------------------------
+
+async function loadRoster(teamId) {
+  if (!rosters[teamId]) rosters[teamId] = (await getJSON(`/api/teams/${teamId}/roster`)).players;
+  return rosters[teamId];
+}
+
+async function renderLineups(ctx) {
+  const usBox = el("div");
+  const themBox = el("div");
+  const live = el("div", { "data-matchup-box": "live" });
+  const sidePanel = (side, box) => el("section", { class: "panel span-6", "aria-label": `${sideTeam(ctx, side).abbreviation} lineup` },
+    el("div", { class: "panel-head", style: "justify-content: space-between" },
+      el("h2", { class: "panel-title", text: `${side === "us" ? "Us" : "Them"}: ${sideTeam(ctx, side).full_name}` }),
+      el("span", { class: "panel-note", id: `count-${side}` })),
+    box);
+  fill(root, sidePanel("us", usBox), sidePanel("them", themBox),
+    el("section", { class: "panel span-12", "aria-label": "Matchups for these lineups" },
+      el("div", { class: "panel-head", style: "justify-content: space-between" },
+        el("h2", { class: "panel-title", text: "Matchups for these lineups" }),
+        el("span", { class: "panel-note", text: "Updates on every change" })),
+      live));
+  fill(usBox, skeletonRows(8, [60, 180, 40, 40, 120]));
+  fill(themBox, skeletonRows(8, [60, 180, 40, 40, 120]));
+  drawMatchupBox(live, ctx);
   try {
-    data = await postJSON("/api/matchups", { us: ctx.us.team.team_id, them: ctx.them.team.team_id });
+    await Promise.all([loadRoster(ctx.us.team.team_id), loadRoster(ctx.them.team.team_id)]);
+    if (!editor.result) await fetchMatchups(ctx);
   } catch (err) {
-    fill(body, errorLine(err.message, () => renderMatchups(ctx)));
+    fill(usBox, errorLine(err.message, () => renderLineups(ctx)));
+    fill(themBox, emptyLine("Waiting for the rosters."));
     return;
   }
-  const names = (lineup) => lineup.map((p) => p.player_name).join(", ");
-  const lineupNote = el("div", { class: "matchup-notes" },
-    el("p", {},
-      el("span", { class: "label", text: `${ctx.us.team.abbreviation} ` }), names(data.us_lineup),
-      data.us_default ? el("span", { class: "muted", text: " (default: most common starters, Out players replaced)" }) : null),
-    el("p", {},
-      el("span", { class: "label", text: `${ctx.them.team.abbreviation} ` }), names(data.them_lineup),
-      data.them_default ? el("span", { class: "muted", text: " (default: most common starters, Out players replaced)" }) : null));
-  const header = el("div", { class: "trow thead short-head cols-matchups" },
-    el("span", { text: "Their player" }), el("span", { class: "num", text: "USG%" }),
-    el("span", { text: "Our defender" }), el("span", { text: "Effect vs his norm" }),
-    el("span", { class: "num", text: "Exp / 100" }), el("span", { class: "num", text: "History" }));
-  const rows = data.rows.map((r) => {
-    const a = r.assigned;
-    const options = r.top_three.map((o) => el("span", { class: "option" },
-      el("a", { class: "name-link", href: `/player/${o.defender_id}`, text: o.defender_name }),
-      el("span", { class: o.vs_norm_per100 < 0 ? "win" : "loss", text: ` ${o.vs_norm_per100 > 0 ? "+" : ""}${o.vs_norm_per100.toFixed(1)}` })));
-    return el("div", { class: "matchup-block" },
-      el("div", { class: "trow cols-matchups tall" },
-        el("span", { class: "player-cell" },
-          el("a", { class: "name-link", href: `/player/${r.scorer_id}`, text: r.scorer_name }),
-          r.position ? el("span", { class: "muted", text: r.position }) : null),
-        el("span", { class: "num strong", text: r.usg_pct.toFixed(1) }),
-        el("span", { class: "player-cell" },
-          el("a", { class: "name-link", href: `/player/${a.defender_id}`, text: a.defender_name }),
-          a.position ? el("span", { class: "muted", text: a.position }) : null),
-        el("span", {}, normEffect(a)),
-        el("span", { class: "num text-2", text: a.expected_per100.toFixed(1) }),
-        el("span", { class: "num" }, historyCell(a))),
-      el("div", { class: "matchup-detail" },
-        el("p", { class: "muted", text: a.reason }),
-        el("p", { class: "matchup-options" }, el("span", { class: "label", text: "Top three from our roster " }),
-          options.length ? options : el("span", { class: "muted", text: "No eligible defenders." }))));
+  if (activeTab !== "lineups") return;
+  drawSide(ctx, "us", usBox);
+  drawSide(ctx, "them", themBox);
+  refreshMatchupViews(ctx);
+}
+
+function drawSide(ctx, side, box) {
+  const team = sideTeam(ctx, side);
+  const state = editor[side];
+  const ids = state.ids || [];
+  const message = el("p", { class: "side-message", role: "status", id: `msg-${side}` });
+  // Messages look the element up by id, because a redraw replaces it.
+  const say = (text, isError = false) => {
+    const node = document.getElementById(`msg-${side}`) || message;
+    node.textContent = text;
+    node.className = `side-message ${isError ? "loss" : "muted"}`;
+  };
+  const count = document.getElementById(`count-${side}`);
+  if (count) count.textContent = `${ids.length} of 5 selected`;
+
+  const redraw = () => {
+    drawSide(ctx, side, box);
+    scheduleMatchups(ctx);
+  };
+
+  // Roster table: select button, player, minutes, USG%, official and chosen status.
+  const players = [...(rosters[team.team_id] || [])].sort((a, b) =>
+    (b.season ? b.season.min : -1) - (a.season ? a.season.min : -1));
+  const rows = players.map((p) => {
+    const pid = p.player_id;
+    const inLineup = ids.includes(pid);
+    const status = statusOf(ctx, side, pid);
+    const official = officialStatus(team.team_id, pid);
+    const isOut = status === "Out";
+    const toggle = el("button", {
+      type: "button", class: `btn toggle-btn${inLineup ? " on" : ""}`, "aria-pressed": String(inLineup),
+      disabled: isOut && !inLineup,
+      title: isOut && !inLineup ? "Out: change his status to pick him" : null,
+      "aria-label": `${inLineup ? "Remove" : "Add"} ${p.player_name}`,
+      onclick: () => {
+        if (inLineup) state.ids = ids.filter((x) => x !== pid);
+        else if (ids.length >= 5) { say("Five players are already picked. Remove one first.", true); return; }
+        else state.ids = [...ids, pid];
+        redraw();
+      },
+    }, inLineup ? "In" : "Add");
+    const select = el("select", { class: "select select-sm", "aria-label": `Status for ${p.player_name}` },
+      STATUSES.map((st) => el("option", { value: st, text: st, selected: st === status })));
+    select.addEventListener("change", () => {
+      if (select.value === official) delete state.overrides[pid];
+      else state.overrides[pid] = select.value;
+      redraw();
+    });
+    const tags = [];
+    if (state.overrides[pid]) tags.push(tag("Changed", "accent"));
+    if (inLineup && status === "Doubtful") tags.push(tag("Doubtful", "gold"));
+    if (inLineup && isOut) tags.push(tag("Out", "loss"));
+    return el("div", { class: `trow cols-lineup${inLineup ? " highlight" : ""}` },
+      el("span", {}, toggle),
+      el("span", { class: "player-cell" }, el("a", { class: "name-link", href: `/player/${pid}`, text: p.player_name }),
+        p.position ? el("span", { class: "muted", text: p.position }) : null),
+      el("span", { class: "num text-2", text: p.season ? p.season.min.toFixed(1) : "–" }),
+      el("span", { class: "num text-2", text: p.usage && p.usage.usg_pct !== null ? p.usage.usg_pct.toFixed(1) : "–" }),
+      el("span", { class: "text-2", text: official }),
+      el("span", {}, select),
+      el("span", { class: "tag-cell" }, tags));
   });
-  const size = data.size_fit;
-  fill(body,
-    lineupNote,
-    el("div", { class: "table-scroll" }, el("div", { style: "min-width: 860px" }, header, rows)),
-    el("div", { class: "panel-foot matchup-foot" },
-      el("p", { text: data.notes.unit }),
-      el("p", { text: `Effect vs his norm is the expected points minus his norm, per 100. Green means our defender holds him below what he usually scores. Guards and centers are not matched against each other without ${data.position_guard.min_history}+ possessions of history.` }),
-      el("p", { text: `Size (height, weight, wingspan gaps) explains ${(size.share_of_leftover_explained * 100).toFixed(1)}% of what is left after his norm and the defender's effect, so it barely moves the numbers.` }),
-      el("p", { class: "strong", text: data.notes.noise })));
+
+  const problem = lineupProblem(ctx, side);
+  fill(box,
+    savedBar(ctx, side, say, redraw),
+    message,
+    problem ? el("p", { class: "state-error", role: "alert", text: problem }) : null,
+    el("div", { class: "table-scroll" }, el("div", { style: "min-width: 620px" },
+      el("div", { class: "trow thead short-head cols-lineup" },
+        el("span", { text: "Lineup" }), el("span", { text: "Player" }), el("span", { class: "num", text: "MIN" }),
+        el("span", { class: "num", text: "USG%" }), el("span", { text: "Official" }), el("span", { text: "Status for this game" }),
+        el("span")),
+      rows)),
+    el("p", { class: "panel-foot", text: "Official is the latest NBA injury report. Change a status for this game only; Out players cannot be picked, and a Doubtful pick gets a warning." }));
+}
+
+// Saved lineups for one side: load, save as new, save changes, rename, delete.
+function savedBar(ctx, side, say, redraw) {
+  const team = sideTeam(ctx, side);
+  const state = editor[side];
+  const select = el("select", { class: "select", "aria-label": `Saved ${team.abbreviation} lineups` },
+    el("option", { value: "", text: "Loading saved lineups..." }));
+  const name = el("input", { class: "input", type: "text", maxlength: "60", placeholder: "Lineup name",
+    "aria-label": "Lineup name", value: state.loaded ? state.loaded.name : "" });
+  const confirmRow = el("div", { class: "confirm-row", hidden: true });
+  const busy = (button, text) => { button.disabled = true; button.textContent = text; };
+
+  getJSON(`/api/lineups?team=${team.team_id}`).then((data) => {
+    fill(select,
+      el("option", { value: "", text: data.lineups.length ? "Choose a saved lineup" : "No saved lineups yet" }),
+      data.lineups.map((l) => el("option", { value: l.id, text: l.name, selected: state.loaded && state.loaded.id === l.id })));
+  }).catch((err) => {
+    fill(select, el("option", { value: "", text: "Saved lineups could not load" }));
+    say(err.message, true);
+  });
+
+  const load = el("button", { type: "button", class: "btn", text: "Load" });
+  load.addEventListener("click", async () => {
+    if (!select.value) { say("Choose a saved lineup first.", true); return; }
+    busy(load, "Loading...");
+    try {
+      const l = await getJSON(`/api/lineups/${select.value}`);
+      state.ids = l.player_ids;
+      state.overrides = Object.fromEntries(l.overrides.map((o) => [o.player_id, o.status]));
+      state.loaded = { id: l.id, name: l.name };
+      redraw();
+    } catch (err) {
+      say(err.message, true);
+      load.disabled = false; load.textContent = "Load";
+    }
+  });
+
+  const body = () => ({ team_id: team.team_id, name: name.value, player_ids: state.ids, overrides: overridesPayload(side) });
+  const checkFirst = () => {
+    const problem = lineupProblem(ctx, side);
+    if (problem) { say(problem, true); return false; }
+    if (!name.value.trim()) { say("Give the lineup a name.", true); name.focus(); return false; }
+    return true;
+  };
+
+  const saveNew = el("button", { type: "button", class: "btn", text: "Save as new" });
+  saveNew.addEventListener("click", async () => {
+    if (!checkFirst()) return;
+    busy(saveNew, "Saving...");
+    try {
+      const l = await postJSON("/api/lineups", body());
+      state.loaded = { id: l.id, name: l.name };
+      redraw();
+      say(`Saved "${l.name}".`);
+    } catch (err) {
+      say(err.message, true);
+      saveNew.disabled = false; saveNew.textContent = "Save as new";
+    }
+  });
+
+  const update = el("button", { type: "button", class: "btn", text: "Save changes", disabled: !state.loaded });
+  update.addEventListener("click", async () => {
+    if (!checkFirst()) return;
+    busy(update, "Saving...");
+    try {
+      const l = await sendJSON("PUT", `/api/lineups/${state.loaded.id}`, body());
+      state.loaded = { id: l.id, name: l.name };
+      redraw();
+      say(`Updated "${l.name}".`);
+    } catch (err) {
+      say(err.message, true);
+      update.disabled = false; update.textContent = "Save changes";
+    }
+  });
+
+  const rename = el("button", { type: "button", class: "btn", text: "Rename", disabled: !state.loaded });
+  rename.addEventListener("click", async () => {
+    if (!name.value.trim()) { say("Type the new name first.", true); name.focus(); return; }
+    busy(rename, "Renaming...");
+    try {
+      const l = await sendJSON("PUT", `/api/lineups/${state.loaded.id}`, { name: name.value });
+      state.loaded = { id: l.id, name: l.name };
+      redraw();
+      say(`Renamed to "${l.name}".`);
+    } catch (err) {
+      say(err.message, true);
+      rename.disabled = false; rename.textContent = "Rename";
+    }
+  });
+
+  const del = el("button", { type: "button", class: "btn", text: "Delete", disabled: !state.loaded });
+  del.addEventListener("click", () => {
+    // Confirm inline, not with a browser pop-up.
+    const yes = el("button", { type: "button", class: "btn btn-danger", text: "Yes, delete" });
+    const no = el("button", { type: "button", class: "btn", text: "Cancel" });
+    fill(confirmRow, el("span", { text: `Delete the saved lineup "${state.loaded.name}"? This cannot be undone.` }), yes, no);
+    confirmRow.hidden = false;
+    no.addEventListener("click", () => { confirmRow.hidden = true; del.focus(); });
+    yes.addEventListener("click", async () => {
+      busy(yes, "Deleting...");
+      try {
+        await sendJSON("DELETE", `/api/lineups/${state.loaded.id}`);
+        const gone = state.loaded.name;
+        state.loaded = null;
+        redraw();
+        say(`Deleted "${gone}". The lineup in the editor is unchanged.`);
+      } catch (err) {
+        say(err.message, true);
+        yes.disabled = false; yes.textContent = "Yes, delete";
+      }
+    });
+    yes.focus();
+  });
+
+  return el("div", { class: "saved-bar" },
+    el("div", { class: "saved-row" }, select, load),
+    el("div", { class: "saved-row" }, name, saveNew, update, rename, del,
+      state.loaded ? el("span", { class: "muted", text: `Loaded: ${state.loaded.name}` }) : null),
+    confirmRow);
+}
+
+// ---- Report tab ---------------------------------------------------------
+
+function renderReport(ctx) {
+  const next = ctx.next_meeting;
+  if (editor.draft.title === null) {
+    editor.draft.title = `${ctx.us.team.abbreviation} vs ${ctx.them.team.abbreviation}` +
+      (next ? `, ${formatDay(next.date, { month: "short", day: "numeric" })}` : "");
+  }
+  const title = el("input", { class: "input input-wide", type: "text", maxlength: "120", id: "report-title", value: editor.draft.title });
+  const notes = el("textarea", { class: "textarea", id: "report-notes", rows: "10", maxlength: "10000",
+    placeholder: "Keys to the game, coverages, who to load up on..." });
+  notes.value = editor.draft.notes;
+  title.addEventListener("input", () => { editor.draft.title = title.value; });
+  notes.addEventListener("input", () => { editor.draft.notes = notes.value; });
+  const message = el("p", { class: "side-message", role: "status" });
+  const save = el("button", { type: "button", class: "btn btn-primary", text: "Save report" });
+  const box = el("div", { "data-matchup-box": "summary" });
+
+  save.addEventListener("click", async () => {
+    const problem = lineupProblem(ctx, "us") || lineupProblem(ctx, "them");
+    if (!title.value.trim()) { message.textContent = "Give the report a title."; message.className = "side-message loss"; title.focus(); return; }
+    if (problem) { message.textContent = problem; message.className = "side-message loss"; return; }
+    save.disabled = true; save.textContent = "Saving...";
+    message.textContent = ""; message.className = "side-message";
+    const lineup = (side) => ({ player_ids: editor[side].ids || undefined, overrides: overridesPayload(side) });
+    try {
+      const report = await postJSON("/api/reports", {
+        us_team_id: ctx.us.team.team_id, them_team_id: ctx.them.team.team_id,
+        game_id: next ? next.game_id : null, title: title.value, notes: notes.value,
+        us_lineup: lineup("us"), them_lineup: lineup("them"),
+      });
+      fill(message, "Saved. ", el("a", { href: `/reports/${report.id}`, text: "Open the saved report" }),
+        el("span", { class: "muted", text: " The matchups are stored as they are now." }));
+      message.className = "side-message";
+    } catch (err) {
+      message.textContent = err.message;
+      message.className = "side-message loss";
+    }
+    save.disabled = false; save.textContent = "Save report";
+  });
+
+  fill(root,
+    el("section", { class: "panel span-12", "aria-label": "Report" },
+      el("div", { class: "panel-head", style: "justify-content: space-between" },
+        el("h2", { class: "panel-title", text: "Scouting report" }),
+        el("span", { class: "panel-note", text: "Notes only for now. AI-written text comes later." })),
+      el("div", { class: "form-body" },
+        el("label", { class: "field" }, el("span", { class: "label", text: "Title" }), title),
+        el("label", { class: "field" }, el("span", { class: "label", text: "Notes" }), notes),
+        el("div", { class: "form-actions" }, save, message))),
+    el("section", { class: "panel span-12", "aria-label": "What will be saved" },
+      el("div", { class: "panel-head", style: "justify-content: space-between" },
+        el("h2", { class: "panel-title", text: "What will be saved" }),
+        el("span", { class: "panel-note", text: "Both lineups and the matchups at this moment" })),
+      box));
+  drawMatchupBox(box, ctx);
+  if (!editor.result && !editor.loading) fetchMatchups(ctx);
 }

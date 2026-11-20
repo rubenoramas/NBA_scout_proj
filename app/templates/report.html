@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Saved report | Opponent Scout{% endblock %}
+{% block page %}report{% endblock %}
+{% block content %}
+<nav class="crumbs" style="margin-bottom: 12px"><a href="/reports">&#8249; All saved reports</a></nav>
+<div id="report" class="dash" aria-live="polite"></div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/report.js') }}"></script>
+{% endblock %}

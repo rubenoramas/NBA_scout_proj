@@ -61,13 +61,45 @@ def get_model():
     return _cache["model"]
 
 
-def out_players(team_id):
-    return {d["_id"] for d in db.injuries.find({"team_id": team_id, "status": "Out"})}
+STATUSES = ["Out", "Doubtful", "Questionable", "Probable", "Available"]
+
+
+def parse_overrides(raw, label):
+    """Overrides arrive as [{"player_id", "status"}] or {player_id: status}.
+    Returns ({pid: status}, error message)."""
+    if raw is None:
+        return {}, None
+    items = raw.items() if isinstance(raw, dict) else (
+        [(o.get("player_id"), o.get("status")) for o in raw if isinstance(o, dict)] if isinstance(raw, list) else None)
+    if items is None:
+        return None, f"The {label} overrides must be a list of {{player_id, status}}."
+    out = {}
+    for pid, status in items:
+        try:
+            pid = int(pid)
+        except (TypeError, ValueError):
+            return None, f"An override in the {label} lineup has a player id that is not a number."
+        if status not in STATUSES:
+            return None, f"\"{status}\" is not a status. Use one of: {', '.join(STATUSES)}."
+        out[pid] = status
+    return out, None
+
+
+def effective_statuses(team_id, overrides):
+    """Official injury report statuses for the team, with the user's
+    overrides for this game on top."""
+    statuses = {d["_id"]: d.get("status") for d in db.injuries.find({"team_id": team_id})}
+    statuses.update(overrides or {})
+    return statuses
+
+
+def out_players(team_id, overrides=None):
+    return {pid for pid, st in effective_statuses(team_id, overrides).items() if st == "Out"}
 
 
 def default_lineup(team_id, season, excluded):
-    """Most common starting five this season, with Out players replaced by
-    the healthy players with the most minutes."""
+    """Most common starting five this season, with Out (and Doubtful) players
+    replaced by the healthy players with the most minutes."""
     fives = Counter()
     by_game = {}
     for d in db.game_logs.find({"team_id": team_id, "season": season, "starter": True}, {"game_id": 1, "player_id": 1}):
@@ -84,41 +116,57 @@ def default_lineup(team_id, season, excluded):
     return lineup
 
 
-def validate_lineup(team_id, ids, excluded, label):
+def validate_lineup(team_id, ids, excluded, label=None):
+    """Exactly five different players from the team, nobody Out. label names
+    the side ("us" or "them") in messages; without it, "the lineup"."""
+    lineup = f"The {label} lineup" if label else "The lineup"
+    in_lineup = f"the {label} lineup" if label else "the lineup"
+    team = f"the {label} team" if label else "this team"
     if not isinstance(ids, list) or len(ids) != 5:
-        return None, f"The {label} lineup needs exactly 5 players."
+        return None, f"{lineup} needs exactly 5 players."
     try:
         ids = [int(x) for x in ids]
     except (TypeError, ValueError):
-        return None, f"The {label} lineup has a player id that is not a number."
+        return None, f"{lineup} has a player id that is not a number."
     if len(set(ids)) != 5:
-        return None, f"The {label} lineup lists the same player twice."
+        return None, f"{lineup} lists the same player twice."
     on_team = {d["_id"] for d in db.players.find({"team_id": team_id, "_id": {"$in": ids}}, {"_id": 1})}
     missing = [i for i in ids if i not in on_team]
     if missing:
-        return None, f"Player {missing[0]} is not on the {label} team."
+        return None, f"Player {missing[0]} is not on {team}."
     hurt = [i for i in ids if i in excluded]
     if hurt:
-        return None, f"Player {hurt[0]} is Out and cannot be in the {label} lineup."
+        return None, f"Player {hurt[0]} is Out and cannot be in {in_lineup}. Change his status first."
     return ids, None
 
 
-def matchups(us_id, them_id, us_lineup=None, them_lineup=None):
-    """Returns (result, error message)."""
+def matchups(us_id, them_id, us_lineup=None, them_lineup=None, us_overrides=None, them_overrides=None):
+    """Returns (result, error message). Overrides change a player's status for
+    this game: only Out excludes him, and default lineups also skip Doubtful."""
     model = get_model()
     season = model["this_season"]
     info = model["bios"]
-    out_us, out_them = out_players(us_id), out_players(them_id)
+    us_over, err = parse_overrides(us_overrides, "\"us\"")
+    if err:
+        return None, err
+    them_over, err = parse_overrides(them_overrides, "\"them\"")
+    if err:
+        return None, err
+    status_us, status_them = effective_statuses(us_id, us_over), effective_statuses(them_id, them_over)
+    out_us = {p for p, st in status_us.items() if st == "Out"}
+    out_them = {p for p, st in status_them.items() if st == "Out"}
+    skip_us = out_us | {p for p, st in status_us.items() if st == "Doubtful"}
+    skip_them = out_them | {p for p, st in status_them.items() if st == "Doubtful"}
 
     if us_lineup is None:
-        ours, us_default = default_lineup(us_id, season, out_us), True
+        ours, us_default = default_lineup(us_id, season, skip_us), True
     else:
         ours, err = validate_lineup(us_id, us_lineup, out_us, "\"us\"")
         if err:
             return None, err
         us_default = False
     if them_lineup is None:
-        theirs, them_default = default_lineup(them_id, season, out_them), True
+        theirs, them_default = default_lineup(them_id, season, skip_them), True
     else:
         theirs, err = validate_lineup(them_id, them_lineup, out_them, "\"them\"")
         if err:
@@ -181,9 +229,14 @@ def matchups(us_id, them_id, us_lineup=None, them_lineup=None):
             "top_three": [describe(s, d) for d in options],
         })
 
+    def lineup_entry(p, statuses):
+        return {"player_id": p, "player_name": name(p), "position": positions.get(p), "status": statuses.get(p)}
+
     return {
-        "us_lineup": [{"player_id": p, "player_name": name(p), "position": positions.get(p)} for p in ours],
-        "them_lineup": [{"player_id": p, "player_name": name(p), "position": positions.get(p)} for p in theirs],
+        "us_lineup": [lineup_entry(p, status_us) for p in ours],
+        "them_lineup": [lineup_entry(p, status_them) for p in theirs],
+        "overrides": {"us": [{"player_id": p, "status": st} for p, st in us_over.items()],
+                      "them": [{"player_id": p, "status": st} for p, st in them_over.items()]},
         "us_default": us_default, "them_default": them_default,
         "excluded_out": {"us": sorted(out_us), "them": sorted(out_them)},
         "rows": rows,

@@ -25,3 +25,14 @@ def mongo_is_reachable():
         return True
     except Exception:
         return False
+
+
+def ensure_user_indexes():
+    """Indexes for the two collections users write (lineups and reports).
+    The loader never rebuilds these, so they are created when the app starts.
+    create_index does nothing if the index already exists."""
+    from pymongo import ASCENDING, DESCENDING
+    db.lineups.create_index([("team_id", ASCENDING), ("updated_at", DESCENDING)])
+    db.reports.create_index([("created_at", DESCENDING)])
+    db.reports.create_index([("us_team_id", ASCENDING)])
+    db.reports.create_index([("them_team_id", ASCENDING)])

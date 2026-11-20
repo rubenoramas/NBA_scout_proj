@@ -102,3 +102,11 @@ What I learned: (yours to fill in)
 What happened: the matchup model rated Damian Lillard as the best option against every scorer and a top rim protector as one of the worst. The defender effect compared every defender with the whole league, but bigs are matched to scorers in high-scoring moments near the rim, so centers averaged +5.3 points per 100 above expected and guards -1.5.
 What fixed it: each defender is now measured against the average defender at his own position (that average is taken out before the shrinkage and before the size fit). The averages by position went from C +5.3, F -1.0, G -1.5 to C -0.2, F -0.0, G -0.1. The same validation showed pair history was trusted too early, so its k went from 50 to 200 (picked on the test window itself, so slightly optimistic). Raw prediction dropped slightly (0.181 to 0.178), which is the honest cost of removing an offset that is real in the data but is not defense.
 What I learned: (yours to fill in)
+
+## For the README: no user accounts
+The app has no user accounts or logins. All saved lineups and reports live in one MongoDB database, so everyone using a given copy of the app (one `docker-compose up`) sees and can edit the same saved lineups and reports. That is fine for a single coaching staff on one machine; accounts would be the next step for a shared deployment.
+
+## 2026-11-20: keeping saved reports stable while the data changes daily
+What happened: a saved report would read differently every day if it recomputed its matchups from the latest data, so notes written last week could stop matching the numbers beside them.
+What fixed it: the report stores a snapshot of the full matchup result when it is saved, computed by the server from the saved lineups. Only the title and notes can change afterwards; a test changes the data and checks the snapshot stays the same.
+What I learned: (yours to fill in)

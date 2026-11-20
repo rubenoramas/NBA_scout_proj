@@ -244,6 +244,25 @@ Questions:
 - What share of players have a wingspan, and why not all of them?
 - Why is "which side of the floor" left out for now?
 
+## Lineups, saved lineups and saved reports (CRUD and MongoDB)
+
+What it does: the Lineups tab lets you pick exactly five players for each team, starting from each team's most common healthy starters. Every player's status comes from the official injury report and can be changed for this game. Every change recomputes the matchups right away, without a page reload, and the Matchups and Report tabs use the same lineups. You can save a lineup with a name, load it later, rename it and delete it. The Report tab saves a report with a title and your notes, and the "Saved reports" page lists them newest first, opens one, edits its title and notes, and deletes it.
+
+How it works, in plain words:
+- **REST create, read, update and delete.** Lineups and reports each have the same five endpoints: POST to create (answers 201), GET a list, GET one by id, PUT to update, DELETE to remove (answers 204). Bad input answers 400 with a plain message, and an unknown id answers 404. The code is in `app/routes/saved.py` and `app/services/saved.py`.
+- **MongoDB persistence.** Lineups and reports live in two MongoDB collections, `lineups` and `reports`. `insert_one` creates a document, `find` and `find_one` read, `update_one` with `$set` changes only the fields sent, and `delete_one` removes one. The data is stored in the database's Docker volume, so it survives restarts, and the loader never touches these two collections when it reloads the NBA data.
+- **Ids.** MongoDB gives every new document a unique ObjectId. The API sends it as 24 characters of text and turns it back into an ObjectId to look the document up.
+- **Indexes.** Saved lineups are found by team, newest first, so `lineups` has an index on (team_id, updated_at). Reports are listed newest first, so `reports` has an index on created_at.
+- **Status overrides.** Only Out keeps a player out of a lineup. Default lineups also skip Doubtful players, but you can still pick one by hand, and he gets a warning tag.
+
+Design decision worth mentioning: a saved report keeps a snapshot of the matchups instead of recomputing them when opened. The data changes every day, so recomputing would quietly change a report you wrote last week, and your notes would no longer match the numbers beside them. The server reruns the model on the lineups when you save, so the snapshot always matches them, and after that only the title and notes can change. There are no user accounts, so everyone using a copy of the app shares its saved lineups and reports.
+
+Questions:
+- Which HTTP method creates a report, which reads one, which updates it, and which deletes it?
+- How does MongoDB give each saved report its id?
+- Why does a report store a snapshot instead of recomputing the matchups?
+- What happens when you mark a player Out in the Lineups tab?
+
 ## The matchup model
 
 What it does: the Matchups tab suggests which of our five should guard each of their five, sorted by their usage. Each row leads with how our defender changes the scorer's output against his norm, such as "holds him 3.4 below his norm" in green, then the expected points per 100 partial possessions, how much head-to-head history sits behind it, a one-line reason, and our top three options from the whole roster.
