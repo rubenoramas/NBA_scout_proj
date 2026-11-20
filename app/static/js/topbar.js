@@ -1,7 +1,7 @@
 // Top bar shared by every page: team switcher, main navigation, team
 // search and the "data as of" date.
 
-import { MY_TEAM_KEY, chip, el, fill, formatDay, getJSON, scoutUrl, store } from "./api.js";
+import { MY_TEAM_KEY, chip, el, fill, formatDay, getJSON, postJSON, scoutUrl, store } from "./api.js";
 
 let teamsPromise = null;
 let teams = [];
@@ -56,7 +56,7 @@ export function showFreshness(gamesThrough, pulledAt) {
   dot.className = `dot ${stale ? "dot-stale" : "dot-win"}`;
   const node = document.getElementById("asof");
   node.title = stale
-    ? "The data was pulled more than 2 days ago. Run ./refresh.sh to update it."
+    ? "The data was pulled more than 2 days ago. Use Refresh data, or run ./refresh.sh."
     : "Latest game in the data, and when the data was pulled.";
   node.hidden = false;
 }
@@ -179,3 +179,119 @@ if (window.location.pathname.startsWith("/reports")) {
   const link = document.getElementById("nav-reports");
   if (link) link.setAttribute("aria-current", "page");
 }
+
+// ---- Refresh data button ---------------------------------------------------
+// Starts a refresh job (R pulls in the optional refresher container, then a
+// database reload), shows the current step, polls the status, and updates
+// the freshness line and a row-count summary in place when it is done.
+
+const POLL_MS = 2000;
+const refreshBtn = document.getElementById("refresh-btn");
+const refreshWrap = document.getElementById("refresh-wrap");
+const refreshPanel = document.getElementById("refresh-panel");
+const refreshHelp = document.getElementById("refresh-help");
+let pollTimer = null;
+
+function setRefreshHelp(text) {
+  refreshWrap.title = text || "";
+  refreshHelp.textContent = text || "";
+}
+
+function closeButton() {
+  const b = el("button", { type: "button", class: "btn btn-small", text: "Close" });
+  b.addEventListener("click", () => { refreshPanel.hidden = true; refreshBtn.focus(); });
+  return b;
+}
+
+function showPanel(...children) {
+  fill(refreshPanel, ...children);
+  refreshPanel.hidden = false;
+}
+
+function runningState(step) {
+  refreshBtn.disabled = true;
+  refreshBtn.textContent = step || "Refreshing...";
+  setRefreshHelp("A refresh is running. It usually takes a few minutes.");
+}
+
+function idleState() {
+  refreshBtn.disabled = false;
+  refreshBtn.textContent = "Refresh data";
+  setRefreshHelp("Run the R pulls and reload the database. Takes a few minutes.");
+}
+
+function showDone(job) {
+  idleState();
+  if (job.freshness) showFreshness(job.freshness.data_as_of, job.freshness.pulled_at);
+  const rows = job.changes || [];
+  const sign = (n) => (n > 0 ? `+${n}` : String(n));
+  showPanel(
+    el("h3", { text: "Data refreshed" }),
+    rows.length
+      ? el("div", { class: "refresh-table" },
+        ["Collection", "Before", "After", "Change"].map((t) => el("span", { class: "refresh-head", text: t })),
+        rows.flatMap((r) => [el("span", { text: r.collection }), el("span", { text: r.before.toLocaleString() }),
+          el("span", { text: r.after.toLocaleString() }), el("span", { class: r.change < 0 ? "loss" : "", text: sign(r.change) })]))
+      : el("p", { text: "No row counts changed. The data was already up to date." }),
+    el("p", { class: "muted", text: "Reload a page to see the new numbers. The seed files in data/seed/ changed; commit them only at milestones." }),
+    el("div", { class: "actions" }, closeButton()));
+}
+
+function showFailed(message) {
+  idleState();
+  const retry = el("button", { type: "button", class: "btn btn-small", text: "Try again" });
+  retry.addEventListener("click", startRefresh);
+  showPanel(el("h3", { class: "loss", text: "Refresh failed" }), el("p", { text: message }),
+    el("div", { class: "actions" }, retry, closeButton()));
+}
+
+async function poll(jobId) {
+  clearTimeout(pollTimer);
+  let job;
+  try {
+    job = await getJSON(`/api/refresh/${jobId}`);
+  } catch (err) {
+    // A slow answer is not a failed refresh: keep polling, say so quietly.
+    runningState("Checking...");
+    pollTimer = setTimeout(() => poll(jobId), POLL_MS * 2);
+    return;
+  }
+  if (job.state === "done") { showDone(job); return; }
+  if (job.state === "failed") { showFailed(job.error); return; }
+  runningState(job.step_note || job.step);
+  pollTimer = setTimeout(() => poll(jobId), POLL_MS);
+}
+
+async function startRefresh() {
+  refreshPanel.hidden = true;
+  runningState("Starting...");
+  try {
+    const job = await postJSON("/api/refresh", {});
+    poll(job.job_id);
+  } catch (err) {
+    // Already running, for example from another tab: follow that job.
+    const status = await getJSON("/api/refresh/status").catch(() => null);
+    if (status && status.job) { poll(status.job.job_id); return; }
+    showFailed(err.message);
+  }
+}
+
+async function initRefresh() {
+  if (!refreshBtn) return;
+  refreshBtn.addEventListener("click", startRefresh);
+  let status;
+  try {
+    status = await getJSON("/api/refresh/status");
+  } catch {
+    setRefreshHelp("Could not check whether the refresher is running.");
+    return;
+  }
+  if (status.job) { poll(status.job.job_id); return; } // resume a job started earlier
+  if (!status.refresher) {
+    refreshBtn.disabled = true;
+    setRefreshHelp(status.how_to_start);
+    return;
+  }
+  idleState();
+}
+initRefresh();

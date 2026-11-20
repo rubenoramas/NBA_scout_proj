@@ -28,7 +28,8 @@ def mongo_is_reachable():
 
 
 def ensure_user_indexes():
-    """Indexes for the two collections users write (lineups and reports).
+    """Indexes for the collections the app writes (lineups, reports and
+    refresh_jobs).
     The loader never rebuilds these, so they are created when the app starts.
     create_index does nothing if the index already exists."""
     from pymongo import ASCENDING, DESCENDING
@@ -36,3 +37,8 @@ def ensure_user_indexes():
     db.reports.create_index([("created_at", DESCENDING)])
     db.reports.create_index([("us_team_id", ASCENDING)])
     db.reports.create_index([("them_team_id", ASCENDING)])
+    # At most one active refresh job: a unique index that only covers
+    # documents with active: true. A second active job is rejected.
+    db.refresh_jobs.create_index([("active", ASCENDING)], unique=True,
+                                 partialFilterExpression={"active": True}, name="one_active_job")
+    db.refresh_jobs.create_index([("created_at", DESCENDING)])

@@ -342,6 +342,23 @@ Questions:
 - What happens if the API key is missing or the AI service is slow?
 - Why does a saved report store the model name and prompt version?
 
+## Refreshing from the app (optional refresher service)
+
+What it does: the "Refresh data" button in the top bar updates the data without leaving the app. It shows each step ("Pulling games...", "Pulling shots...", "Pulling player stats...", "Reloading database..."), then updates the "Games through" line and shows a table of how many rows each collection gained. If a pull fails, it says which one and why. If the refresher is not running, the button is disabled and its tooltip says to run `docker compose --profile refresh up` or `./refresh.sh`.
+
+How it works, in plain words:
+- **An optional container for R.** The pulls are R scripts and the web container has no R, so a separate "refresher" service has R, hoopR, arrow, dplyr and jsonlite. It sits behind a Compose profile: plain `docker-compose up --build` skips it, and `docker compose --profile refresh up --build` adds it. It has no port on the host, so only the web app can talk to it over Docker's internal network.
+- **Prebuilt packages.** The image is rocker/r2u, which installs R packages as ready-made binaries, so arrow is not compiled. hoopR comes from the SportsDataverse r-universe because r2u's copy is older, and the build fails with a clear message if hoopR is below 3.2.0 or arrow is missing.
+- **Jobs in MongoDB.** POST /api/refresh creates a job document and asks the refresher to start. GET /api/refresh/<id> asks the refresher how far it got. When the pulls finish, the web app reloads MongoDB with the same loader used at startup and stores what changed. The page polls every 2 seconds with fetch.
+- **One at a time.** A partial unique index lets only one job be marked active, so a second click gets "A refresh is already running" instead of a second set of pulls.
+
+Design decision worth mentioning: R stays out of the main image and out of the default build. The grader's `docker-compose up --build` is exactly as fast as before, and the refresh feature is there for whoever wants it. Refreshed seed files are still committed only at milestones, never automatically.
+
+Questions:
+- Why does the refresher run in its own container, and why is it behind a profile?
+- How does the app make sure only one refresh runs at a time, even with two web workers?
+- What does the button show when the refresher is not running?
+
 ## AI in the project
 
 AI shows up in three places:

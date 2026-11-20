@@ -523,3 +523,29 @@ System prompt, version report-v2 (`app/report/system_prompt.md`):
 > 4. matchup_notes: one note for each pairing in the facts' matchups, naming their player and our defender.
 
 report-v1 was the same text without the last sentence of item 3 (about players whose status is Out). It changed after a POR vs LAL draft could have listed Austin Reaves, who is Out, among the players to watch, because the facts did not say who was playing.
+
+
+## 2026-11-20: Refresh data button and the optional refresher service
+
+Prompt:
+> Plan, then add a "Refresh data" button to the right side of the top bar, next to the freshness line.
+>
+> Constraint: the pulls are R scripts, and the web container has no R. Build it like this:
+> - A separate optional Docker Compose service, "refresher", built from an R image with hoopR, arrow, dplyr and jsonlite installed. Put it behind a Compose profile so the default docker-compose up --build does not build it, and the grader's build stays fast. Prefer prebuilt binary packages so the build does not compile arrow from source.
+> - The refresher runs the same pull scripts as refresh.sh, writes to data/seed/, and is reachable only on the internal Docker network.
+> - POST /api/refresh starts a refresh job and returns a job id. Only one job can run at a time. GET /api/refresh/<job id> reports its status and current step. When the pulls finish, the web app reloads MongoDB with the existing loader code, then reports what changed.
+> - The button: shows the current step while it runs ("Pulling games...", "Reloading database..."), polls the status with fetch, then updates the freshness line and the row-count summary in place. It shows plain errors if a pull fails.
+> - If the refresher is not running, the button is disabled with a tooltip explaining how to start it (docker compose --profile refresh up) or to run ./refresh.sh.
+> - Refreshed seed files are still not committed automatically. Keep the milestone rule.
+>
+> Document the profile command in docs/NOTES.md for the README and in VIDEO_NOTES. Add tests for the job endpoints with the refresher mocked. Check it in the browser, including the disabled state, then commit and push.
+
+Prompt (approval):
+> Approved. Answers:
+> 1. Use rocker/r2u pinned by digest. But check the hoopR version r2u installs: my laptop uses hoopR 3.2.0 from the SportsDataverse r-universe, and loaders like load_nba_stats_game_matchups may be missing in older versions. If r2u's hoopR is older than 3.2.0, install hoopR from https://sportsdataverse.r-universe.dev instead. Make the build fail with a clear message if hoopR is below 3.2.0 or arrow is missing.
+> 2. Pin the image digest and record the installed package versions in docs/NOTES.md. No per-package apt pins.
+> 3. Keep the refreshed data locally and do not commit it. From now on, stage files by name in commits, so the changed seed files are not swept in by accident until a milestone commit.
+>
+> Build it, run a real refresh in the browser, then commit and push.
+
+Result: optional "refresher" Compose service behind the refresh profile (rocker/r2u pinned by digest, R packages as binaries, hoopR 3.2.0 from the SportsDataverse r-universe, build check for hoopR and arrow) running the refresh.sh pull scripts through a small standard-library job server on the internal network; POST /api/refresh, GET /api/refresh/<id> and GET /api/refresh/status with jobs in a refresh_jobs MongoDB collection (partial unique index allows one active job) and a reload with the existing loader; Refresh data button in the top bar with steps, polling, in-place freshness and row-count summary, plain errors, and a disabled state with start instructions; 10 new tests with the refresher and loader mocked (111 total); one real refresh run from the browser, seed files kept local and not committed

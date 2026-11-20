@@ -124,3 +124,30 @@ What I learned: (yours to fill in)
 
 ## For the README: the AI model and prompts
 The AI report uses `claude-sonnet-5-5` through the Anthropic Messages API with the official `anthropic` Python package 2.12.0, effort medium, max_tokens 4000 and JSON schema output. Set `REPORT_MODEL=claude-haiku-5-5` in .env to use Claude Haiku 5.5 instead. The system prompt is in `app/report/system_prompt.md` (version report-v2) and is quoted in `docs/PROMPTS.md`. A report costs about 3.3 cents with Sonnet 5.5 (about 9,000 input and 1,450 output tokens) and takes about 10 seconds. Without ANTHROPIC_API_KEY the app starts normally and the report screens say to add a key.
+
+
+## For the README: refreshing from the app (optional)
+The "Refresh data" button in the top bar runs the same R pulls as `./refresh.sh` inside an optional container, so R does not have to be installed on the laptop. It is off by default, and the normal `docker-compose up --build` does not build it. To use it:
+
+```
+docker compose --profile refresh up --build
+```
+
+The first build downloads an R image and takes a few minutes. The button then shows each step and a table of what changed. A full refresh takes several minutes. Keep the laptop awake and plugged in: a sleeping laptop freezes Docker and the pulls stall. Without the profile, the button is disabled and its tooltip says how to start it. The refresher has no port on the host; only the web container can reach it.
+
+Refreshed seed files are not committed automatically. Commit `data/seed/` only at milestones (before the demo video and before submitting).
+
+Refresher image and package versions (recorded 2026-11-20):
+- Image: `rocker/r2u:24.04@sha256:cf1c8151046db092ec3d4c45bdc67488f0221263f9e857390f367a41b20c953c`, R 4.6.2
+- hoopR 3.2.0 (from https://sportsdataverse.r-universe.dev, because r2u has 3.1.0), arrow 26.0.1, dplyr 1.2.1, jsonlite 2.0.0 (prebuilt binaries from r2u)
+- The build stops with "BUILD CHECK FAILED" if hoopR is older than 3.2.0 or arrow is missing. The versions are printed in the build log.
+
+## 2026-11-20: one refresh at a time across two web workers
+What happened: gunicorn runs two worker processes, so a job kept in memory by the worker that started it is invisible to the other worker that answers the next status poll.
+What fixed it: jobs live in a MongoDB collection, refresh_jobs. A partial unique index on "active" (only documents with active: true) makes the database reject a second running job, even if two clicks land at once. When the pulls finish, one request claims the reload with find_one_and_update, so the loader never runs twice.
+What I learned: (yours to fill in)
+
+## 2026-11-20: a refresh that never finished
+What happened: the first real refresh sat on "Steals from ESPN play-by-play" for 20 minutes. The same download takes about 3 seconds when tested alone. The laptop was asleep on battery for much of that time, which freezes the Docker VM and can leave a download hanging forever, and hoopR's downloads have no timeout of their own. The time limit in the job server was only checked when R printed a line, so a silent hang was never stopped.
+What fixed it: a watchdog timer kills a pull script after 20 minutes even if it prints nothing, and the page then says which pull failed. Run refreshes with the laptop awake and plugged in; the second run finished and loaded 368 new box score lines.
+What I learned: (yours to fill in)

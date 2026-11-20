@@ -10,6 +10,7 @@ from app.db import ensure_user_indexes
 from app.routes.games import games_bp
 from app.routes.health import health_bp
 from app.routes.players import players_bp
+from app.routes.refresh import refresh_bp
 from app.routes.saved import saved_bp
 from app.routes.teams import teams_bp
 
@@ -24,6 +25,7 @@ def create_app():
     app.register_blueprint(games_bp)
     app.register_blueprint(players_bp)
     app.register_blueprint(saved_bp)
+    app.register_blueprint(refresh_bp)
 
     try:
         ensure_user_indexes()

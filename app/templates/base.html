@@ -34,6 +34,11 @@
       <span id="asof-dot" class="dot dot-win" aria-hidden="true"></span>
       <span id="asof-text"></span>
     </div>
+    <div class="refresh-wrap" id="refresh-wrap">
+      <button type="button" class="btn btn-small" id="refresh-btn" disabled aria-describedby="refresh-help">Refresh data</button>
+      <span id="refresh-help" class="sr-only"></span>
+      <div id="refresh-panel" class="refresh-panel" role="status" aria-live="polite" hidden></div>
+    </div>
   </header>
   {% block band %}{% endblock %}
   <main class="main">

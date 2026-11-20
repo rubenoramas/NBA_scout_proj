@@ -11,6 +11,8 @@ services:
     volumes:
       - ./app:/code/app
       - ./tests:/code/tests
+      # Read-only, so the Refresh data button can reload MongoDB with the loader.
+      - ./data/seed:/code/data/seed:ro
     depends_on:
       mongo:
         condition: service_healthy
@@ -28,6 +30,17 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+
+  # Optional. Runs the R pulls for the "Refresh data" button. Not built or
+  # started by the default docker-compose up --build. Start it with:
+  #   docker compose --profile refresh up --build
+  # No ports: only the web container can reach it, on the internal network.
+  refresher:
+    build: ./refresher
+    profiles: ["refresh"]
+    volumes:
+      - ./pulls:/work/pulls:ro
+      - ./data/seed:/work/data/seed
 
   mongo:
     image: mongo:8.0.38
