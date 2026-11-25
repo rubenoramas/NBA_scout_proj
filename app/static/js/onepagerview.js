@@ -3,7 +3,7 @@
 // GET /api/players/<id>/onepager; the "How to guard him" box loads its text
 // separately, because writing it can take a few seconds.
 
-import { el, feetInches, fill, formatDay, injuryTag, pct1, postJSON, rankText, tag } from "./api.js";
+import { ONOFF_NOTE, el, feetInches, fill, formatDay, injuryTag, pct1, postJSON, rankText, signed1, tag } from "./api.js";
 import { flagLine, modelLine } from "./aireport.js";
 import { normEffect } from "./matchtable.js";
 import { drawShotChart } from "./shotchart.js";
@@ -85,6 +85,27 @@ function seasonLine(page) {
     tile("GP", s.gp), tile("MIN", d1(s.min)), tile("PTS", d1(s.pts)), tile("REB", d1(s.reb)), tile("AST", d1(s.ast)),
     tile("TOV", d1(s.tov)), tile("FG%", pct1(s.fg_pct)), tile("3P%", pct1(s.fg3_pct)), tile("FT%", pct1(s.ft_pct)),
     tile("TS%", pct1(s.ts_pct)), usage);
+}
+
+// One line: his on-off net this season, last season beside it.
+function onoffLine(page) {
+  const o = page.onoff;
+  if (!o) return null;
+  const team = (page.team || {}).abbreviation || page.player.team_abbr;
+  const part = (s) => {
+    if (s.empty) return `${s.season}: no games`;
+    if (!s.shown) return `${s.season}: not enough minutes`;
+    return `${s.season} ${signed1(s.on_off_net)} (${s.on.poss} on, ${s.off.poss} off${s.small_sample ? ", small sample" : ""})`;
+  };
+  const t = o.this_season;
+  const lead = t.shown && !t.empty
+    ? `${team} is ${Math.abs(t.on_off_net).toFixed(1)} per 100 ${t.on_off_net >= 0 ? "better" : "worse"} with him on the floor.`
+    : "Not enough minutes for an on/off number this season.";
+  return el("p", { class: "op-onoff" },
+    el("span", { class: "label", text: "On/off net " }),
+    el("span", { class: "strong", text: lead }),
+    t.small_sample && t.shown ? [" ", tag("Small sample", "gold")] : null,
+    el("span", { class: "muted", text: ` ${part(t)} · ${part(o.last_season)}. ${ONOFF_NOTE}` }));
 }
 
 // ---- How to guard him (AI) -----------------------------------------------
@@ -278,6 +299,7 @@ export function renderSheet(page) {
   return el("article", { class: "sheet", "aria-label": `One-pager: ${page.player.player_name}` },
     header(page),
     seasonLine(page),
+    onoffLine(page),
     el("div", { class: "sheet-grid" },
       guardBox(page),
       ratingsBox(page),

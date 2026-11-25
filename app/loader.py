@@ -86,6 +86,7 @@ INDEXES = {
     "matchup_pairs": [IndexModel([("off_id", ASCENDING)]), IndexModel([("def_id", ASCENDING)])],
     "matchup_games": [IndexModel([("game_id", ASCENDING)]), IndexModel([("game_date", ASCENDING)])],
     "matchup_top": [IndexModel([("game_id", ASCENDING)])],
+    "player_onoff": [IndexModel([("player_id", ASCENDING), ("season", ASCENDING)])],
 }
 
 

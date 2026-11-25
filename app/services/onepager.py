@@ -11,6 +11,7 @@ whom, parsed from the play-by-play).
 from app.db import db
 from app.services.context import current_season, get_team
 from app.services.matchups import best_defenders, parse_overrides
+from app.services.onoff import player_onoff
 from app.services.players import injury_for, per_game, top_shot_types, usage_for, usage_table
 
 # Play type names as the NBA files spell them, and how the page says them.
@@ -172,4 +173,6 @@ def build_page(player_id, vs_id, overrides=None):
                   "top_types": top_shot_types(player_id), "chart": shots},
         "play_types": play_type_mix(player_id, season, last_season),
         "feeders": feeders(player_id, doc.get("team_id")),
+        # Shown as one line; not part of the facts Claude sees.
+        "onoff": player_onoff(player_id),
     }, None

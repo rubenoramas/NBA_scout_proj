@@ -496,6 +496,12 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
 .spots-cell { grid-column: 3 / 7; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; white-space: normal !important; padding: 4px 0; }
 .lm-cell { display: inline-flex; gap: 6px; align-items: center; }
 
+/* ---- On/off ----------------------------------------------------------- */
+.cols-onoff { grid-template-columns: 80px repeat(3, 64px) 56px repeat(3, 64px) 56px 72px 110px minmax(0, 1fr); }
+.onoff-span { grid-column: 2 / -1; }
+.onoff-cell { display: inline-flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.op-onoff { padding: 8px 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; line-height: 1.5; }
+
 /* ---- Player one-pager ------------------------------------------------ */
 .sheet-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
 .sheet-toolbar .spacer { flex: 1 1 auto; }
@@ -617,6 +623,7 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
   .rating-bar { height: 5px; }
   .op-badges { padding: 4px 10px 5px; gap: 2px; }
   .op-status { padding: 3px 10px 0; font-size: 8px; }
+  .op-onoff { padding: 3px 8px; font-size: 8.5px; line-height: 1.35; }
   .trow { min-height: 17px; padding: 0 10px; column-gap: 6px; }
   .trow.thead, .trow.short-head { min-height: 16px; font-size: 8px; }
   .level { padding: 2px 10px 4px; }

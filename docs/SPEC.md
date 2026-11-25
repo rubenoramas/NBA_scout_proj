@@ -173,6 +173,18 @@ Limits:
 - Ratings are unstable a month into a season. They need a minimum volume and a blend with last season.
 - Badge names and art should be our own. Every badge name lives in one config file, so a rename is one edit. "Deep Range" and "Poster Maker" replace two earlier working names that were also NBA 2K badge names.
 
+## On/off impact
+
+Built Nov 25. For each player and season: his team's offensive, defensive and net rating per 100 possessions with him on the floor and off it, the on-off difference (net on minus net off), and the possessions behind each.
+
+- Source: NBA play-by-play plus the game lineups file, which give the ten players on the floor for every play. Regular season only.
+- Points: the running score is carried forward and each change goes to the ten players on the floor. Free throws go to the ten players on the floor at the foul that caused them.
+- Possessions are counted from the play-by-play's possession numbers (an offensive rebound continues a possession), credited to the players on the floor when the possession ends, with the same free throw rule.
+- "Off" counts only games he played. A traded player's season line sums his teams.
+- Not shown under 250 possessions on the floor. Tagged as a small sample under 1,000 possessions on or off.
+- Shown in the roster table (sortable "On/off net"), on the player card (both seasons) and as one line on the one-pager. Not passed to the LLM. Every place shows the note: on/off is noisy and depends on who a player shares the floor with, so read it alongside the other numbers.
+- Checks (Nov 25): points equal every game's final score; counted possessions per 48 correlate 0.998 with team pace and run about 0.9 lower, because pace is an estimate.
+
 ## Rotation scouting
 
 This view shows the opponent's most-used lineups, tags each one, and suggests a counter lineup from our roster.

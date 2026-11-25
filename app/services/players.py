@@ -97,8 +97,10 @@ def badge_summary(attr):
 
 
 def roster(team_id):
+    from app.services.onoff import by_player, compact
     this_season = current_season()
     meta = db.meta.find_one({"_id": "seed"}) or {}
+    onoff_this, onoff_last = by_player(this_season), by_player(meta.get("last_season"))
     this_usage = usage_table(this_season)
     last_usage = usage_table(meta.get("last_season"))
     injuries = {d["_id"]: d for d in db.injuries.find({"team_id": team_id})}
@@ -115,6 +117,8 @@ def roster(team_id):
             "injury": {"status": inj.get("status"), "reason": inj.get("reason")} if inj else None,
             "badges": badge_summary(attrs.get(doc["_id"])),
             "usage": usage_for(doc["_id"], this_usage, last_usage),
+            "onoff": {"this_season": compact(onoff_this.get(doc["_id"])),
+                      "last_season": compact(onoff_last.get(doc["_id"]))},
         })
     # Most minutes first; players with no stats at the bottom.
     rows.sort(key=lambda r: -(r["season"]["min"] if r["season"] else -1))
@@ -217,8 +221,10 @@ def player_card(player_id):
     attr = db.attributes.find_one({"_id": player_id}, {"_id": 0}) or None
     meta = db.meta.find_one({"_id": "seed"}) or {}
     usage = usage_for(player_id, usage_table(season), usage_table(meta.get("last_season")))
+    from app.services.onoff import player_onoff
     return {
         "usage": usage,
+        "onoff": player_onoff(player_id),
         "attributes": attr,
         "player": {k: doc.get(k) for k in bio_keys},
         "team": team,

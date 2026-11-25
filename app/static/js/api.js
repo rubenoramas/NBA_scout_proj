@@ -236,6 +236,12 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// On/off: signed per-100 value, and the note shown wherever it appears.
+export const ONOFF_NOTE = "On/off is noisy and depends on who a player shares the floor with, so read it alongside the other numbers.";
+export function signed1(v) {
+  return v === null || v === undefined ? "–" : `${v > 0 ? "+" : ""}${Number(v).toFixed(1)}`;
+}
+
 // "1" -> "1st", "22" -> "22nd"
 export function rankText(rank) {
   if (!rank) return null;

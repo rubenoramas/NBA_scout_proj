@@ -1,7 +1,7 @@
 // Player card: /player/<player_id>
 
 import {
-  MY_TEAM_KEY, badgeTip, badgeWithTip, chevron, chip, el, emptyLine, errorLine, feetInches, fill, formatDay, getJSON,
+  MY_TEAM_KEY, ONOFF_NOTE, signed1, badgeTip, badgeWithTip, chevron, chip, el, emptyLine, errorLine, feetInches, fill, formatDay, getJSON,
   injuryTag, pct1, rankText, resultChip, skeletonRows, store, tag,
 } from "./api.js";
 import { chartLegend, drawShotChart } from "./shotchart.js";
@@ -341,9 +341,39 @@ function ratingsPanel() {
 }
 let tipCount = 0;
 
+// On/off: team ratings per 100 possessions with him on the floor and off it,
+// this season with last season beside it.
+function onoffPanel() {
+  const o = card.onoff;
+  const rows = [o.this_season, o.last_season].map((s) => {
+    const label = el("span", { class: "strong", text: s.season || "–" });
+    if (s.empty || !s.shown) {
+      return el("div", { class: "trow cols-onoff" }, label,
+        el("span", { class: "muted onoff-span", text: s.empty ? "No games played." : `Not enough minutes (${s.on.poss} possessions on; ${o.rules.show_min_poss} needed).` }));
+    }
+    const num = (v, cls = "text-2") => el("span", { class: `num ${cls}`, text: v === null ? "–" : Number(v).toFixed(1) });
+    const net = (v) => el("span", { class: `num strong ${v > 0 ? "win" : v < 0 ? "loss" : ""}`, text: signed1(v) });
+    return el("div", { class: "trow cols-onoff" }, label,
+      num(s.on.off_rating), num(s.on.def_rating), net(s.on.net_rating), el("span", { class: "num muted", text: s.on.poss }),
+      num(s.off.off_rating), num(s.off.def_rating), net(s.off.net_rating), el("span", { class: "num muted", text: s.off.poss }),
+      net(s.on_off_net),
+      el("span", { class: "num" }, s.small_sample ? tag("Small sample", "gold") : null),
+      s.teams ? el("span", { class: "muted onoff-teams", text: `${s.teams.length} teams combined` }) : el("span"));
+  });
+  return panel("span-12", "On/off", "Team per 100 possessions with him on the floor and off it, in games he played",
+    el("div", { class: "table-scroll" }, el("div", { style: "min-width: 960px" },
+      el("div", { class: "trow thead short-head cols-onoff" },
+        el("span", { text: "Season" }),
+        ["On ORtg", "On DRtg", "On net", "Poss", "Off ORtg", "Off DRtg", "Off net", "Poss", "On-off"].map((t) => el("span", { class: "num", text: t })),
+        el("span"), el("span")),
+      rows)),
+    el("p", { class: "panel-foot", text: `ORtg is points his team scores per 100 possessions, DRtg points it allows, net the difference. On-off is the net with him on minus the net with him off. `
+      + `Free throws count for the players on the floor at the foul. Small sample: under ${o.rules.small_poss.toLocaleString("en-US")} possessions on or off. ${ONOFF_NOTE}` }));
+}
+
 function render() {
   renderBand();
-  fill(root, seasonPanel(), ratingsPanel(), chartPanel(), zonePanel(), topTypesPanel(), lastGamesPanel());
+  fill(root, seasonPanel(), ratingsPanel(), onoffPanel(), chartPanel(), zonePanel(), topTypesPanel(), lastGamesPanel());
 }
 
 load();

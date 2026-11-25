@@ -398,6 +398,24 @@ Questions:
 - How does the app know which shots were taken against a team, when each shot only names the team that took it?
 - What exactly does "3 in 4 nights" count, and why are the tags shown without any color for good or bad?
 
+## On/off impact
+
+What it does: for every player, how his team scores and allows per 100 possessions with him on the floor and with him off it, and the difference in net rating ("on-off net"), with the possessions behind each. This season and last season sit side by side. It shows as a sortable column in the roster table, a panel on the player card and one line on the one-pager, always with the note that on/off is noisy and depends on who a player shares the floor with.
+
+How it works, in plain words:
+- **Ten players on every play.** The NBA's play-by-play and its game lineups file line up row for row, so every play has the ten players on the floor, the running score and a possession number.
+- **Points.** The score only appears when it changes, so the R pull carries it forward and gives each change to the ten players on the floor. Free throws go to the ten players on the floor at the foul, not when the shots are taken, because teams substitute between free throws.
+- **Possessions are counted, not estimated.** The file numbers every possession, and an offensive rebound keeps the number, so a possession lasts until the ball changes hands. Each one is credited to the players on the floor when it ends.
+- **Checks.** Summed points equal the final score in every regular-season game of both seasons (1,491 games). Counted possessions per 48 minutes correlate 0.998 with each team's pace in the team stats, and run about 0.9 lower, because the NBA's pace uses an estimate formula and counted possessions come in a little lower.
+- **"Off" means games he played.** A long injury does not count as time off the floor.
+
+Design decision worth mentioning: the free throw rule mattered more than expected. Last season's play-by-play lists most substitutions made during free throws before or between the shots, and this season's lists them after, so crediting free throws "when shot" treated the two seasons differently. Crediting them at the foul moved 11,412 of last season's 45,220 free throw points (394 of 9,852 this season) and makes the seasons comparable.
+
+Questions:
+- Why count possessions instead of using the usual estimate, and how did you check the count?
+- Why are free throws credited to the players on the floor at the foul?
+- Why does nearly every player this season carry a small-sample tag, and what does "off" include?
+
 ## AI in the project
 
 AI shows up in three places:

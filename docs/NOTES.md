@@ -166,3 +166,13 @@ What I learned: (yours to fill in)
 What happened: the per-game matchup data in the app covered only this season's regular season, so last season's meetings (and every playoff game) had no "who guarded whom". Keeping every matchup row for last season would add about 258,000 rows and several MB of seed data.
 What fixed it: the R pull keeps only each scorer's top defender per game, with the scorer's totals, for both seasons and every game type (season_type_id 2, 4, 5 and 6): 34,440 rows, 1.5 MB. The matchup model keeps reading its own regular-season files, so its numbers do not change.
 What I learned: (yours to fill in)
+
+## 2026-11-25: free throws and substitutions in the play-by-play
+What happened: crediting free throws to the players on the floor when they were shot gave very different results by season. Last season's play-by-play lists most substitutions made during free throws before the first shot (6,284) or between the shots (16,441); this season's lists them after the last shot (4,813 of 5,704). The same rule treated the two seasons differently.
+What fixed it: free throws, and possessions that end on a free throw, are credited to the ten players on the floor at the foul (the latest Foul row before them). That moved 11,412 of 45,220 free throw points last season and 394 of 9,852 this season. Possessions are credited at their last real play, so a substitution listed after the free throws does not take the possession.
+What I learned: (yours to fill in)
+
+## 2026-11-25: counted possessions run a little under the NBA's pace
+What happened: possessions counted from the play-by-play correlate 0.998 with the team stats' pace but run 0.8 to 1.1 lower for every team.
+What fixed it: nothing was missing. The NBA's pace uses an estimate (FGA + 0.44 x FTA - OREB + TOV); on the same 261 games the box-score estimate gives 101.2 possessions per team per game against 99.1 counted. The app keeps the counted number and says so.
+What I learned: (yours to fill in)

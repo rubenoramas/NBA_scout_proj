@@ -607,3 +607,31 @@ Prompt:
 > Add tests, check every screen in the browser, then commit and push and add the VIDEO_NOTES section.
 
 Result: new seed file matchup_top.jsonl.gz from pulls/pull_stats.R (each scorer's top defender in every game this season and last, all game types: 34,440 rows, 1.5 MB, instead of about 310,000 pair rows); GET /api/games/series, GET /api/games/<id>/guarded and GET /api/teams/<id>/defense-shots; Series history and Who guarded whom panels on the scouting Overview (meeting picker, both directions, defaults to the newest meeting with matchup data); "Guarded most, last meeting" column on the Matchups tab (old saved reports show a dash); schedule spots (rest days, back-to-back, 3 in 4, 4 in 6, road trip or home stand N of M) as tags in the scouting band and on the schedule's upcoming rows for both teams; "Where they give up shots" zone table and opponent shot chart on the team page's Team stats tab and the scouting Overview; 18 new tests (157 total); every screen checked in the browser, including playoff, play-in and NBA Cup final meetings
+
+## 2026-11-25: On/off impact
+
+Prompt:
+> Plan, then build on/off impact. Show me the method before building.
+>
+> Data: from the game lineups and play-by-play files, for both seasons. For every stretch of play, record the ten players on the floor, the possessions, and the points each team scored. Propose how to count possessions, and check the result: summed points must equal every game's final score, and possessions should land close to each team's pace in the team stats.
+>
+> Per player and season: offensive, defensive and net rating per 100 possessions with him on the floor and off it, the on-off difference, and the possessions behind each. Small samples get a tag, and show this season with last season beside it.
+>
+> Screens:
+> - Team page roster: an "On/off net" column, sortable.
+> - Player card: an on/off panel.
+> - One-pager: one line with his on-off net.
+> - A short note wherever it appears: on/off is noisy and depends on who a player shares the floor with, so read it alongside the other numbers.
+>
+> Show me the top ten and bottom ten by on-off net as a sanity check. Add tests, check it in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> Approved: counted possessions, "off" over games he played, and the 250 and 1,000 cutoffs.
+>
+> One change: credit free throws to the ten players on the floor at the time of the foul, not when the free throws are shot, since substitutions between free throws are common. Credit the possession the same way. Rerun both checks afterward (points equal final scores, possessions against pace) and tell me how many free throw points moved. If this rule takes more than about an hour, ship the simple rule instead and record the limitation in docs/SPEC.md.
+>
+> Also for series history: keep the Cup final in the record, and keep the stacked layout.
+>
+> Build it, show me the top and bottom ten by on-off net, then commit and push.
+
+Result: method proposed and prototyped first (both checks passed before any app code); pulls/pull_stats.R section 6d writes player_onoff.jsonl (1,144 rows: possessions and points on and off per player, season and team, regular season only) with free throws and possessions that end on free throws credited to the players on the floor at the foul (11,412 of 45,220 free throw points moved last season, 394 of 9,852 this season); checks rerun: points equal the final score in all 1,230 and 261 games, possessions per 48 correlate 0.998 with team pace (counted runs 0.86 lower on average, at most 1.09); app/services/onoff.py computes ORtg, DRtg, net on and off and the on-off difference with the 250 and 1,000 possession cutoffs; sortable "On/off net" column in the roster table (team page and Players tab), On/off panel on the player card with both seasons, one line on the one-pager (not in the Claude facts); the noise note everywhere it appears; 5 new tests (162 total); top and bottom ten reviewed; checked in the browser and in print (still one page)

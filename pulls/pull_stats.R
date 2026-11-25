@@ -18,6 +18,8 @@
 #                            the streaky shooter test
 #     matchup_defense.jsonl  points allowed as the primary defender
 #     combine_drills.jsonl   max vertical leap
+#     player_onoff.jsonl     possessions and points with each player on and
+#                            off the floor, per season and team
 #     matchup_top.jsonl.gz   each scorer's top defender in every game, both
 #                            seasons, playoffs and play-in included
 #   R only pulls and trims. The ratings and badges are computed in Python
@@ -347,6 +349,109 @@ matchup_top <- bind_rows(lapply(seasons, function(start) {
   mutate(`_id` = paste(game_id, off_id, sep = "_")) %>%
   relocate(`_id`)
 
+# 6d. On/off: points and possessions with each player on and off the floor --
+# The play-by-play and the game lineups file line up row for row, so every
+# row has the ten players on the floor. Regular season only (game ids 002).
+#   Points: the running score only appears on scoring rows, so it is carried
+#     forward and each change is credited to ten players.
+#   Free throws are credited to the ten players on the floor at the foul
+#     that caused them (the latest Foul row before them), not when they are
+#     shot, because substitutions between free throws are common.
+#   Possessions are counted, not estimated: the file numbers every
+#     possession (an offensive rebound keeps the number). Each possession
+#     belongs to the team on offense and is credited to the ten players on
+#     the floor when it ends, by the same rule: if it ends on a free throw,
+#     the players at the foul.
+#   "Off" counts only games he played, so games he missed do not count.
+# Output: one row per player, season and team with possessions and points
+# on and off. Python computes the ratings (app/services/onoff.py).
+cat("On/off from play-by-play and game lineups:\n")
+onoff_season <- function(start) {
+  p <- suppressMessages(load_nba_stats_pbp(seasons = start))
+  l <- suppressMessages(load_nba_stats_game_lineups(seasons = start))
+  if (nrow(p) != nrow(l) || !all(p$game_id == l$game_id & p$action_number == l$action_number)) {
+    stop("The play-by-play and game lineups files do not line up row for row for ", make_label(start), call. = FALSE)
+  }
+  five <- c(paste0("home_player_", 1:5), paste0("away_player_", 1:5))
+  d <- bind_cols(p %>% select(game_id, period, action_type, score_home, score_away, possession_number, off_player_1),
+                 l %>% select(all_of(five))) %>%
+    filter(substr(game_id, 1, 3) == "002") %>%
+    group_by(game_id) %>%
+    mutate(row = row_number(),
+           sh = cummax(coalesce(suppressWarnings(as.numeric(score_home)), 0)),
+           sa = cummax(coalesce(suppressWarnings(as.numeric(score_away)), 0)),
+           pts_home = sh - lag(sh, default = 0), pts_away = sa - lag(sa, default = 0),
+           foul_row = cummax(ifelse(action_type == "Foul", row, 0L)),
+           credit = ifelse(action_type == "Free Throw" & foul_row > 0, foul_row, row),
+           home_off = off_player_1 == home_player_1 | off_player_1 == home_player_2 | off_player_1 == home_player_3 |
+             off_player_1 == home_player_4 | off_player_1 == home_player_5,
+           # The ten players credited with this row.
+           across(all_of(five), ~ .x[credit], .names = "c_{.col}")) %>%
+    ungroup()
+  own_key <- do.call(paste, d[five])
+  credit_key <- do.call(paste, d[paste0("c_", five)])
+  moved <- d$action_type == "Free Throw" & own_key != credit_key
+  ft_pts <- sum((d$pts_home + d$pts_away)[d$action_type == "Free Throw"])
+  moved_pts <- sum((d$pts_home + d$pts_away)[moved])
+  pts_ev <- d %>% filter(pts_home + pts_away > 0) %>%
+    transmute(game_id, across(starts_with("c_")), pts_home, pts_away, poss_home = 0L, poss_away = 0L)
+  # A possession is credited at its last real play: substitutions, timeouts,
+  # replays and period markers listed after the free throws do not count.
+  poss_ev <- d %>% filter(!is.na(possession_number),
+                          !action_type %in% c("Substitution", "Timeout", "Instant Replay", "period", "")) %>%
+    group_by(game_id, possession_number) %>%
+    summarise(home_off = first(na.omit(home_off)), across(starts_with("c_"), last), .groups = "drop") %>%
+    filter(!is.na(home_off)) %>%
+    transmute(game_id, across(starts_with("c_")), pts_home = 0, pts_away = 0,
+              poss_home = as.integer(home_off), poss_away = as.integer(!home_off))
+  ev <- bind_rows(pts_ev, poss_ev) %>%
+    group_by(game_id, across(starts_with("c_"))) %>%
+    summarise(across(c(pts_home, pts_away, poss_home, poss_away), sum), .groups = "drop")
+  games <- suppressMessages(load_nba_stats_schedule(seasons = start)) %>%
+    transmute(game_id, home_team_id = as.integer(home_team_id), away_team_id = as.integer(away_team_id)) %>%
+    distinct()
+  # Checks: points against the final score, possessions against pace.
+  per_game <- ev %>% group_by(game_id) %>%
+    summarise(h = sum(pts_home), a = sum(pts_away), ph = sum(poss_home), pa = sum(poss_away), .groups = "drop") %>%
+    left_join(d %>% group_by(game_id) %>% summarise(minutes = 48 + 5 * max(0, max(period) - 4), .groups = "drop"),
+              by = "game_id")
+  side <- function(prefix, for_pts, against, own_poss, opp_poss, team_col) {
+    bind_rows(lapply(1:5, function(i) {
+      ev %>% transmute(game_id, player_id = as.integer(.data[[paste0("c_", prefix, "_player_", i)]]),
+                       pts_for = .data[[for_pts]], pts_against = .data[[against]],
+                       poss_off = .data[[own_poss]], poss_def = .data[[opp_poss]], home = prefix == "home")
+    }))
+  }
+  on_game <- bind_rows(side("home", "pts_home", "pts_away", "poss_home", "poss_away"),
+                       side("away", "pts_away", "pts_home", "poss_away", "poss_home")) %>%
+    group_by(game_id, player_id, home) %>%
+    summarise(across(c(pts_for, pts_against, poss_off, poss_def), sum), .groups = "drop")
+  team_game <- bind_rows(
+    per_game %>% transmute(game_id, home = TRUE, t_for = h, t_against = a, t_off = ph, t_def = pa),
+    per_game %>% transmute(game_id, home = FALSE, t_for = a, t_against = h, t_off = pa, t_def = ph))
+  out <- on_game %>%
+    inner_join(team_game, by = c("game_id", "home")) %>%
+    left_join(games, by = "game_id") %>%
+    mutate(team_id = ifelse(home, home_team_id, away_team_id)) %>%
+    group_by(player_id, team_id) %>%
+    summarise(games = n_distinct(game_id),
+              on_poss_off = sum(poss_off), on_poss_def = sum(poss_def),
+              on_pts_for = sum(pts_for), on_pts_against = sum(pts_against),
+              off_poss_off = sum(t_off - poss_off), off_poss_def = sum(t_def - poss_def),
+              off_pts_for = sum(t_for - pts_for), off_pts_against = sum(t_against - pts_against), .groups = "drop") %>%
+    mutate(season = make_label(start), `_id` = paste(player_id, season, team_id, sep = "_")) %>%
+    relocate(`_id`, season)
+  list(rows = out, per_game = per_game %>% left_join(games, by = "game_id"),
+       ft_pts = ft_pts, moved_pts = moved_pts, moved_rows = sum(moved))
+}
+onoff_parts <- lapply(seasons, onoff_season)
+player_onoff <- bind_rows(lapply(onoff_parts, `[[`, "rows"))
+for (i in seq_along(seasons)) {
+  part <- onoff_parts[[i]]
+  cat(sprintf("  %s: %d games; free throw points moved to the players at the foul: %d of %d (%d free throws)\n",
+              make_label(seasons[i]), nrow(part$per_game), part$moved_pts, part$ft_pts, part$moved_rows))
+}
+
 # 7. Combine drills: max vertical --------------------------------------------
 drills <- bind_rows(lapply(2000:(this_start - 1), function(cl) {
   tryCatch(suppressMessages(load_nba_stats_draft_combine_drills(seasons = cl)), error = function(e) NULL)
@@ -371,5 +476,6 @@ write_jsonl(drills, "combine_drills")
 write_jsonl(matchup_pairs, "matchup_pairs", gz = TRUE)
 write_jsonl(matchup_games, "matchup_games", gz = TRUE)
 write_jsonl(matchup_top, "matchup_top", gz = TRUE)
+write_jsonl(player_onoff, "player_onoff")
 files <- list.files(seed_dir, full.names = TRUE)
 cat(sprintf("Total size of %s: %.2f MB\n", seed_dir, sum(file.size(files)) / 1024^2))
