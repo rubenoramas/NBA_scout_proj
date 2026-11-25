@@ -176,3 +176,8 @@ What I learned: (yours to fill in)
 What happened: possessions counted from the play-by-play correlate 0.998 with the team stats' pace but run 0.8 to 1.1 lower for every team.
 What fixed it: nothing was missing. The NBA's pace uses an estimate (FGA + 0.44 x FTA - OREB + TOV); on the same 261 games the box-score estimate gives 101.2 possessions per team per game against 99.1 counted. The app keeps the counted number and says so.
 What I learned: (yours to fill in)
+
+## 2026-11-25: game preview without leakage
+What happened: a projection must use only what was known before tip-off. The easy loop (add each game, then compute the next) lets games on the same day see each other's results, and upcoming games first showed 3 days of rest for everyone because only played games counted toward "last game".
+What fixed it: features are built one date at a time: every game on a date gets its inputs, and only then are that date's results added. Rest uses the schedule (known in advance), results count only once played. A test changes a game's own result, a same-day game and a later game and checks the inputs do not move; it fails on a deliberately leaky version.
+What I learned: (yours to fill in)

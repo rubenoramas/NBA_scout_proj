@@ -496,6 +496,10 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
 .spots-cell { grid-column: 3 / 7; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; white-space: normal !important; padding: 4px 0; }
 .lm-cell { display: inline-flex; gap: 6px; align-items: center; }
 
+/* ---- Game preview ----------------------------------------------------- */
+.proj-line { margin-top: 4px; color: var(--text-2); font-size: 12px; }
+.proj-band { font-weight: 600; color: var(--text); }
+
 /* ---- On/off ----------------------------------------------------------- */
 .cols-onoff { grid-template-columns: 80px repeat(3, 64px) 56px repeat(3, 64px) 56px 72px 110px minmax(0, 1fr); }
 .onoff-span { grid-column: 2 / -1; }

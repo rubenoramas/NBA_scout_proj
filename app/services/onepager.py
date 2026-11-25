@@ -11,6 +11,7 @@ whom, parsed from the play-by-play).
 from app.db import db
 from app.services.context import current_season, get_team
 from app.services.matchups import best_defenders, parse_overrides
+from app.services.names import player_names
 from app.services.onoff import player_onoff
 from app.services.players import injury_for, per_game, top_shot_types, usage_for, usage_table
 
@@ -88,12 +89,14 @@ def feeders(player_id, team_id):
     top = pairs[:TOP_PASSERS]
     names = {d["_id"]: d for d in db.players.find({"_id": {"$in": [p["passer_id"] for p in top]}},
                                                    {"player_name": 1, "team_id": 1, "team_abbr": 1})}
+    # Passers no longer on a roster still have a name in the stats or logs.
+    any_names = player_names(p["passer_id"] for p in top)
     passers = []
     for p in top:
         who = names.get(p["passer_id"]) or {}
         passers.append({
             "player_id": p["passer_id"],
-            "player_name": who.get("player_name") or f"Player {p['passer_id']}",
+            "player_name": who.get("player_name") or any_names.get(p["passer_id"]) or f"Player {p['passer_id']}",
             # A passer traded since then is marked, so nobody plans around him.
             "now_with": who.get("team_abbr") if who.get("team_id") != team_id else None,
             "ast": p["ast"],

@@ -3,6 +3,7 @@
 // and a mini month view.
 
 import { spotLine } from "./spots.js";
+import { PROJECTION_NOTE, fillRecord, projectionText } from "./projection.js";
 import {
   MY_TEAM_KEY, SEASON_TYPE_LABEL, chevron, chip, el, emptyLine, errorLine, fill, formatDay, getJSON,
   parseDay, resultChip, scoutUrl, seedText, shortStreak, skeletonRows, store, streakClass, tag,
@@ -200,6 +201,7 @@ async function loadSchedule() {
     renderMonth();
   }
   loadSide();
+  loadRecord();
 }
 
 function oppTeam(game) {
@@ -405,6 +407,11 @@ function renderNext(ctx) {
     el("div", { class: "side-line" },
       el("span", { class: "muted", text: "Last meeting" }),
       el("span", { text: meetingText(ctx.last_meeting, myTeam.abbreviation) })),
+    ctx.projection
+      ? el("div", { class: "side-line", title: PROJECTION_NOTE },
+        el("span", { class: "muted", text: "Projection" }),
+        el("span", { text: projectionText(ctx.projection).replace("Projected: ", "") }))
+      : null,
     nextGame.season_type !== "regular-season"
       ? el("div", { class: "side-line" },
         el("span", { class: "muted", text: "Game type" }),
@@ -412,6 +419,18 @@ function renderNext(ctx) {
       : null,
     el("div", { class: "side-action" },
       el("a", { class: "btn btn-primary btn-block", href: scoutUrl(myTeam.abbreviation, nextGame.opponent.abbreviation), text: "Open scouting report" })));
+}
+
+// Running record of saved projections, with the backtest beside it.
+async function loadRecord() {
+  const body = document.getElementById("record-body");
+  if (!body || !myTeam) return;
+  fill(body, skeletonRows(3, [120, 160]));
+  try {
+    await fillRecord(body, myTeam.team_id);
+  } catch (err) {
+    fill(body, errorLine(err.message, loadRecord));
+  }
 }
 
 function renderSnapshot(standing) {

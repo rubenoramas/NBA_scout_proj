@@ -416,6 +416,23 @@ Questions:
 - Why are free throws credited to the players on the floor at the foul?
 - Why does nearly every player this season carry a small-sample tag, and what does "off" include?
 
+## Game preview
+
+What it does: before each game, the app projects the home team's margin and turns it into a win probability, for example "Projected: BOS by 5.1 · 64% win probability · average miss 11 points" in the scouting band and the Next game panel. Every data pull saves the projection for every upcoming game. After a game is played, the box score shows the saved projection beside the result, and the Projection record panel keeps a running record.
+
+How it works, in plain words:
+- **A small regression.** The margin is home court plus a multiple of the difference in the teams' net ratings, plus terms for rest and back-to-backs, fitted on last season's 1,230 games. Home court is worth about 2 points, and a home back-to-back costs about 2.6.
+- **Only earlier games.** Each game's net ratings come only from games on earlier dates. Early in a season they are blended with last season's net rating, weighted by games played. A test changes the result of a game, a same-day game and a later game, and checks that the inputs do not move.
+- **Two error numbers.** The screen shows the average miss, 11 points. The win probability uses the standard deviation of the misses, 14.6 points, which weighs big misses more.
+- **Honest record.** Saved projections are graded only after their games. The backtest, the model run on this season's games with pre-game data, is shown separately and labeled as not saved live.
+
+Design decision worth mentioning: the model was validated before any screen was built. Tested on this season's 261 games, it picks 67.0% of winners with an average miss of 11.4 points. That beats the home team always winning (51.3%) and the better record (64.4%), but only just beats the net rating alone (66.7%). Its probabilities roughly match how often teams actually won.
+
+Questions:
+- How does the model avoid using information from the game it is projecting?
+- Why does the screen show "average miss 11 points" when the win probability uses 14.6?
+- Why are saved projections and the backtest shown separately?
+
 ## AI in the project
 
 AI shows up in three places:

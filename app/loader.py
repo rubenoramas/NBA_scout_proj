@@ -87,6 +87,7 @@ INDEXES = {
     "matchup_games": [IndexModel([("game_id", ASCENDING)]), IndexModel([("game_date", ASCENDING)])],
     "matchup_top": [IndexModel([("game_id", ASCENDING)])],
     "player_onoff": [IndexModel([("player_id", ASCENDING), ("season", ASCENDING)])],
+    "team_priors": [],
 }
 
 
@@ -223,6 +224,15 @@ def main():
             log(f"Could not compute ratings and badges: {err}. The rest of the app still works.")
     else:
         log("Ratings and badges unchanged, skipped.")
+
+    # Game preview: save the projection for every upcoming game, and freeze
+    # the saved projection of each game played since (with its result).
+    try:
+        from app.services.preview import save_projections
+        saved, frozen = save_projections()
+        log(f"Projections: saved {saved} upcoming games, froze {frozen} played since the last load.")
+    except Exception as err:  # noqa: BLE001 - the app must still start
+        log(f"Could not save projections: {err}. The rest of the app still works.")
 
     if loaded:
         log("Loaded: " + ", ".join(loaded))

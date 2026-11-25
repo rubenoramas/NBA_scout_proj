@@ -1,5 +1,6 @@
 // Box score page: /game/<game_id>
 
+import { savedVersusResult } from "./projection.js";
 import { MY_TEAM_KEY, SEASON_TYPE_LABEL, chip, el, emptyLine, errorLine, fill, formatDay, getJSON, skeletonRows, store, tag } from "./api.js";
 import { defaultState, nextSort, renderBoxTable } from "./boxtable.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
@@ -56,6 +57,11 @@ async function load() {
   const home = data.home.team.abbreviation;
   document.title = `${away} at ${home}, ${formatDay(data.game.date)} | Opponent Scout`;
   render();
+  // The projection saved before this game, if a pull saved one.
+  getJSON(`/api/games/${encodeURIComponent(gameId)}/projection`).then((p) => {
+    const line = savedVersusResult(p.saved);
+    if (line) document.querySelector(".band-mid").append(line);
+  }).catch(() => {});
 }
 
 // ---- Band -------------------------------------------------------------

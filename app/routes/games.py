@@ -10,6 +10,7 @@ from app.services.boxscore import box_score
 from app.services.context import game_context, get_team
 from app.services.matchups import matchups
 from app.services.series import guarded_in_game, series_history
+from app.services import preview
 
 games_bp = Blueprint("games", __name__)
 
@@ -65,6 +66,32 @@ def guarded(game_id):
         return err
     result, problem = guarded_in_game(game_id, us_id)
     return error(*problem) if problem else jsonify(result)
+
+
+@games_bp.get("/api/games/<game_id>/projection")
+def projection(game_id):
+    """The saved projection (with the result once played), or for an upcoming
+    game the current one."""
+    if not re.fullmatch(r"\d{10}", game_id):
+        return error("A game id is 10 digits, such as 0022600245.", 400)
+    game = db.schedule.find_one({"_id": game_id}, {"played": 1})
+    if not game:
+        return error(f"No game has the id {game_id}.", 404)
+    saved = db.projections.find_one({"_id": game_id}, {"_id": 0})
+    current = None if game.get("played") else preview.project(game_id)
+    return jsonify({"game_id": game_id, "played": bool(game.get("played")), "saved": saved, "current": current})
+
+
+@games_bp.get("/api/projections/record")
+def projection_record():
+    """Running record of saved projections, plus the backtest."""
+    team = request.args.get("team")
+    tid = None
+    if team is not None:
+        tid, err = parse_team_id(team)
+        if err:
+            return err
+    return jsonify(preview.record(tid))
 
 
 @games_bp.get("/api/games/<game_id>/boxscore")

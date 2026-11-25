@@ -7,6 +7,7 @@ defender with the most partial possessions on him (pulls/pull_stats.R).
 
 from app.db import db
 from app.services.context import get_team, meetings, team_game
+from app.services.names import player_names
 
 # Shown as game type tags, and counted separately in the series record.
 POSTSEASON = ("playoffs", "play-in")
@@ -40,7 +41,7 @@ def series_history(us_id, them_id):
 
 
 def _names(ids):
-    return {d["_id"]: d.get("player_name") for d in db.players.find({"_id": {"$in": list(ids)}}, {"player_name": 1})}
+    return player_names(ids)
 
 
 def _row(d, names):

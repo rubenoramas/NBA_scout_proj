@@ -20,6 +20,8 @@
 #     combine_drills.jsonl   max vertical leap
 #     player_onoff.jsonl     possessions and points with each player on and
 #                            off the floor, per season and team
+#     team_priors.jsonl      final net rating per team, the two seasons before
+#                            this one (for the game preview)
 #     matchup_top.jsonl.gz   each scorer's top defender in every game, both
 #                            seasons, playoffs and play-in included
 #   R only pulls and trims. The ratings and badges are computed in Python
@@ -452,6 +454,16 @@ for (i in seq_along(seasons)) {
               make_label(seasons[i]), nrow(part$per_game), part$moved_pts, part$ft_pts, part$moved_rows))
 }
 
+# 6e. Team priors for the game preview ---------------------------------------
+# Each team's final regular-season net rating for the two seasons before
+# this one. The preview blends a team's pre-game net rating with the
+# previous season's while few games have been played.
+team_priors <- bind_rows(lapply(c(this_start - 2, this_start - 1), function(start) {
+  regular(suppressMessages(load_nba_stats_leaguedash(seasons = start, table = "team_stats_advanced"))) %>%
+    transmute(team_id = as.integer(team_id), season = make_label(start), gp = as.integer(gp),
+              net_rating, off_rating, def_rating)
+})) %>% mutate(`_id` = paste(team_id, season, sep = "_")) %>% relocate(`_id`)
+
 # 7. Combine drills: max vertical --------------------------------------------
 drills <- bind_rows(lapply(2000:(this_start - 1), function(cl) {
   tryCatch(suppressMessages(load_nba_stats_draft_combine_drills(seasons = cl)), error = function(e) NULL)
@@ -477,5 +489,6 @@ write_jsonl(matchup_pairs, "matchup_pairs", gz = TRUE)
 write_jsonl(matchup_games, "matchup_games", gz = TRUE)
 write_jsonl(matchup_top, "matchup_top", gz = TRUE)
 write_jsonl(player_onoff, "player_onoff")
+write_jsonl(team_priors, "team_priors")
 files <- list.files(seed_dir, full.names = TRUE)
 cat(sprintf("Total size of %s: %.2f MB\n", seed_dir, sum(file.size(files)) / 1024^2))

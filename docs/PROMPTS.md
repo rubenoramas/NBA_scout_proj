@@ -635,3 +635,37 @@ Prompt (approval):
 > Build it, show me the top and bottom ten by on-off net, then commit and push.
 
 Result: method proposed and prototyped first (both checks passed before any app code); pulls/pull_stats.R section 6d writes player_onoff.jsonl (1,144 rows: possessions and points on and off per player, season and team, regular season only) with free throws and possessions that end on free throws credited to the players on the floor at the foul (11,412 of 45,220 free throw points moved last season, 394 of 9,852 this season); checks rerun: points equal the final score in all 1,230 and 261 games, possessions per 48 correlate 0.998 with team pace (counted runs 0.86 lower on average, at most 1.09); app/services/onoff.py computes ORtg, DRtg, net on and off and the on-off difference with the 250 and 1,000 possession cutoffs; sortable "On/off net" column in the roster table (team page and Players tab), On/off panel on the player card with both seasons, one line on the one-pager (not in the Claude facts); the noise note everywhere it appears; 5 new tests (162 total); top and bottom ten reviewed; checked in the browser and in print (still one page)
+
+## 2026-11-25: Game preview
+
+Prompt:
+> Plan, then build a game preview. Show me the method and validation before building the screens.
+>
+> Model: a projected margin for the home team from the two teams' net ratings, home court, and rest (days of rest, back-to-back). Keep it a simple, explainable regression fitted on last season's games.
+>
+> No leakage: each game's inputs must come only from games played before it. Early in a season, blend the team's pre-game net rating with last season's, weighted by games played. Add a test that fails if any input uses the game itself or a later game.
+>
+> Validation, report the numbers:
+> - Train on last season and test on this season's games so far: average error in points, and the share of winners picked.
+> - Compare with three simple baselines: the home team always wins, the better record wins, and net rating difference alone.
+> - A win probability from the margin and the model's typical error, with a calibration table in bands.
+>
+> Screens:
+> - The scouting band and the Next game panel: "Projected: LAC by 3.5 · 62% win probability", with the typical error shown, for example "±12 points".
+> - Present it as a projection with real uncertainty. No betting language like spreads or odds.
+> - Each pull also saves the projection for every upcoming game, so after a game is played the app can show the projection beside the real result, with a running accuracy record.
+>
+> Add tests, check it in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Prompt (approval):
+> Approved. Answers:
+> 1. Show the average miss, labeled in words: "average miss 11 points". Keep 14.6 for the win probability and explain both in the docs.
+> 2. Keep days of rest in the model, and note in docs/SPEC.md that its effect is about zero once back-to-backs are known.
+>
+> Build the screens as planned, including the saved projections and the backtest label.
+>
+> Also, a small fix from on/off: players not on a current roster show as "player 1627824". Fill their names from last season's game logs or play-by-play.
+>
+> Then commit and push.
+
+Result: method and validation reported before any screen (app/model/preview.py, python -m app.model.validate_preview): trained on 2025-26 (1,230 games, K = 5), test on 2026-27 so far (261 games): average miss 11.36 points and 67.0% of winners, against net rating alone 11.46 and 66.7%, better record 64.4%, home team 51.3%; calibration table in bands; leakage test (and a check that it fails on a leaky version); new seed file team_priors.jsonl (final net rating per team, 2024-25 and 2025-26); "Projected: BOS by 5.1 · 64% win probability · average miss 11 points" in the scouting band and the Next game panel; each load saves projections for upcoming games in a projections collection and freezes them with the result once played; Projection record panel (saved record, the team's graded games, the backtest labeled "Not saved live"); saved projection beside the result on the box score page; upcoming games' rest now uses the schedule; shared player name lookup (rosters, then player stats, then game logs) so players no longer on a roster show by name; 13 new tests (175 total); checked in the browser

@@ -10,6 +10,7 @@ import { lineupLine, matchupNotes, matchupTable } from "./matchtable.js";
 import { newRosterState, renderRoster } from "./roster.js";
 import { defenseShotPanels } from "./defshots.js";
 import { spotTags } from "./spots.js";
+import { projectionLine } from "./projection.js";
 import { loadTeams, setScoutNav, setSwitcher } from "./topbar.js";
 
 function boxLink(gameId, label) {
@@ -168,7 +169,8 @@ function renderBand(ctx) {
     const venue = next.home ? ctx.us.team.abbreviation : ctx.them.team.abbreviation;
     mid = el("div", { class: "band-mid" },
       el("div", { class: "band-date", text: formatDay(next.date, { weekday: "short", month: "short", day: "numeric", year: "numeric" }) }),
-      el("div", { class: "muted", style: "margin-top: 2px", text: `at ${venue} · ${SEASON_TYPE_LABEL[next.season_type] || next.season_type}` }));
+      el("div", { class: "muted", style: "margin-top: 2px", text: `at ${venue} · ${SEASON_TYPE_LABEL[next.season_type] || next.season_type}` }),
+      projectionLine(ctx.projection, { cls: "proj-line proj-band" }));
   } else {
     mid = el("div", { class: "band-mid" },
       el("div", { class: "band-date", text: "No game scheduled" }),

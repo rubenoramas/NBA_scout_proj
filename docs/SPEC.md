@@ -185,6 +185,21 @@ Built Nov 25. For each player and season: his team's offensive, defensive and ne
 - Shown in the roster table (sortable "On/off net"), on the player card (both seasons) and as one line on the one-pager. Not passed to the LLM. Every place shows the note: on/off is noisy and depends on who a player shares the floor with, so read it alongside the other numbers.
 - Checks (Nov 25): points equal every game's final score; counted possessions per 48 correlate 0.998 with team pace and run about 0.9 lower, because pace is an estimate.
 
+## Game preview
+
+Built Nov 25 in `app/model/preview.py`, shown through `app/services/preview.py`. A projected margin for the home team:
+
+margin = 2.0 home court + 0.92 x (home net - away net) - 0.05 x (home rest - away rest) - 2.6 if the home team is on a back-to-back + 1.1 if the away team is (fitted on 2025-26).
+
+- **Net rating before the game:** points scored minus allowed per 100 possessions in the team's games on earlier dates this season (box-score possession estimate, averaged over both teams). Blended with last season's final net rating (`team_priors`): (g x current + K x last) / (g + K), g = games played, K = 5, picked on the training season from 0 to 30.
+- **Rest:** days since the team's previous scheduled game (capped at 3; a first game counts as 3), and a back-to-back flag per team. **The days-of-rest term is about zero (-0.05 per day) once back-to-backs are in the model**: back-to-backs carry the rest signal. It stays in the model so that result is visible.
+- **No leakage:** a date's games get their inputs before any of that date's results are added, so a game never sees itself, a same-day game or a later game. `tests/test_preview.py` changes those games' results and checks that the inputs do not move.
+- **Two error numbers.** The screen shows the **average miss** (mean absolute error on the training games, 11.4, shown as "average miss 11 points"): how far off a projection usually is. The **win probability** uses the residual standard deviation, **14.6 points**: P(home wins) = Phi(margin / 14.6). The standard deviation is larger because it weighs big misses more, and it is the right width for a normal curve.
+- **Validation** (`docker compose exec web python -m app.model.validate_preview`), trained on 2025-26 and tested on 2026-27 through Nov 24 (261 games): model 11.36 points average miss and 67.0% winners picked; net rating difference alone 11.46 and 66.7%; better record wins 64.4%; home team always wins 51.3% (12.97 average miss). Calibration by band of home win probability (predicted / actual): 0-30% 21.8 / 21.3, 30-40% 34.9 / 28.1, 40-50% 44.5 / 50.0, 50-60% 55.0 / 57.9, 60-70% 64.6 / 61.1, 70-100% 79.6 / 74.3.
+- **Saved projections:** every data load (each pull) saves the current projection for every upcoming game in the `projections` collection, replacing the earlier one, and freezes a game's projection with its result once played. Frozen projections never change. The running record counts only frozen projections. The backtest (the model run on this season's played games with pre-game data) is shown beside it, labeled "Not saved live". A fresh clone starts with no saved projections.
+- **Wording:** "Projected: BOS by 5.1 · 64% win probability · average miss 11 points", always with the note that it is a projection, not a certainty. No wagering language.
+- **Limits:** neutral-site regular-season games are not flagged in the schedule, so the listed home team gets home court. Only regular-season games are projected.
+
 ## Rotation scouting
 
 This view shows the opponent's most-used lineups, tags each one, and suggests a counter lineup from our roster.
@@ -322,6 +337,8 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | GET | `/api/games/series?us=<id>&them=<id>` | Every meeting this season and last, with a record per season |
 | GET | `/api/games/<id>/guarded?us=<id>` | Who guarded whom in one game, both directions |
 | GET | `/api/teams/<id>/defense-shots` | Opponents' shots against the team this season, by zone, with the league average |
+| GET | `/api/games/<id>/projection` | Saved projection (with the result once played) and the current one for an upcoming game |
+| GET | `/api/projections/record?team=<id>` | Running record of saved projections, the team's graded games, and the backtest |
 | POST | `/api/lineups` | Save a lineup with injury tags |
 | GET | `/api/lineups/<id>` | Read a lineup |
 | PUT | `/api/lineups/<id>` | Change players or tags |

@@ -206,6 +206,14 @@ def team_context(team_id, season):
     }
 
 
+def _projection(game_id):
+    from app.services.preview import project
+    try:
+        return project(game_id)
+    except Exception:  # noqa: BLE001 - a missing model must not break the page
+        return None
+
+
 def game_context(us_id, them_id):
     from app.services.spots import game_spots
     season = current_season()
@@ -219,6 +227,8 @@ def game_context(us_id, them_id):
         "them": team_context(them_id, season),
         "last_meeting": last_meeting(us_id, them_id),
         "next_meeting": upcoming,
+        # Projected margin and win probability for the next meeting.
+        "projection": _projection(upcoming["game_id"]) if upcoming else None,
         # Rest and travel facts for each team around the next meeting.
         "spots": {"us": spots.get(us_id), "them": spots.get(them_id)},
         "standout_rule": {
