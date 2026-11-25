@@ -283,7 +283,7 @@ button, input { font: inherit; color: inherit; }
 .usage-team { min-width: 0; border-right: 1px solid var(--row-border); }
 .usage-team:last-child { border-right: 0; }
 .cols-teamstats { grid-template-columns: 150px 72px 88px minmax(0, 1fr); }
-.cols-matchups { grid-template-columns: minmax(170px, 1.2fr) 56px minmax(170px, 1.2fr) minmax(190px, 1.4fr) 72px 180px; }
+.cols-matchups { grid-template-columns: minmax(160px, 1.1fr) 56px minmax(160px, 1.1fr) minmax(210px, 1.2fr) minmax(190px, 1.3fr) 72px 180px; }
 .matchup-block { border-bottom: 1px solid var(--border); }
 .matchup-block .trow { border-bottom: 0; }
 .matchup-detail { padding: 0 16px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
@@ -480,6 +480,21 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
 .fact-list { margin: 0; padding-left: 14px; }
 .fact-list > li { padding: 4px 0; border-bottom: 1px dashed var(--row-border); }
 .fact-list > li:last-child { border-bottom: none; }
+
+/* ---- Series, schedule spots, defense shots -------------------------- */
+.cols-defzones { grid-template-columns: minmax(150px, 1fr) 60px 64px 56px 60px 150px 96px 60px 150px; }
+.cols-series { grid-template-columns: 96px 60px minmax(64px, 1fr) 32px 112px 100px; }
+.cols-guarded { grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) 56px 48px 64px 56px; }
+.guarded-side + .guarded-side { border-top: 1px solid var(--border); }
+.series-records { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 10px 16px; border-bottom: 1px solid var(--row-border); }
+.series-record { display: flex; align-items: baseline; gap: 8px; }
+.series-record .tile-value { font-size: 16px; }
+.guarded-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; border-bottom: 1px solid var(--row-border); }
+.spot-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.band-spots { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.band-side.right .band-spots { justify-content: flex-end; }
+.spots-cell { grid-column: 3 / 7; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; white-space: normal !important; padding: 4px 0; }
+.lm-cell { display: inline-flex; gap: 6px; align-items: center; }
 
 /* ---- Player one-pager ------------------------------------------------ */
 .sheet-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }

@@ -2,6 +2,7 @@
 // schedule as a table, plus a sidebar with the next game, a team snapshot
 // and a mini month view.
 
+import { spotLine } from "./spots.js";
 import {
   MY_TEAM_KEY, SEASON_TYPE_LABEL, chevron, chip, el, emptyLine, errorLine, fill, formatDay, getJSON,
   parseDay, resultChip, scoutUrl, seedText, shortStreak, skeletonRows, store, streakClass, tag,
@@ -229,13 +230,12 @@ function scheduleRow(game) {
         "aria-label": `Box score, ${formatDay(game.date)} ${game.home ? "vs" : "at"} ${opp.abbreviation}`,
       }, "Box score", chevron()));
   }
+  // Upcoming: rest and travel facts for both teams, in place of the score.
   return el("div", { class: "trow cols-schedule" },
     el("span", { class: "text-2", text: formatDay(game.date) }),
     oppCell,
-    el("span", { class: "muted", text: "–" }),
-    el("span", { class: "muted", text: "–" }),
-    el("span", { class: "num muted", text: "–" }),
-    el("span", { class: "num muted", text: "–" }),
+    el("span", { class: "spots-cell", "aria-label": "Schedule spots" },
+      spotLine(myTeam.abbreviation, game.spots), spotLine(opp.abbreviation, game.opp_spots)),
     el("a", {
       class: "scout-link",
       href: scoutUrl(myTeam.abbreviation, opp.abbreviation),

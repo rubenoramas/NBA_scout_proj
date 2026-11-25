@@ -18,6 +18,8 @@
 #                            the streaky shooter test
 #     matchup_defense.jsonl  points allowed as the primary defender
 #     combine_drills.jsonl   max vertical leap
+#     matchup_top.jsonl.gz   each scorer's top defender in every game, both
+#                            seasons, playoffs and play-in included
 #   R only pulls and trims. The ratings and badges are computed in Python
 #   (app/model/), when the loader runs.
 #
@@ -317,6 +319,34 @@ matchup_games <- matchup_rows %>%
   relocate(`_id`) %>%
   select(-season)
 
+# 6c. Who guarded each scorer most, every game -------------------------------
+# For the series history ("who actually guarded whom" in each meeting). One
+# row per game and scorer: the defender with the most partial possessions on
+# him, what that defender allowed, and the scorer's totals in the game. Both
+# seasons and every game type (season_type_id 2 regular season, 4 playoffs,
+# 5 play-in, 6 NBA Cup final), unlike matchup_pairs, which the model reads
+# and keeps to the regular season. Only the top defender is kept, so the
+# file stays small.
+name_lookup <- player_stats %>% group_by(player_id) %>% summarise(name = last(player_name), .groups = "drop")
+matchup_top <- bind_rows(lapply(seasons, function(start) {
+  suppressMessages(load_nba_stats_game_matchups(seasons = start)) %>%
+    transmute(game_id, season = make_label(start), season_type_id = as.integer(season_type_id),
+              off_id = as.integer(off_person_id), def_id = as.integer(def_person_id),
+              off_team_id = as.integer(off_team_id), def_team_id = as.integer(def_team_id),
+              poss = partial_possessions, pts = player_points,
+              fga = matchup_field_goals_attempted, fgm = matchup_field_goals_made,
+              fg3a = matchup_three_pointers_attempted, fg3m = matchup_three_pointers_made)
+})) %>%
+  group_by(game_id, off_id) %>%
+  mutate(scorer_poss = sum(poss), scorer_pts = sum(pts), scorer_fga = sum(fga), scorer_fgm = sum(fgm),
+         defenders = n()) %>%
+  slice_max(poss, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  left_join(name_lookup %>% rename(off_name = name), by = c("off_id" = "player_id")) %>%
+  left_join(name_lookup %>% rename(def_name = name), by = c("def_id" = "player_id")) %>%
+  mutate(`_id` = paste(game_id, off_id, sep = "_")) %>%
+  relocate(`_id`)
+
 # 7. Combine drills: max vertical --------------------------------------------
 drills <- bind_rows(lapply(2000:(this_start - 1), function(cl) {
   tryCatch(suppressMessages(load_nba_stats_draft_combine_drills(seasons = cl)), error = function(e) NULL)
@@ -340,5 +370,6 @@ write_jsonl(matchup_defense, "matchup_defense")
 write_jsonl(drills, "combine_drills")
 write_jsonl(matchup_pairs, "matchup_pairs", gz = TRUE)
 write_jsonl(matchup_games, "matchup_games", gz = TRUE)
+write_jsonl(matchup_top, "matchup_top", gz = TRUE)
 files <- list.files(seed_dir, full.names = TRUE)
 cat(sprintf("Total size of %s: %.2f MB\n", seed_dir, sum(file.size(files)) / 1024^2))

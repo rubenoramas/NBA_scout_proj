@@ -77,8 +77,18 @@ def involves(team_id):
 
 
 def team_schedule(team_id, season):
+    """The team's games. Upcoming games carry schedule spots for both teams."""
+    from app.services.spots import season_spots
+    spots = season_spots(season)
     games = db.schedule.find({**involves(team_id), "season": season}).sort("game_date", 1)
-    return [team_game(g, team_id) for g in games]
+    out = []
+    for g in games:
+        row = team_game(g, team_id)
+        if not row["played"]:
+            row["spots"] = spots.get((team_id, g["game_id"]))
+            row["opp_spots"] = spots.get((row["opponent"]["team_id"], g["game_id"]))
+        out.append(row)
+    return out
 
 
 def last_game(team_id, season):
@@ -197,7 +207,10 @@ def team_context(team_id, season):
 
 
 def game_context(us_id, them_id):
+    from app.services.spots import game_spots
     season = current_season()
+    upcoming = next_meeting(us_id, them_id, season)
+    spots = game_spots(upcoming["game_id"], [us_id, them_id], season) if upcoming else {}
     return {
         "season": season,
         "data_as_of": data_as_of(),
@@ -205,7 +218,9 @@ def game_context(us_id, them_id):
         "us": team_context(us_id, season),
         "them": team_context(them_id, season),
         "last_meeting": last_meeting(us_id, them_id),
-        "next_meeting": next_meeting(us_id, them_id, season),
+        "next_meeting": upcoming,
+        # Rest and travel facts for each team around the next meeting.
+        "spots": {"us": spots.get(us_id), "them": spots.get(them_id)},
         "standout_rule": {
             "rules": STANDOUT_RULES,
             "min_ratio": MIN_RATIO,

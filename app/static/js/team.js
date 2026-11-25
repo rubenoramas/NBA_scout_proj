@@ -1,5 +1,6 @@
 // Team page: /team/<abbreviation>, with Roster and Team stats tabs.
 
+import { defenseShotPanels } from "./defshots.js";
 import {
   MY_TEAM_KEY, chip, el, emptyLine, errorLine, fill, getJSON, rankText, scoutUrl, seedText,
   shortStreak, skeletonRows, store, streakClass,
@@ -134,7 +135,8 @@ function renderStats(o) {
       table(["off_rating", "def_rating", "net_rating", "pace"])),
     panel("span-6", "Four factors: offense", null, table(["efg_pct", "tov_pct", "oreb_pct", "fta_rate"])),
     panel("span-6", "Four factors: defense", null, table(["opp_efg_pct", "opp_tov_pct", "opp_oreb_pct", "opp_fta_rate"])),
-    el("p", { class: "muted span-12", text: "From the NBA's team stats files, regular season. Top five ranks in green, bottom five in red." }));
+    el("p", { class: "muted span-12", text: "From the NBA's team stats files, regular season. Top five ranks in green, bottom five in red." }),
+    defenseShotPanels(o.team));
 }
 
 load();

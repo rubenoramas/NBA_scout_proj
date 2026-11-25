@@ -9,6 +9,7 @@ from app.routes.errors import error, parse_team_id
 from app.services.boxscore import box_score
 from app.services.context import game_context, get_team
 from app.services.matchups import matchups
+from app.services.series import guarded_in_game, series_history
 
 games_bp = Blueprint("games", __name__)
 
@@ -27,6 +28,43 @@ def context():
         if not get_team(tid):
             return error(f"No team has the id {tid}.", 404)
     return jsonify(game_context(us_id, them_id))
+
+
+def two_teams(args):
+    """(us_id, them_id, error response) from ?us=&them=."""
+    us_id, err = parse_team_id(args.get("us"), "\"us\" team id")
+    if err:
+        return None, None, err
+    them_id, err = parse_team_id(args.get("them"), "\"them\" team id")
+    if err:
+        return None, None, err
+    if us_id == them_id:
+        return None, None, error("Pick two different teams.", 400)
+    for tid in (us_id, them_id):
+        if not get_team(tid):
+            return None, None, error(f"No team has the id {tid}.", 404)
+    return us_id, them_id, None
+
+
+@games_bp.get("/api/games/series")
+def series():
+    """Every meeting this season and last (playoffs and play-in included)."""
+    us_id, them_id, err = two_teams(request.args)
+    if err:
+        return err
+    return jsonify(series_history(us_id, them_id))
+
+
+@games_bp.get("/api/games/<game_id>/guarded")
+def guarded(game_id):
+    """Who guarded whom in one game, from the "us" team's point of view."""
+    if not re.fullmatch(r"\d{10}", game_id):
+        return error("A game id is 10 digits, such as 0022600245.", 400)
+    us_id, err = parse_team_id(request.args.get("us"), "\"us\" team id")
+    if err:
+        return err
+    result, problem = guarded_in_game(game_id, us_id)
+    return error(*problem) if problem else jsonify(result)
 
 
 @games_bp.get("/api/games/<game_id>/boxscore")

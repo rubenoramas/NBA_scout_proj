@@ -264,6 +264,9 @@ def matchups(us_id, them_id, us_lineup=None, them_lineup=None, us_overrides=None
     def describe(s, d):
         return describe_pair(model, s, d, est(s, d), positions)
 
+    # Who actually guarded each of their scorers most in the last meeting.
+    from app.services.series import last_meeting_guards
+    last = last_meeting_guards(us_id, them_id, theirs)
     rows = []
     for s in sorted(theirs, key=lambda p: -usage.get(p, 0)):
         options = top_options(s, pool, est, blocked)
@@ -272,6 +275,7 @@ def matchups(us_id, them_id, us_lineup=None, them_lineup=None, us_overrides=None
             "usg_pct": round(usage.get(s, 0) * 100, 1),
             "assigned": describe(s, assignment[s]),
             "top_three": [describe(s, d) for d in options],
+            "last_meeting": last["by_scorer"].get(s),
         })
 
     def lineup_entry(p, statuses):
@@ -285,6 +289,7 @@ def matchups(us_id, them_id, us_lineup=None, them_lineup=None, us_overrides=None
         "us_default": us_default, "them_default": them_default,
         "excluded_out": {"us": sorted(out_us), "them": sorted(out_them)},
         "rows": rows,
+        "last_meeting": {"game": last["game"], "has_data": last["has_data"]},
         "position_guard": {"applied": guard_applied, "min_history": GUARD_CENTER_MIN_POSS},
         "size_fit": {"beta_per100": {"height_per_inch": round(model["beta"][0] * 100, 3),
                                      "weight_per_10lb": round(model["beta"][1] * 100, 3),

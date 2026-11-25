@@ -161,3 +161,8 @@ What I learned: (yours to fill in)
 What happened: every one-pager calls Claude for "How to guard him", so printing seven pages twice would make fourteen calls for the same text.
 What fixed it: the text is stored in a onepager_notes collection under player, our team, data date and prompt version, with a unique index on those four fields. The page asks MongoDB first. The write uses an upsert with $setOnInsert, so two requests for the same page at once still store only one text.
 What I learned: (yours to fill in)
+
+## 2026-11-25: matchups from last season's meetings, including the playoffs
+What happened: the per-game matchup data in the app covered only this season's regular season, so last season's meetings (and every playoff game) had no "who guarded whom". Keeping every matchup row for last season would add about 258,000 rows and several MB of seed data.
+What fixed it: the R pull keeps only each scorer's top defender per game, with the scorer's totals, for both seasons and every game type (season_type_id 2, 4, 5 and 6): 34,440 rows, 1.5 MB. The matchup model keeps reading its own regular-season files, so its numbers do not change.
+What I learned: (yours to fill in)

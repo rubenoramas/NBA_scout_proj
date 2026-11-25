@@ -307,6 +307,9 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | GET | `/api/players/<id>/shots` | Shots for the shot chart, with filters |
 | GET | `/api/players/<id>/onepager?vs=<team id>` | Player one-pager against a chosen team |
 | POST | `/api/players/<id>/onepager/note?vs=<team id>` | "How to guard him" text: from the MongoDB cache, or written by Claude and cached |
+| GET | `/api/games/series?us=<id>&them=<id>` | Every meeting this season and last, with a record per season |
+| GET | `/api/games/<id>/guarded?us=<id>` | Who guarded whom in one game, both directions |
+| GET | `/api/teams/<id>/defense-shots` | Opponents' shots against the team this season, by zone, with the league average |
 | POST | `/api/lineups` | Save a lineup with injury tags |
 | GET | `/api/lineups/<id>` | Read a lineup |
 | PUT | `/api/lineups/<id>` | Change players or tags |

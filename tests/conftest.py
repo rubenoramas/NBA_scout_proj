@@ -155,7 +155,7 @@ def client_app():
     db.meta.delete_many({})
     for name in ("players", "injuries", "shots", "shot_zones_last", "shot_types_last", "matchup_pairs",
                  "player_stats", "attributes", "lineups", "reports", "play_type_mix", "assist_pairs",
-                 "onepager_notes"):
+                 "onepager_notes", "matchup_top"):
         db[name].delete_many({})
     db.players.insert_many([dict(p) for p in PLAYERS])
     db.injuries.insert_many([dict(i) for i in INJURIES])

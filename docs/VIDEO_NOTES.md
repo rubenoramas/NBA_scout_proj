@@ -379,6 +379,25 @@ Questions:
 - What does the page show when there is no API key, and what if the text was already cached?
 - If you mark our best defender Out in the lineup editor, what changes on the one-pager, and why does the text change too?
 
+## Series history, schedule spots and where they give up shots
+
+What it does:
+- **Series history** on the scouting Overview lists every meeting this season and last, playoffs and play-in included, with the venue, result, score, a game type tag and a box score link where the data has one, plus a record for each season. "Who guarded whom" picks any meeting and shows, for each scorer on both teams, the defender who guarded him most and what that defender allowed. The Matchups tab adds the same fact from the last meeting beside the model's pick.
+- **Schedule spots** tag both teams in the scouting band and on the schedule's upcoming games: days of rest, back-to-back, 3 games in 4 nights, 4 in 6, and "Road trip 2 of 5" or "Home stand 3 of 7".
+- **Where they give up shots** shows a team's opponents' shots this season by zone, how often opponents shoot from each zone and how well, both against the league average, with a shot chart. It is on the team page's Team stats tab and, for the opponent, on the scouting Overview.
+
+How it works, in plain words:
+- **One small new file.** The per-game matchup file has one row for every defender who ever guarded a scorer in a game, about 310,000 rows for two seasons. The page only needs the top defender per scorer per game, so the R pull keeps just that row, with the scorer's totals beside it: 34,440 rows, 1.5 MB. It includes playoff, play-in and Cup final games, which the matchup model leaves out on purpose.
+- **Spots come from the schedule.** For each team the app sorts its games by date and counts back: days since the last game, games in the last 4 and 6 nights, and how many games in a row are at home or on the road. No new data.
+- **Defense shots reuse the shot table.** Every shot knows its game and the shooting team, so a team's opponents' shots are the shots in its games taken by the other team. The same MongoDB zone count used on player cards runs on that filter.
+
+Design decision worth mentioning: schedule spots are facts, not predictions. The app says "Back-to-back" or "3 in 4 nights" and stops there, because the public research on rest effects is mixed and the data cannot show what rest does to one team on one night.
+
+Questions:
+- Why keep only each scorer's top defender per game instead of every matchup row?
+- How does the app know which shots were taken against a team, when each shot only names the team that took it?
+- What exactly does "3 in 4 nights" count, and why are the tags shown without any color for good or bad?
+
 ## AI in the project
 
 AI shows up in three places:

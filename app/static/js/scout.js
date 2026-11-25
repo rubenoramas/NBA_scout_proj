@@ -8,6 +8,8 @@ import {
 import { aiLoading, aiSections, factsPanel, modelLine } from "./aireport.js";
 import { lineupLine, matchupNotes, matchupTable } from "./matchtable.js";
 import { newRosterState, renderRoster } from "./roster.js";
+import { defenseShotPanels } from "./defshots.js";
+import { spotTags } from "./spots.js";
 import { loadTeams, setScoutNav, setSwitcher } from "./topbar.js";
 
 function boxLink(gameId, label) {
@@ -144,14 +146,17 @@ async function load() {
 
 // ---- Matchup band -----------------------------------------------------
 
-function bandSide(side, label, right) {
+function bandSide(side, label, right, spots) {
   const s = side.standing || {};
+  const tags = spotTags(spots);
   const info = el("div", {},
     el("div", { class: "label", text: label }),
     el("div", { class: "band-name", text: side.team.full_name }),
     el("div", { class: "band-sub" },
       `${s.record || "–"} · ${seedText(s)} · `,
-      el("span", { class: `strong ${streakClass(s.streak)}`, text: shortStreak(s.streak) })));
+      el("span", { class: `strong ${streakClass(s.streak)}`, text: shortStreak(s.streak) })),
+    // Rest and travel facts for this team going into the next meeting.
+    tags.length ? el("div", { class: "band-spots", "aria-label": `${side.team.abbreviation} schedule going into this game` }, tags) : null);
   const abbr = chip(side.team.abbreviation, { xl: true, link: true });
   return el("div", { class: `band-side${right ? " right" : ""}` }, right ? [info, abbr] : [abbr, info]);
 }
@@ -169,7 +174,8 @@ function renderBand(ctx) {
       el("div", { class: "band-date", text: "No game scheduled" }),
       el("div", { class: "muted", style: "margin-top: 2px", text: `No more meetings in ${ctx.season}` }));
   }
-  fill(band, bandSide(ctx.us, "US", false), mid, bandSide(ctx.them, "OPPONENT", true));
+  const spots = ctx.spots || {};
+  fill(band, bandSide(ctx.us, "US", false, spots.us), mid, bandSide(ctx.them, "OPPONENT", true, spots.them));
 }
 
 // ---- Panels -----------------------------------------------------------
@@ -317,8 +323,124 @@ function render(ctx) {
       el("h2", { class: "panel-title", text: "Who runs the offense" }),
       el("span", { class: "panel-note", text: "Top three by USG% this season (100+ minutes)" })),
     el("div", { id: "usage-body" }, skeletonRows(3, [40, 160, 50, 50, 50])));
-  fill(root, headToHead(ctx), recentResults(ctx), usagePanel, standouts(ctx));
+  const seriesBox = el("div", { "data-series": "" }, skeletonRows(5, [90, 50, 120, 24, 70, 80]));
+  const guardedBox = el("div", { "data-guarded": "" }, skeletonRows(6, [150, 150, 40, 40, 50, 40]));
+  fill(root, headToHead(ctx), recentResults(ctx), usagePanel, standouts(ctx),
+    el("section", { class: "panel span-5", "aria-label": "Series history" },
+      el("div", { class: "panel-head", style: "justify-content: space-between" },
+        el("h2", { class: "panel-title", text: "Series history" }),
+        el("span", { class: "panel-note", text: "This season and last, playoffs included" })),
+      seriesBox),
+    el("section", { class: "panel span-7", "aria-label": "Who guarded whom" },
+      el("div", { class: "panel-head", style: "justify-content: space-between" },
+        el("h2", { class: "panel-title", text: "Who guarded whom" }),
+        el("span", { class: "panel-note", text: "Each scorer's main defender in one meeting" })),
+      guardedBox),
+    defenseShotPanels(ctx.them.team));
   loadUsage(ctx);
+  loadSeries(ctx, seriesBox, guardedBox);
+}
+
+// ---- Series history and who guarded whom ---------------------------------
+
+let seriesCache = null; // { key, data }
+
+async function loadSeries(ctx, box, guardedBox) {
+  const key = `${ctx.us.team.team_id}-${ctx.them.team.team_id}`;
+  let data = seriesCache && seriesCache.key === key ? seriesCache.data : null;
+  if (!data) {
+    fill(box, skeletonRows(5, [90, 50, 120, 24, 70, 80]));
+    try {
+      data = await getJSON(`/api/games/series?us=${ctx.us.team.team_id}&them=${ctx.them.team.team_id}`);
+      seriesCache = { key, data };
+    } catch (err) {
+      fill(box, errorLine(err.message, () => loadSeries(ctx, box, guardedBox)));
+      fill(guardedBox, emptyLine("Waiting for the series history."));
+      return;
+    }
+  }
+  drawSeries(ctx, box, data);
+  drawGuardedPicker(ctx, guardedBox, data);
+}
+
+function drawSeries(ctx, box, data) {
+  const usT = ctx.us.team.abbreviation;
+  if (!data.meetings.length) {
+    fill(box, emptyLine(`${usT} and ${ctx.them.team.abbreviation} have not met this season or last.`));
+    return;
+  }
+  const records = data.records.map((r) => el("div", { class: "series-record" },
+    el("span", { class: "label", text: r.season }),
+    el("span", { class: "tile-value", text: `${r.wins}-${r.losses}` }),
+    el("span", { class: "muted", text: r.postseason_wins + r.postseason_losses
+      ? `for ${usT} · ${r.postseason_wins}-${r.postseason_losses} in the playoffs and play-in` : `for ${usT}` })));
+  const rows = data.meetings.map((m) => {
+    const winner = m.result === "W" ? usT : ctx.them.team.abbreviation;
+    const hi = Math.max(m.team_pts, m.opp_pts);
+    const lo = Math.min(m.team_pts, m.opp_pts);
+    return el("div", { class: "trow cols-series" },
+      el("span", { class: "text-2", text: formatDay(m.date, { month: "short", day: "numeric", year: "numeric" }) }),
+      el("span", { class: "text-2", text: m.home ? `vs ${ctx.them.team.abbreviation}` : `at ${ctx.them.team.abbreviation}` }),
+      el("span", { class: "text-2" }, m.season, typeTag(m)),
+      el("span", {}, resultChip(m.result)),
+      el("span", { class: "num strong", text: `${winner} ${hi}-${lo}` }),
+      m.has_box_score ? boxLink(m.game_id, `Box score, ${formatDay(m.date)}`)
+        : el("span", { class: "num muted", text: "No box score" }));
+  });
+  fill(box,
+    el("div", { class: "series-records", "aria-label": `Series record for ${usT}` }, records),
+    el("div", { class: "table-scroll" }, el("div", { style: "min-width: 500px" },
+      el("div", { class: "trow thead short-head cols-series" },
+        ["Date", "Venue", "Season"].map((t) => el("span", { text: t })),
+        el("span", { text: "Res" }), el("span", { class: "num", text: "Score" }), el("span")),
+      rows)),
+    el("p", { class: "panel-foot", text: `Results for ${usT}. Venue is from ${usT}'s side: vs at home, at on the road. Play-in games and the NBA Cup final have no box score in the data.` }));
+}
+
+function drawGuardedPicker(ctx, box, data) {
+  const choices = data.meetings.filter((m) => m.has_matchups);
+  if (!choices.length) {
+    fill(box, emptyLine(data.meetings.length ? "No meeting has matchup data." : "These teams have not met this season or last."));
+    return;
+  }
+  const select = el("select", { class: "select", "aria-label": "Meeting" },
+    choices.map((m) => el("option", { value: m.game_id,
+      text: `${formatDay(m.date, { month: "short", day: "numeric", year: "numeric" })} · ${m.home ? "vs" : "at"} ${ctx.them.team.abbreviation} · ${m.result} ${m.team_pts}-${m.opp_pts}${m.season_type === "playoffs" ? " · Playoffs" : m.season_type === "play-in" ? " · Play-in" : ""}` })));
+  select.value = data.default_game_id;
+  const body = el("div");
+  select.addEventListener("change", () => loadGuarded(ctx, body, select.value));
+  fill(box, el("div", { class: "guarded-bar" }, el("span", { class: "label", text: "Meeting" }), select,
+    el("span", { class: "muted", text: "Defaults to the most recent meeting with matchup data." })), body);
+  loadGuarded(ctx, body, select.value);
+}
+
+async function loadGuarded(ctx, body, gameId) {
+  fill(body, skeletonRows(6, [150, 150, 40, 40, 50, 40]));
+  let d;
+  try {
+    d = await getJSON(`/api/games/${gameId}/guarded?us=${ctx.us.team.team_id}`);
+  } catch (err) {
+    fill(body, errorLine(err.message, () => loadGuarded(ctx, body, gameId)));
+    return;
+  }
+  const table = (title, rows) => el("div", { class: "guarded-side" },
+    el("div", { class: "trow thead short-head cols-guarded" },
+      el("span", { text: title }), el("span", { text: "Guarded most by" }),
+      ["Poss", "PTS", "FG", "3P"].map((t) => el("span", { class: "num", text: t }))),
+    rows.length ? rows.map((r) => el("div", { class: "trow cols-guarded" },
+      el("span", { class: "player-cell" }, el("a", { class: "name-link", href: `/player/${r.scorer_id}`, text: r.scorer_name }),
+        el("span", { class: "muted", text: `${r.scorer_pts} pts` })),
+      el("a", { class: "name-link", href: `/player/${r.defender_id}`, text: r.defender_name }),
+      el("span", { class: "num text-2", title: `${r.poss} of his ${r.scorer_poss} partial possessions`, text: r.poss.toFixed(1) }),
+      el("span", { class: "num strong", text: r.pts }),
+      el("span", { class: "num text-2", text: `${r.fgm}-${r.fga}` }),
+      el("span", { class: "num text-2", text: `${r.fg3m}-${r.fg3a}` })))
+      : emptyLine("No matchup rows for this side."));
+  fill(body,
+    el("div", { class: "table-scroll" }, el("div", { style: "min-width: 520px" },
+      table(`${d.them} scorers`, d.their_scorers),
+      table(`${d.us} scorers`, d.our_scorers))),
+    el("p", { class: "panel-foot", text: "From the NBA's per-game matchup data: for each scorer, the defender with the most partial possessions on him, and the points and shooting that defender allowed. PTS, FG and 3P are against that defender only; the gray points are his total. Switches and help split most scorers across several defenders." }));
 }
 
 async function loadUsage(ctx) {

@@ -586,3 +586,24 @@ Prompt:
 > Then commit and push.
 
 Result: milestone commit of all seed files (games through Nov 24, with play_type_mix and assist_pairs); one-pager links from the Players tab and Print one-pagers carry the lineup editor's statuses for our players (us_status=<pid>:<status>,...), the best defenders leave out the same Out players as the Matchups tab, and a note says "Lineup editor" or "Official report"; the cached "How to guard him" key now includes our Out players, so a text never recommends a defender marked Out (unique index rebuilt with five fields); play types colored like the player card (green above league, red below) with a "vs League" column in words; 6 new tests (139 total); fresh clone from GitHub started with docker-compose up --build and filled the play type and assist boxes
+
+## 2026-11-25: Series history, schedule spots and where they give up shots
+
+Prompt:
+> Plan, then build three additions. Follow docs/DESIGN.md, reuse existing data and components, and use only verified data.
+>
+> 1. Series history, on the scouting Overview:
+>    - Every meeting between the two teams this season and last season, playoffs and play-in included, newest first: date, venue, result for us, score, game type tag, and a box score link where one exists.
+>    - A series record for each season.
+>    - Matchups from any meeting: pick a meeting and see who actually guarded whom, from the per-game matchup data. Show both directions, their scorers against our defenders and ours against theirs: the defender with the most partial possessions on each scorer, the possessions, and the points and shooting allowed. Default to the most recent meeting that has matchup data.
+>    - On the Matchups tab, add a column beside the model's pick: who guarded that scorer most in the last meeting, with possessions.
+>
+> 2. Schedule spots, for both teams around this game:
+>    - Days of rest before the game, back-to-back, 3 games in 4 nights, 4 in 6, and the current road trip or home stand length.
+>    - Show them as small tags in the scouting band and on the schedule table's upcoming rows. Facts only, with no claims about fatigue effects.
+>
+> 3. Where they give up shots: a team defense shot profile from opponents' shots against that team this season, with a zone table (share of attempts and FG% allowed, compared with league average) and a shot chart. Put it on the team page's Team stats tab, and on the scouting Overview for the opponent.
+>
+> Add tests, check every screen in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Result: new seed file matchup_top.jsonl.gz from pulls/pull_stats.R (each scorer's top defender in every game this season and last, all game types: 34,440 rows, 1.5 MB, instead of about 310,000 pair rows); GET /api/games/series, GET /api/games/<id>/guarded and GET /api/teams/<id>/defense-shots; Series history and Who guarded whom panels on the scouting Overview (meeting picker, both directions, defaults to the newest meeting with matchup data); "Guarded most, last meeting" column on the Matchups tab (old saved reports show a dash); schedule spots (rest days, back-to-back, 3 in 4, 4 in 6, road trip or home stand N of M) as tags in the scouting band and on the schedule's upcoming rows for both teams; "Where they give up shots" zone table and opponent shot chart on the team page's Team stats tab and the scouting Overview; 18 new tests (157 total); every screen checked in the browser, including playoff, play-in and NBA Cup final meetings
