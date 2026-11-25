@@ -57,13 +57,13 @@ def make_client():
     return anthropic.Anthropic(timeout=config.TIMEOUT_SECONDS, max_retries=config.MAX_RETRIES)
 
 
-def call_model(client, model, facts):
+def call_model(client, model, facts, system=None, schema=None, max_tokens=None):
     kwargs = {
         "model": model,
-        "max_tokens": config.MAX_TOKENS,
-        "system": config.system_prompt(),
+        "max_tokens": max_tokens or config.MAX_TOKENS,
+        "system": system or config.system_prompt(),
         "messages": [{"role": "user", "content": "Facts:\n" + json.dumps(facts, ensure_ascii=False, indent=1)}],
-        "output_config": {"effort": config.EFFORT, "format": {"type": "json_schema", "schema": SCHEMA}},
+        "output_config": {"effort": config.EFFORT, "format": {"type": "json_schema", "schema": schema or SCHEMA}},
     }
     if model == "claude-sonnet-5-5":
         # Refusal fallback: the API reruns a declined request on a fallback model.
@@ -71,15 +71,17 @@ def call_model(client, model, facts):
     return client.messages.create(**kwargs)
 
 
-def generate(facts, client=None):
-    """Returns a draft: {sections, flags, model, prompt_version, generated_at, usage}.
-    Raises ReportError with a plain message on any failure."""
+def write(facts, *, system, schema, prompt_version, max_tokens=None, client=None, what="report"):
+    """Send the facts with a system prompt and get back JSON that matches
+    schema. Shared by the team report and the player one-pager.
+    Returns {sections, model, requested_model, prompt_version, generated_at,
+    usage}. Raises ReportError with a plain message on any failure."""
     if not config.api_key_set():
         raise ReportError(NO_KEY_MESSAGE, 503)
     model = config.model()
     client = client or make_client()
     try:
-        response = call_model(client, model, facts)
+        response = call_model(client, model, facts, system=system, schema=schema, max_tokens=max_tokens)
     except anthropic.AuthenticationError:
         raise ReportError("The API key in .env was rejected. Check that it is correct and still active.", 401) from None
     except anthropic.PermissionDeniedError:
@@ -97,9 +99,9 @@ def generate(facts, client=None):
         raise ReportError(f"The AI service rejected the request ({err.status_code}).", 502) from None
 
     if response.stop_reason == "refusal":
-        raise ReportError("The model declined to write this report. Try again, or write the notes by hand.", 502)
+        raise ReportError(f"The model declined to write this {what}. Try again, or write the notes by hand.", 502)
     if response.stop_reason == "max_tokens":
-        raise ReportError("The report was cut off before it finished. Try again.", 502)
+        raise ReportError(f"The {what} was cut off before it finished. Try again.", 502)
     text = next((b.text for b in response.content if getattr(b, "type", None) == "text"), None)
     try:
         sections = json.loads(text) if text else None
@@ -111,11 +113,20 @@ def generate(facts, client=None):
     usage = getattr(response, "usage", None)
     return {
         "sections": sections,
-        "flags": check_sections(sections, facts),
         "model": getattr(response, "model", model) or model,
         "requested_model": model,
-        "prompt_version": config.PROMPT_VERSION,
+        "prompt_version": prompt_version,
         "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "usage": {"input_tokens": getattr(usage, "input_tokens", None),
                   "output_tokens": getattr(usage, "output_tokens", None)} if usage else None,
     }
+
+
+def generate(facts, client=None):
+    """The team report: {sections, flags, model, prompt_version, generated_at, usage}.
+    Raises ReportError with a plain message on any failure."""
+    out = write(facts, system=config.system_prompt(), schema=SCHEMA, prompt_version=config.PROMPT_VERSION,
+                client=client)
+    # Keep the key order the saved reports already use.
+    return {"sections": out["sections"], "flags": check_sections(out["sections"], facts),
+            **{k: v for k, v in out.items() if k != "sections"}}

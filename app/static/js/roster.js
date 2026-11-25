@@ -1,7 +1,7 @@
 // The sortable roster table, shared by the scouting Players tab and the
 // team page: USG%, per-game line, shooting, badges and injury tags.
 
-import { badgeTip, el, emptyLine, injuryTag, pct1, rankText } from "./api.js";
+import { badgeTip, chevron, el, emptyLine, injuryTag, pct1, rankText } from "./api.js";
 import { renderSortTable } from "./sorttable.js";
 
 // USG% for sorting: small samples (under 100 minutes) sort last.
@@ -20,7 +20,9 @@ export function newRosterState() {
   return { sortKey: "usg", sortDir: "desc" };
 }
 
-export function renderRoster(body, players, state, label) {
+// onepagerVs: our team id. When given, each row links to the player's
+// one-pager written for that team.
+export function renderRoster(body, players, state, label, { onepagerVs = null } = {}) {
   const s = (key) => (r) => (r.season ? r.season[key] : null);
   const num = (key, digits = 1) => (r) => (r.season ? Number(r.season[key]).toFixed(digits) : "–");
   const columns = [
@@ -43,6 +45,11 @@ export function renderRoster(body, players, state, label) {
     { key: "status", label: "Status", width: "120px", align: "num", firstDir: "asc",
       value: (r) => (r.injury ? r.injury.status : null), cell: (r) => injuryTag(r.injury) || el("span", { class: "muted", text: "" }) },
   ];
+  if (onepagerVs) {
+    columns.push({ key: "onepager", label: "", width: "116px", sortable: false, value: () => null,
+      cell: (r) => el("a", { class: "scout-link", href: `/onepager/${r.player_id}?vs=${onepagerVs}`,
+        "aria-label": `One-pager on ${r.player_name}` }, "One-pager", chevron()) });
+  }
   const draw = () => renderSortTable(body, {
     columns, rows: players, state, onSort: draw,
     label, emptyNode: emptyLine("No players are loaded for this team."),

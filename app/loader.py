@@ -76,6 +76,8 @@ INDEXES = {
     ],
     "player_stats": [IndexModel([("player_id", ASCENDING), ("season", ASCENDING)])],
     "play_types": [IndexModel([("player_id", ASCENDING)])],
+    "play_type_mix": [IndexModel([("player_id", ASCENDING), ("season", ASCENDING)])],
+    "assist_pairs": [IndexModel([("scorer_id", ASCENDING)])],
     "hustle": [IndexModel([("player_id", ASCENDING)])],
     "steals": [IndexModel([("player_id", ASCENDING)])],
     "shot_extras": [IndexModel([("player_id", ASCENDING)])],

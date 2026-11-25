@@ -367,8 +367,51 @@ async function renderPlayers(ctx) {
     fill(body, errorLine(err.message, () => renderPlayers(ctx)));
     return;
   }
-  renderRoster(body, data.players, rosterState, `${them.full_name} roster`);
+  rosters[them.team_id] = rosters[them.team_id] || data.players;
+  renderRoster(body, data.players, rosterState, `${them.full_name} roster`, { onepagerVs: ctx.us.team.team_id });
 }
+
+// ---- Print one-pagers -------------------------------------------------------
+
+// Their five (from the Lineups tab, or the default five) plus anyone with
+// USG% of 25 or higher who is not Out. Same rule as the AI report's key
+// players (KEY_USAGE in app/report/facts.py).
+const KEY_USAGE = 25;
+const printButton = document.getElementById("print-onepagers");
+printButton.disabled = false;
+printButton.addEventListener("click", async () => {
+  const ctx = currentCtx;
+  if (!ctx) return;
+  const note = document.getElementById("print-onepagers-note");
+  note.textContent = "";
+  printButton.disabled = true;
+  printButton.textContent = "Preparing...";
+  // A new tab keeps this page (and the lineups set here) as it is. It is
+  // opened right away, inside the click, so popup blockers allow it.
+  const tab = window.open("", "_blank");
+  try {
+    const them = ctx.them.team.team_id;
+    const roster = await loadRoster(them);
+    if (!editor.them.ids) await fetchMatchups(ctx);
+    if (!editor.them.ids) throw new Error(editor.error || "Their lineup could not be built.");
+    const five = editor.them.ids;
+    const extra = roster
+      .filter((p) => !five.includes(p.player_id) && p.usage && p.usage.usg_pct !== null && !p.usage.small_sample
+        && p.usage.usg_pct >= KEY_USAGE && statusOf(ctx, "them", p.player_id) !== "Out")
+      .sort((a, b) => b.usage.usg_pct - a.usage.usg_pct)
+      .map((p) => p.player_id);
+    const usage = (pid) => ((roster.find((p) => p.player_id === pid) || {}).usage || {}).usg_pct || 0;
+    const ids = [...[...five].sort((a, b) => usage(b) - usage(a)), ...extra];
+    const q = new URLSearchParams({ vs: ctx.us.team.team_id, ids: ids.join(",") });
+    if (tab) tab.location.href = `/onepagers?${q}`;
+    else window.location.href = `/onepagers?${q}`;
+  } catch (err) {
+    if (tab) tab.close();
+    note.textContent = err.message;
+  }
+  printButton.disabled = false;
+  printButton.textContent = "Print one-pagers";
+});
 
 load();
 

@@ -28,8 +28,8 @@ def mongo_is_reachable():
 
 
 def ensure_user_indexes():
-    """Indexes for the collections the app writes (lineups, reports and
-    refresh_jobs).
+    """Indexes for the collections the app writes (lineups, reports,
+    refresh_jobs and onepager_notes).
     The loader never rebuilds these, so they are created when the app starts.
     create_index does nothing if the index already exists."""
     from pymongo import ASCENDING, DESCENDING
@@ -42,3 +42,9 @@ def ensure_user_indexes():
     db.refresh_jobs.create_index([("active", ASCENDING)], unique=True,
                                  partialFilterExpression={"active": True}, name="one_active_job")
     db.refresh_jobs.create_index([("created_at", DESCENDING)])
+    # One cached "How to guard him" text per player, our team, data date and
+    # prompt version. The unique index makes the cache key a rule the
+    # database enforces, and makes each cache lookup one index read.
+    db.onepager_notes.create_index([("player_id", ASCENDING), ("vs_team_id", ASCENDING),
+                                    ("data_as_of", ASCENDING), ("prompt_version", ASCENDING)],
+                                   unique=True, name="one_note_per_page")

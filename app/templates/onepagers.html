@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Print one-pagers | Opponent Scout{% endblock %}
+{% block page %}onepagers{% endblock %}
+{% block content %}
+<div class="sheet-toolbar no-print" id="toolbar" aria-label="Print actions"></div>
+<div id="sheets" class="sheets" aria-live="polite"></div>
+{% endblock %}
+{% block scripts %}
+<script>window.PLACEHOLDER_HEADSHOT = "{{ url_for('static', filename='img/headshot-placeholder.svg') }}";</script>
+<script type="module" src="{{ url_for('static', filename='js/onepagers.js') }}"></script>
+{% endblock %}

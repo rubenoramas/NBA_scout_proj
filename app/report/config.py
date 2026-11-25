@@ -19,6 +19,13 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 SYSTEM_PROMPT_PATH = Path(__file__).with_name("system_prompt.md")
 
+# The player one-pager's "How to guard him" text. Bump the version whenever
+# onepager_prompt.md or the one-pager facts change: the cached texts are
+# keyed by it, so a new version writes fresh text.
+ONEPAGER_PROMPT_VERSION = "onepager-v1"
+ONEPAGER_PROMPT_PATH = Path(__file__).with_name("onepager_prompt.md")
+ONEPAGER_MAX_TOKENS = 1000
+
 
 def model():
     chosen = os.environ.get("REPORT_MODEL", DEFAULT_MODEL).strip()
@@ -27,6 +34,10 @@ def model():
 
 def system_prompt():
     return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
+
+
+def onepager_prompt():
+    return ONEPAGER_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
 
 def api_key_set():

@@ -140,6 +140,69 @@ def validate_lineup(team_id, ids, excluded, label=None):
     return ids, None
 
 
+def player_name(model, pid):
+    return (model["bios"].get(pid) or {}).get("player_name") or str(pid)
+
+
+def defender_pool(us_id, out_us, model, positions):
+    """Our healthy players with enough minutes (100+ this season or 500+
+    last season), the pool for every top three list. Fills positions."""
+    pool = []
+    for d in db.players.find({"team_id": us_id}, {"_id": 1, "position": 1}):
+        pid = d["_id"]
+        if pid in out_us:
+            continue
+        if model["minutes_this"].get(pid, 0) >= TOP_MIN_THIS or model["last_minutes"].get(pid, 0) >= TOP_MIN_LAST:
+            pool.append(pid)
+            positions[pid] = d.get("position")
+    return pool
+
+
+def top_options(scorer, pool, est, blocked, n=3):
+    """The n defenders with the lowest expected points, position guard applied."""
+    return sorted((d for d in pool if not blocked(scorer, d)), key=lambda d: est(scorer, d)["expected"])[:n]
+
+
+def describe_pair(model, s, d, e, positions):
+    """One defender on one scorer, in per 100 units, for the API."""
+    return {
+        "defender_id": d, "defender_name": player_name(model, d), "position": positions.get(d),
+        "expected_per100": round(e["expected"] * 100, 1),
+        "norm_per100": round(e["baseline"] * 100, 1),
+        "vs_norm_per100": round(e["vs_norm"] * 100, 1),
+        "defender_effect_per100": round(e["defender_effect"] * 100, 1),
+        "size_per100": round(e["size"] * 100, 2),
+        "history_poss": round(e["history_poss"], 1),
+        "history_per100": round(e["history_rate"] * 100, 1) if e["history_rate"] is not None else None,
+        "history_shift_per100": round(e["history_shift"] * 100, 1),
+        "small_history": e["history_poss"] < SMALL_HISTORY,
+        "reason": reason_line(e, player_name(model, s).split(" ")[-1], player_name(model, d)),
+    }
+
+
+def best_defenders(us_id, scorer_id, n=3):
+    """Our best n defenders on one opposing player, from our whole healthy
+    roster, with the same rules as the top three on the Matchups tab.
+    Official injury statuses only (no per-game overrides)."""
+    model = get_model()
+    positions = {scorer_id: (model["bios"].get(scorer_id) or {}).get("position")}
+    pool = defender_pool(us_id, out_players(us_id), model, positions)
+
+    def est(s, d):
+        return pair_estimate(model, s, d)
+
+    def blocked(s, d):
+        return position_blocked(model, s, d, positions)
+
+    options = top_options(scorer_id, pool, est, blocked, n)
+    return {
+        "options": [describe_pair(model, scorer_id, d, est(scorer_id, d), positions) for d in options],
+        "pool_size": len(pool),
+        "league_per100": round(model["league_all"] * 100, 1),
+        "min_history": SMALL_HISTORY,
+    }
+
+
 def matchups(us_id, them_id, us_lineup=None, them_lineup=None, us_overrides=None, them_overrides=None):
     """Returns (result, error message). Overrides change a player's status for
     this game: only Out excludes him, and default lineups also skip Doubtful."""
@@ -190,38 +253,17 @@ def matchups(us_id, them_id, us_lineup=None, them_lineup=None, us_overrides=None
     assignment, _total, guard_applied = best_assignment(
         theirs, ours, lambda s, d: est(s, d)["expected"], usage, blocked)
 
-    # Top three from our whole healthy roster with enough minutes.
-    pool = []
-    for d in db.players.find({"team_id": us_id}, {"_id": 1, "position": 1}):
-        pid = d["_id"]
-        if pid in out_us:
-            continue
-        if model["minutes_this"].get(pid, 0) >= TOP_MIN_THIS or model["last_minutes"].get(pid, 0) >= TOP_MIN_LAST:
-            pool.append(pid)
-            positions[pid] = d.get("position")
+    pool = defender_pool(us_id, out_us, model, positions)
 
     def name(pid):
-        return (info.get(pid) or {}).get("player_name") or str(pid)
+        return player_name(model, pid)
 
     def describe(s, d):
-        e = est(s, d)
-        return {
-            "defender_id": d, "defender_name": name(d), "position": positions.get(d),
-            "expected_per100": round(e["expected"] * 100, 1),
-            "norm_per100": round(e["baseline"] * 100, 1),
-            "vs_norm_per100": round(e["vs_norm"] * 100, 1),
-            "defender_effect_per100": round(e["defender_effect"] * 100, 1),
-            "size_per100": round(e["size"] * 100, 2),
-            "history_poss": round(e["history_poss"], 1),
-            "history_per100": round(e["history_rate"] * 100, 1) if e["history_rate"] is not None else None,
-            "history_shift_per100": round(e["history_shift"] * 100, 1),
-            "small_history": e["history_poss"] < SMALL_HISTORY,
-            "reason": reason_line(e, name(s).split(" ")[-1], name(d)),
-        }
+        return describe_pair(model, s, d, est(s, d), positions)
 
     rows = []
     for s in sorted(theirs, key=lambda p: -usage.get(p, 0)):
-        options = sorted((d for d in pool if not blocked(s, d)), key=lambda d: est(s, d)["expected"])[:3]
+        options = top_options(s, pool, est, blocked)
         rows.append({
             "scorer_id": s, "scorer_name": name(s), "position": positions.get(s),
             "usg_pct": round(usage.get(s, 0) * 100, 1),

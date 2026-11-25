@@ -481,6 +481,137 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
 .fact-list > li { padding: 4px 0; border-bottom: 1px dashed var(--row-border); }
 .fact-list > li:last-child { border-bottom: none; }
 
+/* ---- Player one-pager ------------------------------------------------ */
+.sheet-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
+.sheet-toolbar .spacer { flex: 1 1 auto; }
+.sheet-pick { display: flex; align-items: center; gap: 8px; }
+.sheets { display: flex; flex-direction: column; gap: 32px; }
+.sheet { display: flex; flex-direction: column; gap: 12px; }
+.sheet-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 12px 16px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+}
+.sheet-headshot { width: 96px; }
+.sheet-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sheet-name { font-size: 16px; font-weight: 600; margin: 0; }
+.sheet-sub { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sheet-measures { gap: 20px; }
+.sheet-line { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; }
+.tiles.sheet-line { grid-template-columns: repeat(11, minmax(0, 1fr)); }
+.tiles.sheet-line .tile { border-bottom: 0; border-right: 1px solid var(--row-border); padding: 8px 12px; }
+.tiles.sheet-line .tile:last-child { border-right: 0; }
+.tile-note { color: var(--muted); font-size: 11px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.sheet-grid {
+  display: grid; gap: 12px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-areas: "guard guard" "ratings defenders" "ratings feeders" "shots chart" "plays chart";
+}
+.sheet-guard { grid-area: guard; }
+.sheet-ratings { grid-area: ratings; }
+.sheet-defenders { grid-area: defenders; }
+.sheet-chart { grid-area: chart; }
+.sheet-shots { grid-area: shots; }
+.sheet-plays { grid-area: plays; }
+.sheet-feeders { grid-area: feeders; }
+.sheet-box-head { justify-content: space-between; }
+.guard-body { padding: 10px 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+.guard-text { font-size: 14px; line-height: 1.5; color: var(--text); }
+.guard-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.guard-meta .ai-meta { padding: 0; }
+.op-ratings { padding: 4px 16px 6px; }
+.op-rating { display: grid; grid-template-columns: 190px minmax(0, 1fr) 28px 104px; align-items: center; gap: 10px; min-height: 24px; border-bottom: 1px solid var(--row-border); }
+.op-rating:last-child { border-bottom: 0; }
+.op-badges { display: flex; flex-direction: column; gap: 4px; padding: 8px 16px 12px; border-top: 1px solid var(--row-border); }
+.op-badge { line-height: 1.45; }
+.op-chart { padding: 8px 16px 10px; }
+.op-chart .shotchart { max-width: 420px; margin: 0 auto; }
+.op-legend { font-size: 11px; text-align: center; margin-top: 4px; }
+.op-small { padding: 8px 16px 0; }
+.op-link { align-self: center; }
+.cols-op-def { grid-template-columns: 20px minmax(130px, 1fr) minmax(150px, 1.2fr) 60px 150px; }
+.cols-op-plays { grid-template-columns: minmax(150px, 1fr) 52px 56px 52px 60px 104px; }
+.cols-op-feed { grid-template-columns: minmax(150px, 1fr) 48px 52px 60px; }
+.band-note:empty { display: none; }
+.band-note { align-self: center; font-size: 12px; }
+@media (max-width: 1100px) {
+  .tiles.sheet-line { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .tiles.sheet-line .tile { border-bottom: 1px solid var(--row-border); }
+  .sheet-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "guard" "ratings" "defenders" "chart" "shots" "plays" "feeders"; }
+  .sheet-grid .trow { min-width: 0; }
+}
+@media (max-width: 760px) {
+  .op-rating { grid-template-columns: 130px minmax(0, 1fr) 28px 96px; }
+  .sheet-measures { margin-left: 0; }
+}
+
+/* ---- Print ------------------------------------------------------------ */
+/* Printing is a different medium: light paper and dark ink, so the tokens
+   get print values (see docs/DESIGN.md, Print). Each one-pager fills one
+   US letter page; nothing interactive prints. */
+@page { size: letter; margin: 0.35in; }
+@media print {
+  :root {
+    --bg: #FFFFFF; --bar: #FFFFFF; --panel: #FFFFFF; --panel-head: #F1F3F6; --chip: #E6EAEF; --active: #E6EAEF;
+    --border: #C3CAD3; --row-border: #E2E6EB; --control-border: #C3CAD3; --chip-border: #9AA3AE;
+    --text: #0E1116; --text-2: #2B323B; --muted: #555E69;
+    --accent: #1D64C8; --accent-text: #1D64C8; --accent-tint: #EEF4FC;
+    --win: #127A49; --win-tint: #E6F4EC; --loss: #B3261E; --loss-tint: #FBEAEA; --gold: #8A5A00;
+    --accent-tag-border: #9DBDE8; --gold-tag-border: #D9BE85; --link-border: #9DBDE8;
+    color-scheme: light;
+  }
+  html, body { background: #FFFFFF; min-height: 0; }
+  body { font-size: 9.5px; line-height: 1.3; }
+  .topbar, .band, .no-print, .sheet-toolbar, button, .btn, .scout-link, .tip, .ai-check.ok { display: none !important; }
+  .no-print-flags .ai-check { display: none; }
+  body .main { max-width: none; padding: 0; margin: 0; }
+  .levels.op-levels { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sheet-head .sheet-measures { margin-left: auto; }
+  a, .name-link { color: var(--text); }
+  .sheets { gap: 0; }
+  .sheet-slot, .sheet { break-after: page; page-break-after: always; }
+  .sheet-slot:last-child, .sheet-slot:last-child .sheet, .sheets > .sheet:last-child { break-after: auto; page-break-after: auto; }
+  .sheet { gap: 6px; break-inside: avoid; }
+  .sheet-head { padding: 6px 10px; gap: 6px 12px; }
+  .sheet-headshot { width: 64px; }
+  .sheet-name { font-size: 14px; }
+  .measure-value { font-size: 12px; }
+  .label { font-size: 8px; }
+  .tag { font-size: 7.5px; line-height: 11px; padding: 0 3px; }
+  .tiles.sheet-line { grid-template-columns: repeat(11, minmax(0, 1fr)); }
+  .tiles.sheet-line .tile { padding: 4px 6px; border-bottom: 0; }
+  .tile-value { font-size: 12px; margin-top: 0; }
+  .tile-note { font-size: 8px; }
+  .sheet-grid { gap: 6px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "guard guard" "ratings defenders" "ratings feeders" "shots shots" "plays chart"; }
+  .cols-types { grid-template-columns: minmax(0, 1fr) 40px 34px; }
+  .cols-op-def > span { white-space: normal; }
+  .cols-op-def > .history-cell { white-space: nowrap; }
+  .cols-op-def { padding-top: 2px; padding-bottom: 2px; }
+  .panel-head { padding: 4px 10px; }
+  .panel-title { font-size: 11px; }
+  .panel-note { font-size: 8.5px; }
+  .panel-foot { padding: 3px 10px 5px; font-size: 8px; }
+  .guard-body { padding: 5px 10px 6px; gap: 3px; }
+  .guard-text { font-size: 10.5px; line-height: 1.4; }
+  .ai-meta { font-size: 8px; }
+  .ai-check.warn { padding: 3px 6px; }
+  .op-ratings { padding: 2px 10px 3px; }
+  .op-rating { grid-template-columns: 150px minmax(0, 1fr) 20px 78px; gap: 6px; min-height: 15px; }
+  .rating-bar { height: 5px; }
+  .op-badges { padding: 4px 10px 5px; gap: 2px; }
+  .trow { min-height: 17px; padding: 0 10px; column-gap: 6px; }
+  .trow.thead, .trow.short-head { min-height: 16px; font-size: 8px; }
+  .level { padding: 2px 10px 4px; }
+  .level-head { padding: 3px 0 2px; }
+  .state-line { padding: 5px 10px; }
+  .op-chart { padding: 3px 10px 4px; }
+  .op-chart .shotchart { max-width: 2.1in; }
+  .op-legend { font-size: 8px; margin-top: 1px; }
+  .cols-op-def { grid-template-columns: 12px minmax(0, 1fr) minmax(0, 1.2fr) 44px 104px; }
+  .cols-op-plays { grid-template-columns: minmax(0, 1fr) 30px 34px 30px 38px 70px; }
+  .cols-op-feed { grid-template-columns: minmax(0, 1fr) 30px 34px 40px; }
+  .skel { animation: none; }
+}
+
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
 /* ---- Narrow screens -------------------------------------------------- */

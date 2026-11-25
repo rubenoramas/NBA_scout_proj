@@ -84,6 +84,10 @@ Put these in `:root` in `style.css` and use the variables everywhere. No other c
 - **Empty**: one muted line inside the panel, such as "No games this month".
 - **Error**: one plain sentence inside the panel plus a secondary "Try again" button. The rest of the page keeps working.
 
+## Print
+
+Printing (the player one-pagers) is a separate medium: light paper and dark ink. Under `@media print`, `style.css` redefines the same tokens with print values (white panels, near-black text, darker blue, green, red and gold so they read on paper). The top bar, the band, buttons and tooltips do not print. Each one-pager fits one US letter page with 0.35 in margins.
+
 ## Accessibility
 
 - Real `<button>`, `<a href>` and `<input>` with a label. Icon-only buttons get an `aria-label`.

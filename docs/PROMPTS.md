@@ -549,3 +549,25 @@ Prompt (approval):
 > Build it, run a real refresh in the browser, then commit and push.
 
 Result: optional "refresher" Compose service behind the refresh profile (rocker/r2u pinned by digest, R packages as binaries, hoopR 3.2.0 from the SportsDataverse r-universe, build check for hoopR and arrow) running the refresh.sh pull scripts through a small standard-library job server on the internal network; POST /api/refresh, GET /api/refresh/<id> and GET /api/refresh/status with jobs in a refresh_jobs MongoDB collection (partial unique index allows one active job) and a reload with the existing loader; Refresh data button in the top bar with steps, polling, in-place freshness and row-count summary, plain errors, and a disabled state with start instructions; 10 new tests with the refresher and loader mocked (111 total); one real refresh run from the browser, seed files kept local and not committed
+
+## 2026-11-25: Player one-pager and Print one-pagers
+
+Prompt:
+> Plan, then build the player one-pager from docs/SPEC.md: one printable page on an opposing player, written for the player on our team who will guard him. Follow docs/DESIGN.md on screen, and reuse existing components and data.
+>
+> Page at /onepager/<player id>?vs=<our team id>, opened from the Players tab and the player card:
+> - Header: headshot, name, team, position, height, weight, wingspan, injury status, and his season line with USG% and its rank.
+> - Ratings: all twelve as compact bars, with small-sample tags.
+> - Badges, with their numbers.
+> - Our best three defenders on him from the matchup model, with the effect against his norm and the history size.
+> - Favorite shots: his top three shot types at the rim, in the midrange and from three, plus a small shot chart.
+> - How he gets his shots: his play type mix with points per possession, and who feeds him most, from the assist data.
+> - "How to guard him": two or three sentences from Claude, built from this page's facts only. Reuse the report writer, the honesty rules and the number check. Cache the text in MongoDB by player, opponent, data date and prompt version, so reopening a page does not call the API again. Plain errors and the no-key state, same as the report.
+>
+> Printing:
+> - A print stylesheet: light background, dark text, fits on one US letter page, no top bar or buttons.
+> - Turn on "Print one-pagers" in the scouting band: it prints one page per player for their five plus anyone with USG% of 25 or higher, each on its own page.
+>
+> Add tests with the API mocked (cache hit and miss, no key, the facts builder). Check the screen and print preview in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Result: two new seed files from pulls/pull_stats.R (play_type_mix: every offensive play type per player season; assist_pairs: who assisted whom this season, parsed from the play-by-play shot text, 97.4% of named passers matched to one teammate on the floor); /onepager/<id>?vs= and /onepagers print-all pages; GET /api/players/<id>/onepager and POST /api/players/<id>/onepager/note; "How to guard him" written through the shared report writer (refactored into write()) with its own prompt (onepager-v1) and the number check, cached in a new onepager_notes collection with a unique index on player, our team, data date and prompt version; best three defenders from a new best_defenders() in the matchup service; print stylesheet with print color tokens, one US letter page per player; Print one-pagers enabled in the band (their five plus USG% 25+, not Out, in a new tab); One-pager links in the Players tab and on the player card; 22 new tests with the API mocked (133 total); checked in the browser and as printed PDFs (5 players, 5 pages)

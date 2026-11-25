@@ -26,14 +26,14 @@ function box(obj, key, label, onEdit, rows = 2) {
   return area;
 }
 
-function flagLine(flags) {
+export function flagLine(flags, what = "report") {
   if (!flags || !flags.length) {
     return el("p", { class: "ai-check ok", text: "Number check: every number in the text was found in the facts." });
   }
   const word = flags.length === 1 ? "number was" : "numbers were";
   return el("div", { class: "ai-check warn", role: "note" },
     el("span", { class: "tag tag-gold", text: "Check" }),
-    el("span", { text: ` ${flags.length} ${word} not found in the facts. Verify or remove before using the report.` }),
+    el("span", { text: ` ${flags.length} ${word} not found in the facts. Verify or remove before using the ${what}.` }),
     el("ul", {}, flags.map((f) => el("li", {},
       el("strong", { text: f.number }),
       el("span", { class: "muted", text: ` in ${f.section}${f.item ? ` #${f.item}` : ""}: "${f.context}"` })))));

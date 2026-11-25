@@ -13,6 +13,7 @@ const playerId = window.location.pathname.split("/").filter(Boolean).pop();
 const PLACEHOLDER = window.PLACEHOLDER_HEADSHOT;
 
 let card = null;
+let myTeam = null; // the team chosen in the top bar, for the one-pager link
 const filters = { type: "", zone: "" };
 
 function panel(span, title, note, ...body) {
@@ -43,7 +44,9 @@ function showProblem(message, retry) {
 async function load() {
   showLoading();
   loadTeams().then(({ teams }) => {
-    setSwitcher(teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null);
+    myTeam = teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null;
+    setSwitcher(myTeam);
+    if (card) renderBand();
   }).catch(() => {});
   try {
     card = await getJSON(`/api/players/${encodeURIComponent(playerId)}`);
@@ -79,6 +82,16 @@ function measure(label, value, missing) {
     el("div", { class: value ? "measure-value" : "measure-value muted", text: value || missing }));
 }
 
+// One-pager for our team's defenders. Written for the team in the top bar;
+// for one of our own players (or no team chosen), the one-pager page asks
+// which team will guard him.
+function onepagerLink() {
+  const vs = myTeam && myTeam.team_id !== card.player.team_id ? `?vs=${myTeam.team_id}` : "";
+  return el("a", { class: "scout-link op-link", href: `/onepager/${card.player.player_id}${vs}`,
+    title: vs ? `Printable page for ${myTeam.abbreviation} defenders` : "Printable page for the team that will guard him" },
+  "One-pager", chevron());
+}
+
 function renderBand() {
   const p = card.player;
   const team = card.team || { abbreviation: p.team_abbr, full_name: p.team_abbr };
@@ -96,6 +109,7 @@ function renderBand() {
           injuryTag(card.injury)),
         badgesRow())),
     el("div", { class: "measures" },
+      onepagerLink(),
       measure("Height", height, "–"),
       measure("Weight", p.weight_lbs ? `${p.weight_lbs} lb` : null, "–"),
       measure("Wingspan", p.wingspan_inches ? feetInches(p.wingspan_inches) : null, "No combine data"),

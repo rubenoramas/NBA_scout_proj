@@ -9,6 +9,8 @@
 #     player_stats.jsonl     base, advanced and tracking stats, one row per
 #                            player per season
 #     play_types.jsonl       post-up possessions and points per player season
+#     play_type_mix.jsonl    every offensive play type per player season
+#     assist_pairs.jsonl     who assisted whom this season, from play-by-play
 #     hustle.jsonl           deflections, contested threes, charges
 #     steals.jsonl           steals from ESPN play-by-play, split into
 #                            lost-ball steals and other steals
@@ -102,6 +104,82 @@ play_types <- bind_rows(lapply(seasons, function(start) {
     summarise(postup_poss = sum(poss), postup_pts = sum(pts), .groups = "drop") %>%
     mutate(season = make_label(start))
 })) %>% mutate(`_id` = paste(player_id, season, sep = "_")) %>% relocate(`_id`)
+
+# 2b. Play type mix: every offensive play type ------------------------------
+# For the one-pager's "How he gets his shots". One row per player, season and
+# play type. A traded player has one row per team, so rows are summed.
+# poss_pct is that type's share of his possessions on that team, so
+# poss / poss_pct gives his total possessions there; the median over his
+# types smooths rounding. Kept apart from play_types.jsonl so the ratings
+# inputs do not change.
+play_type_mix <- bind_rows(lapply(seasons, function(start) {
+  rows <- regular(totals(suppressMessages(load_nba_stats_synergy(seasons = start)))) %>%
+    filter(type_grouping == "Offensive") %>%
+    mutate(player_id = as.integer(player_id), team_id = as.integer(team_id))
+  team_poss <- rows %>%
+    filter(poss_pct > 0) %>%
+    group_by(player_id, team_id) %>%
+    summarise(team_total = median(poss / poss_pct), .groups = "drop") %>%
+    group_by(player_id) %>%
+    summarise(total_poss = round(sum(team_total)), .groups = "drop")
+  rows %>%
+    group_by(player_id, play_type) %>%
+    summarise(poss = sum(poss), pts = sum(pts), fga = sum(fga), fgm = sum(fgm),
+              tov_poss = sum(tov_poss_pct * poss), .groups = "drop") %>%
+    left_join(team_poss, by = "player_id") %>%
+    mutate(tov_poss = round(tov_poss), season = make_label(start))
+})) %>% mutate(`_id` = paste(player_id, season, play_type, sep = "_")) %>% relocate(`_id`)
+
+# 2c. Assist pairs from the play-by-play ------------------------------------
+# For "who feeds him". About two in three made shots name the passer, as in
+# "Tatum 4' Layup (3 PTS) (Robinson 1 AST)". The passer is written as a last
+# name (sometimes with a first initial), so it is matched to the scorer's
+# four teammates on the floor (off_player_1 to off_player_5). This season
+# only, regular season only (game ids starting 002).
+cat("Assist pairs from play-by-play:\n")
+pbp <- suppressMessages(load_nba_stats_pbp(seasons = this_start)) %>%
+  filter(substr(game_id, 1, 3) == "002", action_type == "Made Shot")
+name_of <- player_stats %>% filter(season == make_label(this_start)) %>%
+  distinct(player_id, player_name)
+# Names are compared without accents ("Jokić" is written "Jokic" in the
+# text). The passer text is a last name, a last name without "Jr.", or a
+# shortened first name plus last name ("Jal. Williams").
+plain <- function(x) gsub("['`^~\"]", "", iconv(x, from = "UTF-8", to = "ASCII//TRANSLIT"))
+name_of <- name_of %>% mutate(first = plain(sub("\\s.*$", "", player_name)),
+                              last = plain(sub("^\\S+\\s+", "", player_name)))
+made <- pbp %>%
+  transmute(row = row_number(), scorer_id = as.integer(person_id), shot_value = as.integer(shot_value),
+            passer_text = ifelse(grepl("\\([^()]+ [0-9]+ AST\\)", description),
+                                 sub(".*\\(([^()]+) [0-9]+ AST\\).*", "\\1", description), NA_character_),
+            off_player_1, off_player_2, off_player_3, off_player_4, off_player_5)
+assisted <- made %>% filter(!is.na(passer_text))
+# One row per assisted shot and teammate on the floor, then keep the
+# teammate whose name matches the passer text.
+candidates <- bind_rows(lapply(paste0("off_player_", 1:5), function(col) {
+  assisted %>% transmute(row, scorer_id, shot_value, passer_text, passer_id = .data[[col]])
+})) %>%
+  filter(!is.na(passer_id), passer_id != scorer_id) %>%
+  mutate(passer_id = as.integer(passer_id), text = plain(passer_text)) %>%
+  left_join(name_of, by = c("passer_id" = "player_id")) %>%
+  filter(!is.na(last)) %>%
+  mutate(
+    prefix = ifelse(grepl("^\\S+\\. ", text), sub("\\. .*$", "", text), NA_character_),
+    rest = sub("^\\S+\\. ", "", text),
+    hit = text == last |
+      text == sub("\\s+(Jr\\.?|Sr\\.?|II|III|IV)$", "", last) |
+      (!is.na(prefix) & startsWith(first, prefix) &
+         (rest == last | rest == sub("\\s+(Jr\\.?|Sr\\.?|II|III|IV)$", "", last))))
+matched <- candidates %>% group_by(row) %>% filter(sum(hit) == 1, hit) %>% ungroup()
+cat(sprintf("  %d made shots, %d name a passer, %d matched to one teammate on the floor (%.1f%%)\n",
+            nrow(made), nrow(assisted), nrow(matched), 100 * nrow(matched) / max(1, nrow(assisted))))
+scorer_totals <- made %>% group_by(scorer_id) %>%
+  summarise(scorer_fgm = n(), scorer_assisted = sum(!is.na(passer_text)), .groups = "drop")
+assist_pairs <- matched %>%
+  group_by(scorer_id, passer_id) %>%
+  summarise(ast = n(), ast_fg3 = sum(shot_value == 3), .groups = "drop") %>%
+  left_join(scorer_totals, by = "scorer_id") %>%
+  mutate(season = make_label(this_start), `_id` = paste(season, scorer_id, passer_id, sep = "_")) %>%
+  relocate(`_id`, season)
 
 # 3. Hustle -----------------------------------------------------------------
 hustle <- bind_rows(lapply(seasons, function(start) {
@@ -253,6 +331,8 @@ drills <- bind_rows(lapply(2000:(this_start - 1), function(cl) {
 cat("\nWriting seed files to", seed_dir, "\n")
 write_jsonl(player_stats, "player_stats")
 write_jsonl(play_types, "play_types")
+write_jsonl(play_type_mix, "play_type_mix")
+write_jsonl(assist_pairs, "assist_pairs")
 write_jsonl(hustle, "hustle")
 write_jsonl(steals, "steals")
 write_jsonl(shot_extras, "shot_extras")

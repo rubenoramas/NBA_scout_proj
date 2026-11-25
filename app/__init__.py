@@ -9,6 +9,7 @@ from pymongo.errors import PyMongoError
 from app.db import ensure_user_indexes
 from app.routes.games import games_bp
 from app.routes.health import health_bp
+from app.routes.onepager import onepager_bp
 from app.routes.players import players_bp
 from app.routes.refresh import refresh_bp
 from app.routes.saved import saved_bp
@@ -26,6 +27,7 @@ def create_app():
     app.register_blueprint(players_bp)
     app.register_blueprint(saved_bp)
     app.register_blueprint(refresh_bp)
+    app.register_blueprint(onepager_bp)
 
     try:
         ensure_user_indexes()
@@ -47,6 +49,14 @@ def create_app():
     @app.get("/player/<player_id>")
     def player_page(player_id):
         return render_template("player.html")
+
+    @app.get("/onepager/<player_id>")
+    def onepager_page(player_id):
+        return render_template("onepager.html")
+
+    @app.get("/onepagers")
+    def onepagers_page():
+        return render_template("onepagers.html")
 
     @app.get("/reports")
     def reports_page():

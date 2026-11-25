@@ -151,3 +151,13 @@ What I learned: (yours to fill in)
 What happened: the first real refresh sat on "Steals from ESPN play-by-play" for 20 minutes. The same download takes about 3 seconds when tested alone. The laptop was asleep on battery for much of that time, which freezes the Docker VM and can leave a download hanging forever, and hoopR's downloads have no timeout of their own. The time limit in the job server was only checked when R printed a line, so a silent hang was never stopped.
 What fixed it: a watchdog timer kills a pull script after 20 minutes even if it prints nothing, and the page then says which pull failed. Run refreshes with the laptop awake and plugged in; the second run finished and loaded 368 new box score lines.
 What I learned: (yours to fill in)
+
+## 2026-11-25: who passed the ball
+What happened: the play-by-play names the passer only by last name inside the shot text ("(Robinson 1 AST)"). A first try matched 93.6% of these to a teammate on the floor. Most misses were accented names: the text says "Jokic" while our player names say "Jokić", and the Mac's accent stripping turns "ć" into "'c".
+What fixed it: compare names with accents removed (and the stray marks the conversion leaves), also accept a last name without "Jr." and shortened first names like "Jal. Williams", and only count a pass when exactly one teammate on the floor matches. 97.4% now match.
+What I learned: (yours to fill in)
+
+## 2026-11-25: caching the one-pager text
+What happened: every one-pager calls Claude for "How to guard him", so printing seven pages twice would make fourteen calls for the same text.
+What fixed it: the text is stored in a onepager_notes collection under player, our team, data date and prompt version, with a unique index on those four fields. The page asks MongoDB first. The write uses an upsert with $setOnInsert, so two requests for the same page at once still store only one text.
+What I learned: (yours to fill in)

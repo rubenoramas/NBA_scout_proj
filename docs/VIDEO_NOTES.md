@@ -359,6 +359,23 @@ Questions:
 - How does the app make sure only one refresh runs at a time, even with two web workers?
 - What does the button show when the refresher is not running?
 
+## The player one-pager
+
+What it does: one printable page on an opposing player, written for the player on our team who will guard him. The top has his headshot, size, injury status and season line with USG% and its league rank. Below that: "How to guard him" in two or three sentences from Claude, the twelve ratings as bars with small-sample tags, his badges with their numbers, our best three defenders on him, his favorite shots at each level with a small shot chart, how his possessions end (play types with points per possession against the league), and which teammates assist him most. "Print one-pagers" on the scouting page prints one page for each of their five plus anyone with a USG% of 25 or higher.
+
+How it works, in plain words:
+- **Two new data files.** The pull script now saves every offensive play type per player (isolation, pick and roll, spot up and so on) and who assisted whom. The NBA play-by-play writes the passer inside the shot text, like "(Robinson 1 AST)", so the script reads that last name and matches it to the scorer's four teammates on the floor. 97.4% of named passers match exactly one teammate.
+- **Reused parts.** The defenders come from the same matchup model as the Matchups tab, the ratings and badges from the player card, and the favorite shots from the same MongoDB query.
+- **AI text with a cache.** The page sends Claude only the numbers printed on the page, through the same writer, honesty rules and number check as the team report. The answer is stored in MongoDB under four values: the player, our team, the data date and the prompt version. A unique index makes that four-part key a rule the database enforces. Opening the page again reads the stored text in about 10 ms and never calls the API. New data or a new prompt version writes fresh text.
+- **Printing.** A print stylesheet swaps the dark colors for light paper and dark ink, hides the top bar and buttons, and shrinks the type so each player fits on one US letter page.
+
+Design decision worth mentioning: the cache key includes the data date. The text can never describe yesterday's numbers next to today's, and a refresh makes the next page view write new text automatically, with no cache clearing step.
+
+Questions:
+- Why is the cache keyed by the data date and the prompt version, and not just by player?
+- How does the app find who passed the ball when the play-by-play only gives a last name?
+- What does the page show when there is no API key, and what if the text was already cached?
+
 ## AI in the project
 
 AI shows up in three places:
@@ -382,8 +399,9 @@ Full notes are in `docs/NOTES.md`. Write the README answers in your own words.
 - 51 injured players had not played yet, so they were missing from the player bio file and from rosters.
 - The first standout rule favored bench players: a small average makes any good night look huge. A minutes floor (15 a game before, 20 in the last game) fixed it, and the card shows the sample size and the rule so the reader can judge it.
 - The play-in games are not in the NBA's game log file, so they have a score but no box score.
+- Assist data names the passer by last name only, and without accents ("Jokic" for Jokić). Matching it to the four teammates on the floor, ignoring accents and allowing "Jal. Williams" style first initials, matched 97.4%.
 - Making a fair test for streaky shooting: with 270 players tested, a normal 5% threshold would hand out about 13 badges by luck alone, so the threshold is split across all of them.
 
 ## Still to come
 
-Sections for these get added as they are built: the player one-pager, rotation scouting, and tests.
+Sections for these get added as they are built: rotation scouting, and tests.
