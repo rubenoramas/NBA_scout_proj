@@ -2,15 +2,15 @@
   "_id": "seed",
   "season": "2026-27",
   "last_season": "2025-26",
-  "data_as_of": "2026-11-17",
-  "pulled_at": "2026-11-18T19:44:17Z",
-  "latest_injury_report": "2026-11-18T00:00:00Z",
+  "data_as_of": "2026-11-24",
+  "pulled_at": "2026-11-25T18:03:36Z",
+  "latest_injury_report": "2026-11-25T00:00:00Z",
   "counts": {
     "teams": 30,
-    "players": 519,
+    "players": 525,
     "standings": 30,
     "schedule": 2529,
-    "game_logs": 33293,
-    "injuries": 150
+    "game_logs": 34414,
+    "injuries": 145
   }
 }
