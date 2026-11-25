@@ -12,6 +12,20 @@ const PLACEHOLDER = window.PLACEHOLDER_HEADSHOT;
 const d1 = (v) => (v === null || v === undefined ? "–" : Number(v).toFixed(1));
 const d2 = (v) => (v === null || v === undefined ? "–" : Number(v).toFixed(2));
 
+// "us_status=1628969:Out,..." from the lineup editor, as a query string.
+export function statusParam(overrides) {
+  return (overrides || []).map((o) => `${o.player_id}:${o.status}`).join(",");
+}
+
+// The query for this page's API calls: our team, plus the lineup editor's
+// statuses when the page was opened with them.
+export function pageQuery(vs, overrides) {
+  const q = new URLSearchParams({ vs });
+  const st = statusParam(overrides);
+  if (st) q.set("us_status", st);
+  return q.toString();
+}
+
 function box(cls, title, note, ...body) {
   return el("section", { class: `panel sheet-box ${cls}`, "aria-label": title },
     el("div", { class: "panel-head sheet-box-head" },
@@ -103,7 +117,7 @@ export async function loadNote(sheet, page) {
   fill(body, el("p", { class: "muted", role: "status", text: "Writing the text. This usually takes 5 to 15 seconds." }),
     el("div", { class: "ai-skel", "aria-hidden": "true" }, bar(94), bar(88), bar(52)));
   try {
-    const url = `/api/players/${page.player.player_id}/onepager/note?vs=${page.us.team_id}`;
+    const url = `/api/players/${page.player.player_id}/onepager/note?${pageQuery(page.us.team_id, page.defenders.overrides)}`;
     const data = await postJSON(url, {}, { timeoutMs: 120000 });
     showNote(body, data.note);
     delete node.dataset.needsNote;
@@ -163,7 +177,19 @@ function defendersBox(page) {
         el("span", { class: "num history-cell" }, el("span", { class: "text-2", text: `${Math.round(o.history_poss)} poss` }),
           o.small_history ? tag("Small sample", "gold") : null)))]
       : el("p", { class: "state-line", text: `No healthy ${page.us.abbreviation} defender has enough minutes.` }),
+    statusNote(d),
     el("p", { class: "panel-foot", text: `From the matchup model: points per 100 partial possessions (league about ${d.league_per100}). History under ${d.min_history} possessions is a small sample.` }));
+}
+
+// Which statuses decided who can guard him: the official injury report, or
+// the statuses set in the lineup editor on the scouting page.
+function statusNote(d) {
+  const n = d.overrides.length;
+  const text = d.status_source === "lineup"
+    ? `Who can play: statuses set in the lineup editor (${n} change${n === 1 ? "" : "s"} from the official report). Out players are left out.`
+    : "Who can play: the official injury report. Out players are left out.";
+  return el("p", { class: "op-status" }, tag(d.status_source === "lineup" ? "Lineup editor" : "Official report", d.status_source === "lineup" ? "accent" : ""),
+    el("span", { class: "muted", text: ` ${text}` }));
 }
 
 // ---- Shots ---------------------------------------------------------------------
@@ -207,19 +233,24 @@ function playTypesBox(page) {
   return box("sheet-plays", "How his possessions end", note,
     el("div", { class: "trow thead short-head cols-op-plays" },
       el("span", { text: "Play type" }), el("span", { class: "num", text: "Poss" }), el("span", { class: "num", text: "Share" }),
-      el("span", { class: "num", text: "PPP" }), el("span", { class: "num", text: "League" }), el("span")),
+      el("span", { class: "num", text: "PPP" }), el("span", { class: "num", text: "League" }),
+      el("span", { text: "vs League" }), el("span")),
     pt.rows.slice(0, 6).map((r) => {
-      const better = r.league_ppp !== null && r.ppp - r.league_ppp >= 0.05;
-      const worse = r.league_ppp !== null && r.league_ppp - r.ppp >= 0.05;
+      // Same meaning as the player card: green is above league average for
+      // him, red below. Words carry the meaning too, not only color.
+      const gap = r.league_ppp === null ? null : r.ppp - r.league_ppp;
+      const word = gap === null ? "–" : gap >= 0.05 ? "above league" : gap <= -0.05 ? "below league" : "near league";
+      const cls = gap === null ? "muted" : gap >= 0.05 ? "win" : gap <= -0.05 ? "loss" : "text-2";
       return el("div", { class: "trow cols-op-plays" },
         el("span", { class: "text-2", text: r.label }),
         el("span", { class: "num text-2", text: r.poss }),
         el("span", { class: "num strong", text: pct1(r.share) }),
-        el("span", { class: `num strong ${better ? "loss" : worse ? "win" : ""}`, text: d2(r.ppp) }),
+        el("span", { class: `num strong ${cls}`, text: d2(r.ppp) }),
         el("span", { class: "num text-2", text: d2(r.league_ppp) }),
+        el("span", { class: `strong ${cls}`, text: word }),
         el("span", { class: "num" }, r.small_sample ? tag("Small sample", "gold") : null));
     }),
-    el("p", { class: "panel-foot", text: "PPP is points per possession that ends in that play type. Red means he scores more than the league does on it, green less. Play types describe how possessions end, not called plays." }));
+    el("p", { class: "panel-foot", text: "PPP is points per possession that ends in that play type. Above or below league compares his PPP with the league's on that play type (within 0.05 is near league), the same way the player card compares FG%. Play types describe how possessions end, not called plays." }));
 }
 
 function feedersBox(page) {

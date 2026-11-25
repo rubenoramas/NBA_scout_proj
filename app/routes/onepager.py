@@ -1,5 +1,8 @@
 """Player one-pager endpoints.
 
+    Both take an optional us_status=<pid>:<status>,... with the statuses set
+    for our players in the lineup editor (otherwise the official injury report).
+
     GET  /api/players/<id>/onepager?vs=<team id>        page data, plus the cached
                                                         "How to guard him" text if any.
                                                         Never calls the AI service.
@@ -14,7 +17,7 @@ from app.report.onepager import cached_note, get_note
 from app.report.writer import NO_KEY_MESSAGE, ReportError
 from app.routes.errors import error, parse_team_id
 from app.routes.players import parse_player_id
-from app.services.onepager import build_page
+from app.services.onepager import build_page, parse_status_param
 
 onepager_bp = Blueprint("onepager", __name__)
 
@@ -26,7 +29,10 @@ def page_or_error(player_id):
     vs, err = parse_team_id(request.args.get("vs"), "\"vs\" team id (the team that will guard him)")
     if err:
         return None, err
-    page, problem = build_page(pid, vs)
+    overrides, message = parse_status_param(request.args.get("us_status"))
+    if message:
+        return None, error(message, 400)
+    page, problem = build_page(pid, vs, overrides)
     if problem:
         return None, error(*problem)
     return page, None

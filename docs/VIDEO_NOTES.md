@@ -367,6 +367,8 @@ How it works, in plain words:
 - **Two new data files.** The pull script now saves every offensive play type per player (isolation, pick and roll, spot up and so on) and who assisted whom. The NBA play-by-play writes the passer inside the shot text, like "(Robinson 1 AST)", so the script reads that last name and matches it to the scorer's four teammates on the floor. 97.4% of named passers match exactly one teammate.
 - **Reused parts.** The defenders come from the same matchup model as the Matchups tab, the ratings and badges from the player card, and the favorite shots from the same MongoDB query.
 - **AI text with a cache.** The page sends Claude only the numbers printed on the page, through the same writer, honesty rules and number check as the team report. The answer is stored in MongoDB under four values: the player, our team, the data date and the prompt version. A unique index makes that four-part key a rule the database enforces. Opening the page again reads the stored text in about 10 ms and never calls the API. New data or a new prompt version writes fresh text.
+- **Who can guard him.** Opened from the scouting page, the one-pager gets the statuses set in the lineup editor, so a player marked Out there is left out of the best three defenders, just like on the Matchups tab. Opened anywhere else, it uses the official injury report. A small tag on the panel says which one was used. Which of our players are Out is also part of the cache key, so the text never names a defender who is out.
+- **Play types in words.** Each play type says "above league", "near league" or "below league" for his points per possession, with green and red meaning the same as on the player card. The words carry the meaning, so it reads the same in black and white.
 - **Printing.** A print stylesheet swaps the dark colors for light paper and dark ink, hides the top bar and buttons, and shrinks the type so each player fits on one US letter page.
 
 Design decision worth mentioning: the cache key includes the data date. The text can never describe yesterday's numbers next to today's, and a refresh makes the next page view write new text automatically, with no cache clearing step.
@@ -375,6 +377,7 @@ Questions:
 - Why is the cache keyed by the data date and the prompt version, and not just by player?
 - How does the app find who passed the ball when the play-by-play only gives a last name?
 - What does the page show when there is no API key, and what if the text was already cached?
+- If you mark our best defender Out in the lineup editor, what changes on the one-pager, and why does the text change too?
 
 ## AI in the project
 

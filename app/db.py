@@ -42,9 +42,14 @@ def ensure_user_indexes():
     db.refresh_jobs.create_index([("active", ASCENDING)], unique=True,
                                  partialFilterExpression={"active": True}, name="one_active_job")
     db.refresh_jobs.create_index([("created_at", DESCENDING)])
-    # One cached "How to guard him" text per player, our team, data date and
-    # prompt version. The unique index makes the cache key a rule the
-    # database enforces, and makes each cache lookup one index read.
+    # One cached "How to guard him" text per player, our team, data date,
+    # prompt version and set of our players who are Out. The unique index
+    # makes the cache key a rule the database enforces, and makes each cache
+    # lookup one index read.
+    # The first version of this index had four fields; drop it if present.
+    if "one_note_per_page" in db.onepager_notes.index_information():
+        db.onepager_notes.drop_index("one_note_per_page")
     db.onepager_notes.create_index([("player_id", ASCENDING), ("vs_team_id", ASCENDING),
-                                    ("data_as_of", ASCENDING), ("prompt_version", ASCENDING)],
-                                   unique=True, name="one_note_per_page")
+                                    ("data_as_of", ASCENDING), ("prompt_version", ASCENDING),
+                                    ("us_out", ASCENDING)],
+                                   unique=True, name="one_note_per_page_v2")

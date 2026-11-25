@@ -368,10 +368,20 @@ async function renderPlayers(ctx) {
     return;
   }
   rosters[them.team_id] = rosters[them.team_id] || data.players;
-  renderRoster(body, data.players, rosterState, `${them.full_name} roster`, { onepagerVs: ctx.us.team.team_id });
+  renderRoster(body, data.players, rosterState, `${them.full_name} roster`, { onepagerQuery: onepagerQuery(ctx) });
 }
 
 // ---- Print one-pagers -------------------------------------------------------
+
+// The query every one-pager link carries: our team, plus any statuses set
+// for our players in the lineup editor, so the best defenders leave out the
+// same Out players as the Matchups tab.
+function onepagerQuery(ctx) {
+  const q = new URLSearchParams({ vs: ctx.us.team.team_id });
+  const st = overridesPayload("us").map((o) => `${o.player_id}:${o.status}`).join(",");
+  if (st) q.set("us_status", st);
+  return q;
+}
 
 // Their five (from the Lineups tab, or the default five) plus anyone with
 // USG% of 25 or higher who is not Out. Same rule as the AI report's key
@@ -402,7 +412,8 @@ printButton.addEventListener("click", async () => {
       .map((p) => p.player_id);
     const usage = (pid) => ((roster.find((p) => p.player_id === pid) || {}).usage || {}).usg_pct || 0;
     const ids = [...[...five].sort((a, b) => usage(b) - usage(a)), ...extra];
-    const q = new URLSearchParams({ vs: ctx.us.team.team_id, ids: ids.join(",") });
+    const q = onepagerQuery(ctx);
+    q.set("ids", ids.join(","));
     if (tab) tab.location.href = `/onepagers?${q}`;
     else window.location.href = `/onepagers?${q}`;
   } catch (err) {

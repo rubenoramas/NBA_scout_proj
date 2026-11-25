@@ -180,13 +180,15 @@ def describe_pair(model, s, d, e, positions):
     }
 
 
-def best_defenders(us_id, scorer_id, n=3):
+def best_defenders(us_id, scorer_id, n=3, overrides=None):
     """Our best n defenders on one opposing player, from our whole healthy
     roster, with the same rules as the top three on the Matchups tab.
-    Official injury statuses only (no per-game overrides)."""
+    overrides ({pid: status}, from the lineup editor) go on top of the
+    official injury report; only Out players are left out."""
     model = get_model()
     positions = {scorer_id: (model["bios"].get(scorer_id) or {}).get("position")}
-    pool = defender_pool(us_id, out_players(us_id), model, positions)
+    out_us = out_players(us_id, overrides)
+    pool = defender_pool(us_id, out_us, model, positions)
 
     def est(s, d):
         return pair_estimate(model, s, d)
@@ -198,6 +200,7 @@ def best_defenders(us_id, scorer_id, n=3):
     return {
         "options": [describe_pair(model, scorer_id, d, est(scorer_id, d), positions) for d in options],
         "pool_size": len(pool),
+        "out": sorted(out_us),
         "league_per100": round(model["league_all"] * 100, 1),
         "min_history": SMALL_HISTORY,
     }

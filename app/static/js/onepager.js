@@ -3,13 +3,23 @@
 // page uses the team chosen in the top bar, and the picker can change it.
 
 import { MY_TEAM_KEY, el, errorLine, fill, getJSON, store } from "./api.js";
-import { loadNote, renderSheet, sheetSkeleton } from "./onepagerview.js";
+import { loadNote, pageQuery, renderSheet, sheetSkeleton } from "./onepagerview.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
 
 const toolbar = document.getElementById("toolbar");
 const root = document.getElementById("sheets");
 const playerId = window.location.pathname.split("/").filter(Boolean).pop();
 let teams = [];
+
+// Statuses for our players from the lineup editor, when the scouting page
+// passed them (us_status=1628969:Out,...). They belong to that team only.
+function statusFromUrl() {
+  const raw = new URLSearchParams(window.location.search).get("us_status") || "";
+  return raw.split(",").filter(Boolean).map((part) => {
+    const [pid, status] = part.split(":");
+    return { player_id: pid, status };
+  });
+}
 
 function vsFromUrl() {
   const v = new URLSearchParams(window.location.search).get("vs");
@@ -25,6 +35,7 @@ function drawToolbar(vs, page) {
   select.value = vs;
   select.addEventListener("change", () => {
     if (!select.value) return;
+    // A different team: the lineup editor statuses no longer apply.
     const q = new URLSearchParams({ vs: select.value });
     window.history.replaceState({}, "", `${window.location.pathname}?${q}`);
     load();
@@ -57,10 +68,12 @@ async function load() {
   }
   let page;
   try {
-    page = await getJSON(`/api/players/${encodeURIComponent(playerId)}/onepager?vs=${encodeURIComponent(vs)}`);
+    const urlVs = new URLSearchParams(window.location.search).get("vs");
+    const status = urlVs === vs ? statusFromUrl() : [];
+    page = await getJSON(`/api/players/${encodeURIComponent(playerId)}/onepager?${pageQuery(vs, status)}`);
   } catch (err) {
     // A bad id or his own team will not fix itself: no Try again button.
-    const permanent = /must be a number|No player has|No team has|plays for/.test(err.message);
+    const permanent = /must be a number|No player has|No team has|plays for|us_status|is not a status/.test(err.message);
     fill(root, el("section", { class: "panel" }, errorLine(err.message, permanent ? null : load)));
     return;
   }

@@ -20,9 +20,9 @@ export function newRosterState() {
   return { sortKey: "usg", sortDir: "desc" };
 }
 
-// onepagerVs: our team id. When given, each row links to the player's
-// one-pager written for that team.
-export function renderRoster(body, players, state, label, { onepagerVs = null } = {}) {
+// onepagerQuery: "vs=<our team id>" (plus the lineup editor's statuses).
+// When given, each row links to the player's one-pager for that team.
+export function renderRoster(body, players, state, label, { onepagerQuery = null } = {}) {
   const s = (key) => (r) => (r.season ? r.season[key] : null);
   const num = (key, digits = 1) => (r) => (r.season ? Number(r.season[key]).toFixed(digits) : "–");
   const columns = [
@@ -45,9 +45,9 @@ export function renderRoster(body, players, state, label, { onepagerVs = null } 
     { key: "status", label: "Status", width: "120px", align: "num", firstDir: "asc",
       value: (r) => (r.injury ? r.injury.status : null), cell: (r) => injuryTag(r.injury) || el("span", { class: "muted", text: "" }) },
   ];
-  if (onepagerVs) {
+  if (onepagerQuery) {
     columns.push({ key: "onepager", label: "", width: "116px", sortable: false, value: () => null,
-      cell: (r) => el("a", { class: "scout-link", href: `/onepager/${r.player_id}?vs=${onepagerVs}`,
+      cell: (r) => el("a", { class: "scout-link", href: `/onepager/${r.player_id}?${onepagerQuery}`,
         "aria-label": `One-pager on ${r.player_name}` }, "One-pager", chevron()) });
   }
   const draw = () => renderSortTable(body, {

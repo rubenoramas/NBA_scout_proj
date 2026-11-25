@@ -571,3 +571,18 @@ Prompt:
 > Add tests with the API mocked (cache hit and miss, no key, the facts builder). Check the screen and print preview in the browser, then commit and push and add the VIDEO_NOTES section.
 
 Result: two new seed files from pulls/pull_stats.R (play_type_mix: every offensive play type per player season; assist_pairs: who assisted whom this season, parsed from the play-by-play shot text, 97.4% of named passers matched to one teammate on the floor); /onepager/<id>?vs= and /onepagers print-all pages; GET /api/players/<id>/onepager and POST /api/players/<id>/onepager/note; "How to guard him" written through the shared report writer (refactored into write()) with its own prompt (onepager-v1) and the number check, cached in a new onepager_notes collection with a unique index on player, our team, data date and prompt version; best three defenders from a new best_defenders() in the matchup service; print stylesheet with print color tokens, one US letter page per player; Print one-pagers enabled in the band (their five plus USG% 25+, not Out, in a new tab); One-pager links in the Players tab and on the player card; 22 new tests with the API mocked (133 total); checked in the browser and as printed PDFs (5 players, 5 pages)
+
+## 2026-11-25: Milestone seed commit, lineup statuses and play type colors on the one-pager
+
+Prompt:
+> Three things:
+>
+> 1. Milestone commit now: commit all the refreshed seed files, including play_type_mix.jsonl and assist_pairs.jsonl, so a fresh clone has complete data. Run the fresh-clone test afterward and confirm the one-pager's play type and assist boxes fill in.
+>
+> 2. One-pager defenders: when opened from the scouting page, use the lineup editor's current status overrides (passed along when the page opens), and fall back to the official injury report otherwise. Show a small note saying which was used.
+>
+> 3. Colors: make the one-pager's play type colors match the player card, where green means above league average for that player. Add the words "above league" or "below league" so the scouting meaning is clear without relying on color.
+>
+> Then commit and push.
+
+Result: milestone commit of all seed files (games through Nov 24, with play_type_mix and assist_pairs); one-pager links from the Players tab and Print one-pagers carry the lineup editor's statuses for our players (us_status=<pid>:<status>,...), the best defenders leave out the same Out players as the Matchups tab, and a note says "Lineup editor" or "Official report"; the cached "How to guard him" key now includes our Out players, so a text never recommends a defender marked Out (unique index rebuilt with five fields); play types colored like the player card (green above league, red below) with a "vs League" column in words; 6 new tests (139 total); fresh clone from GitHub started with docker-compose up --build and filled the play type and assist boxes

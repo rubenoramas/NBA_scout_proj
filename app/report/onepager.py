@@ -60,6 +60,7 @@ def onepager_facts(page):
             "injury_status": (page["injury"] or {}).get("status") or "Available",
         },
         "guarded_by_team": page["us"]["abbreviation"],
+        "defender_statuses_from": page["defenders"]["status_source_label"],
         "season_line": {
             "games": s.get("gp"), "minutes": s.get("min"), "points": s.get("pts"), "rebounds": s.get("reb"),
             "assists": s.get("ast"), "turnovers": s.get("tov"),
@@ -102,8 +103,14 @@ def onepager_facts(page):
 
 
 def cache_key(page):
+    """Player, our team, data date, prompt version, and which of our players
+    are Out. The last part matters because the text may name our best
+    defender: marking him Out in the lineup editor must not reuse a text
+    that recommends him. It is a string ("201,305"), not a list, so the
+    unique index compares the whole set."""
     return {"player_id": page["player"]["player_id"], "vs_team_id": page["us"]["team_id"],
-            "data_as_of": page["data_as_of"], "prompt_version": config.ONEPAGER_PROMPT_VERSION}
+            "data_as_of": page["data_as_of"], "prompt_version": config.ONEPAGER_PROMPT_VERSION,
+            "us_out": ",".join(str(p) for p in page["defenders"]["out"])}
 
 
 def public(doc):

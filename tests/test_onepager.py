@@ -269,3 +269,40 @@ def test_errors_are_plain_and_not_cached(client_app, onepager_data, key, monkeyp
 def test_one_pager_pages_render(client_app):
     assert client_app.get("/onepager/210?vs=1").status_code == 200
     assert client_app.get("/onepagers?vs=1&ids=210,211").status_code == 200
+
+
+# ---- Lineup editor statuses for our defenders ------------------------------
+
+def test_defenders_use_the_official_report_by_default(client_app, onepager_data):
+    d = client_app.get(URL).get_json()["defenders"]
+    assert d["status_source"] == "official" and d["overrides"] == [] and d["out"] == [102, 112]
+
+
+def test_lineup_editor_statuses_replace_the_official_report(client_app, onepager_data):
+    best = client_app.get(URL).get_json()["defenders"]["options"][0]["defender_id"]
+    # Mark our best defender Out and bring 112 back, as the lineup editor would.
+    d = client_app.get(f"{URL}&us_status={best}:Out,112:Available").get_json()["defenders"]
+    assert d["status_source"] == "lineup" and d["out"] == [102, best]
+    assert {"player_id": best, "status": "Out"} in d["overrides"]
+    ids = [o["defender_id"] for o in d["options"]]
+    assert best not in ids
+
+
+@pytest.mark.parametrize("raw, words", [("110", "must look like"), ("abc:Out", "not a number"), ("110:Hurt", "is not a status")])
+def test_bad_status_values_are_rejected(client_app, onepager_data, raw, words):
+    res = client_app.get(f"{URL}&us_status={raw}")
+    assert res.status_code == 400 and words in res.get_json()["error"]
+
+
+def test_a_different_out_set_writes_its_own_text(client_app, onepager_data, key, monkeypatch):
+    fake = FakeClient(reply())
+    monkeypatch.setattr(writer, "make_client", lambda: fake)
+    assert client_app.post(NOTE_URL).status_code == 201
+    assert client_app.post(f"{NOTE_URL}&us_status=110:Out").status_code == 201
+    # Same Out set as the official report (112 Out, said again): a cache hit.
+    assert client_app.post(f"{NOTE_URL}&us_status=112:Out").status_code == 200
+    assert len(fake.calls) == 2
+    assert sorted(d["us_out"] for d in db.onepager_notes.find()) == ["102,110,112", "102,112"]
+    # The model is told where the statuses came from.
+    facts = json.loads(fake.calls[1]["messages"][0]["content"].split("\n", 1)[1])
+    assert facts["defender_statuses_from"] == "Statuses set in the lineup editor"

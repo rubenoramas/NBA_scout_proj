@@ -10,6 +10,8 @@ const toolbar = document.getElementById("toolbar");
 const root = document.getElementById("sheets");
 const params = new URLSearchParams(window.location.search);
 const vs = (params.get("vs") || "").trim();
+// Statuses for our players from the lineup editor, passed on as they came.
+const usStatus = (params.get("us_status") || "").trim();
 const ids = [...new Set((params.get("ids") || "").split(",").map((s) => s.trim()).filter(Boolean))];
 // Writing several texts at once is fine for the API, but two at a time
 // keeps the rate limit comfortable.
@@ -63,7 +65,9 @@ async function load() {
   const ready = [];
   await Promise.all(ids.map(async (id, i) => {
     try {
-      const page = await getJSON(`/api/players/${id}/onepager?vs=${vs}`);
+      const q = new URLSearchParams({ vs });
+      if (usStatus) q.set("us_status", usStatus);
+      const page = await getJSON(`/api/players/${id}/onepager?${q}`);
       if (!page.note.key_set && !page.note.cached) noKey = true;
       const sheet = renderSheet(page);
       fill(slots[i], sheet);

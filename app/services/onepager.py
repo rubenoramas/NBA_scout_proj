@@ -10,7 +10,7 @@ whom, parsed from the play-by-play).
 
 from app.db import db
 from app.services.context import current_season, get_team
-from app.services.matchups import best_defenders
+from app.services.matchups import best_defenders, parse_overrides
 from app.services.players import injury_for, per_game, top_shot_types, usage_for, usage_table
 
 # Play type names as the NBA files spell them, and how the page says them.
@@ -114,9 +114,30 @@ def ratings_block(attr):
             "ratings": ratings, "badges": badges}
 
 
-def build_page(player_id, vs_id):
+STATUS_SOURCES = {"official": "Official injury report",
+                  "lineup": "Statuses set in the lineup editor"}
+
+
+def parse_status_param(raw):
+    """The "us_status" query value from the scouting page, such as
+    "1628969:Out,1630193:Available", as {pid: status}. Returns
+    (overrides or None, error message)."""
+    if raw is None or not raw.strip():
+        return None, None
+    items = []
+    for part in raw.split(","):
+        pid, sep, status = part.strip().partition(":")
+        if not sep:
+            return None, "Each us_status entry must look like 1628969:Out."
+        items.append({"player_id": pid, "status": status})
+    return parse_overrides(items, "us_status")
+
+
+def build_page(player_id, vs_id, overrides=None):
     """Returns (page, (message, status)). vs_id is our team, the one whose
-    player will guard him."""
+    player will guard him. overrides ({pid: status} for our players, from
+    the lineup editor) replace the official injury report for the defenders;
+    None means the official report."""
     doc = db.players.find_one({"_id": player_id})
     if not doc:
         return None, (f"No player has the id {player_id}.", 404)
@@ -143,7 +164,10 @@ def build_page(player_id, vs_id):
         "season": per_game(doc),
         "usage": usage,
         "attributes": ratings_block(attr),
-        "defenders": best_defenders(vs_id, player_id),
+        "defenders": {**best_defenders(vs_id, player_id, overrides=overrides),
+                      "status_source": "lineup" if overrides is not None else "official",
+                      "status_source_label": STATUS_SOURCES["lineup" if overrides is not None else "official"],
+                      "overrides": [{"player_id": p, "status": s} for p, s in sorted((overrides or {}).items())]},
         "shots": {"total_fga": len(shots), "made": sum(1 for s in shots if s["made"]),
                   "top_types": top_shot_types(player_id), "chart": shots},
         "play_types": play_type_mix(player_id, season, last_season),
