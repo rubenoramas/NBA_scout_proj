@@ -38,14 +38,17 @@ export function newRosterState() {
 
 // onepagerQuery: "vs=<our team id>" (plus the lineup editor's statuses).
 // When given, each row links to the player's one-pager for that team.
-export function renderRoster(body, players, state, label, { onepagerQuery = null } = {}) {
+export function renderRoster(body, players, state, label, { onepagerQuery = null, form = "season" } = {}) {
+  const last10 = form === "last10";
+  const playerHref = (r) => `/player/${r.player_id}${last10 ? "?form=last10" : ""}`;
   const s = (key) => (r) => (r.season ? r.season[key] : null);
   const num = (key, digits = 1) => (r) => (r.season ? Number(r.season[key]).toFixed(digits) : "–");
   const columns = [
     { key: "name", label: "Player", width: "minmax(200px, 1fr)", firstDir: "asc", value: (r) => r.player_name.toLowerCase(),
       cell: (r) => el("span", { class: "player-cell" },
-        el("a", { class: "name-link", href: `/player/${r.player_id}`, text: r.player_name }),
-        r.has_stats ? null : el("span", { class: "muted", text: "No stats yet" })) },
+        el("a", { class: "name-link", href: playerHref(r), text: r.player_name }),
+        r.has_stats ? null : el("span", { class: "muted", text: "No stats yet" }),
+        last10 && r.has_stats && !r.season ? el("span", { class: "muted", text: "No games in the last 10" }) : null) },
     { key: "pos", label: "Pos", width: "48px", firstDir: "asc", value: (r) => r.position, cell: (r) => r.position || "–", className: "text-2" },
     { key: "gp", label: "GP", width: "44px", align: "num", value: s("gp"), cell: (r) => (r.season ? r.season.gp : "–"), className: "text-2" },
     { key: "usg", label: "USG%", width: "60px", align: "num", value: usgSortValue, cell: usgCell, className: "strong" },
@@ -56,8 +59,8 @@ export function renderRoster(body, players, state, label, { onepagerQuery = null
     { key: "fg", label: "FG%", width: "60px", align: "num", value: s("fg_pct"), cell: (r) => pct1(r.season && r.season.fg_pct), className: "text-2" },
     { key: "fg3", label: "3P%", width: "60px", align: "num", value: s("fg3_pct"), cell: (r) => pct1(r.season && r.season.fg3_pct), className: "text-2" },
     { key: "ts", label: "TS%", width: "60px", align: "num", value: s("ts_pct"), cell: (r) => pct1(r.season && r.season.ts_pct), className: "text-2" },
-    { key: "onoff", label: "On/off net", width: "112px", align: "num", value: onoffValue, cell: onoffCell },
-    { key: "badges", label: "Badges", width: "190px", value: (r) => r.badges.length || null,
+    { key: "onoff", label: last10 ? "On/off (season)" : "On/off net", width: "128px", align: "num", value: onoffValue, cell: onoffCell },
+    { key: "badges", label: last10 ? "Badges (season)" : "Badges", width: "190px", value: (r) => r.badges.length || null,
       cell: (r) => (r.badges.length ? el("span", { class: "badge-cell" }, r.badges.map(badgeTip)) : el("span", { class: "muted", text: "" })) },
     { key: "status", label: "Status", width: "120px", align: "num", firstDir: "asc",
       value: (r) => (r.injury ? r.injury.status : null), cell: (r) => injuryTag(r.injury) || el("span", { class: "muted", text: "" }) },

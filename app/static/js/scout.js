@@ -11,6 +11,7 @@ import { newRosterState, renderRoster } from "./roster.js";
 import { defenseShotPanels } from "./defshots.js";
 import { spotTags } from "./spots.js";
 import { projectionLine } from "./projection.js";
+import { SEASON_ONLY_NOTE, currentForm, formControl, withForm } from "./form.js";
 import { loadTeams, setScoutNav, setSwitcher } from "./topbar.js";
 
 function boxLink(gameId, label) {
@@ -33,6 +34,7 @@ let currentCtx = null;
 function tabUrl(tab) {
   const q = new URLSearchParams({ us: usAbbr, them: themAbbr });
   if (tab !== "overview") q.set("tab", tab);
+  if (currentForm() !== "season") q.set("form", currentForm());
   return `/scout?${q}`;
 }
 function markTabs() {
@@ -62,6 +64,21 @@ window.addEventListener("popstate", () => {
   if (currentCtx) render(currentCtx);
 });
 setScoutNav(tabUrl("overview"), { current: true });
+
+// Season / Last 10, in the band beside the actions. Matchups, Lineups and
+// Report use season numbers whatever the choice.
+document.querySelector(".band-actions").prepend(formControl(() => {
+  markTabs();
+  if (currentCtx) render(currentCtx);
+}));
+const formNote = el("p", { class: "form-note muted", role: "note", hidden: true });
+document.querySelector(".band-inner").append(formNote);
+// While Last 10 is on, say plainly which tabs stay on season numbers.
+function showFormNote() {
+  const seasonTab = ["matchups", "lineups", "report"].includes(activeTab);
+  formNote.hidden = !(currentForm() === "last10" && seasonTab);
+  formNote.textContent = "Season numbers on this tab: Last 10 does not apply to the matchup model, lineups or the AI report.";
+}
 
 // "Generate report" in the band: switch to the Report tab and start a draft.
 const generateButton = document.getElementById("generate-report");
@@ -304,6 +321,7 @@ function standouts(ctx) {
 function render(ctx) {
   currentCtx = ctx;
   renderBand(ctx);
+  showFormNote();
   if (activeTab === "players") {
     renderPlayers(ctx);
     return;
@@ -323,7 +341,8 @@ function render(ctx) {
   const usagePanel = el("section", { class: "panel span-12", "aria-label": "Who runs the offense" },
     el("div", { class: "panel-head", style: "justify-content: space-between" },
       el("h2", { class: "panel-title", text: "Who runs the offense" }),
-      el("span", { class: "panel-note", text: "Top three by USG% this season (100+ minutes)" })),
+      el("span", { class: "panel-note", text: currentForm() === "last10"
+        ? "Top three by USG% over each team's last 10 games (100+ minutes)" : "Top three by USG% this season (100+ minutes)" })),
     el("div", { id: "usage-body" }, skeletonRows(3, [40, 160, 50, 50, 50])));
   const seriesBox = el("div", { "data-series": "" }, skeletonRows(5, [90, 50, 120, 24, 70, 80]));
   const guardedBox = el("div", { "data-guarded": "" }, skeletonRows(6, [150, 150, 40, 40, 50, 40]));
@@ -338,7 +357,8 @@ function render(ctx) {
         el("h2", { class: "panel-title", text: "Who guarded whom" }),
         el("span", { class: "panel-note", text: "Each scorer's main defender in one meeting" })),
       guardedBox),
-    defenseShotPanels(ctx.them.team));
+    defenseShotPanels(ctx.them.team, { form: currentForm() }),
+    currentForm() === "last10" ? el("p", { class: "muted span-12", text: SEASON_ONLY_NOTE }) : null);
   loadUsage(ctx);
   loadSeries(ctx, seriesBox, guardedBox);
 }
@@ -451,7 +471,7 @@ async function loadUsage(ctx) {
   fill(body, skeletonRows(3, [40, 160, 50, 50, 50]));
   let rosters;
   try {
-    rosters = await Promise.all([ctx.us, ctx.them].map((side) => getJSON(`/api/teams/${side.team.team_id}/roster`)));
+    rosters = await Promise.all([ctx.us, ctx.them].map((side) => getJSON(withForm(`/api/teams/${side.team.team_id}/roster`))));
   } catch (err) {
     fill(body, errorLine(err.message, () => loadUsage(ctx)));
     return;
@@ -466,7 +486,7 @@ async function loadUsage(ctx) {
         el("span", { text: side.team.abbreviation }),
         ["USG%", "Rank", "PTS", "TS%"].map((t) => el("span", { class: "num", text: t }))),
       top.length ? top.map((p) => el("div", { class: "trow cols-usage" },
-        el("a", { class: "name-link", href: `/player/${p.player_id}`, text: p.player_name }),
+        el("a", { class: "name-link", href: withForm(`/player/${p.player_id}`), text: p.player_name }),
         el("span", { class: "num strong", text: p.usage.usg_pct.toFixed(1) }),
         el("span", { class: "num text-2", text: rankText(p.usage.rank) || "–" }),
         el("span", { class: "num text-2", text: p.season.pts.toFixed(1) }),
@@ -482,17 +502,21 @@ const rosterState = newRosterState();
 async function renderPlayers(ctx) {
   const them = ctx.them.team;
   const body = el("div");
-  fill(root, panel("span-12", `${them.full_name} roster`, `${ctx.season} · per game · sorted by USG% · click a name for the player card`, body));
+  const last10 = currentForm() === "last10";
+  fill(root, panel("span-12", `${them.full_name} roster`, last10
+    ? "Per game over their last 10 games · USG% ranked among every team's last 10 · sorted by USG%"
+    : `${ctx.season} · per game · sorted by USG% · click a name for the player card`, body));
   fill(body, skeletonRows(10, [180, 30, 30, 40, 40, 40, 40, 50, 50]));
   let data;
   try {
-    data = await getJSON(`/api/teams/${them.team_id}/roster`);
+    data = await getJSON(withForm(`/api/teams/${them.team_id}/roster`));
   } catch (err) {
     fill(body, errorLine(err.message, () => renderPlayers(ctx)));
     return;
   }
-  rosters[them.team_id] = rosters[them.team_id] || data.players;
-  renderRoster(body, data.players, rosterState, `${them.full_name} roster`, { onepagerQuery: onepagerQuery(ctx) });
+  // The lineup editor keeps the season roster; only cache that one.
+  if (!last10) rosters[them.team_id] = rosters[them.team_id] || data.players;
+  renderRoster(body, data.players, rosterState, `${them.full_name} roster`, { onepagerQuery: onepagerQuery(ctx), form: currentForm() });
 }
 
 // ---- Print one-pagers -------------------------------------------------------
@@ -680,7 +704,9 @@ function renderMatchups(ctx) {
   fill(root, el("section", { class: "panel span-12", "aria-label": "Suggested matchups" },
     el("div", { class: "panel-head", style: "justify-content: space-between" },
       el("h2", { class: "panel-title", text: "Suggested matchups" }),
-      el("span", { class: "panel-note", text: "Our five against their five, sorted by their USG%. Change the lineups in the Lineups tab." })),
+      el("span", { class: "panel-note", text: currentForm() === "last10"
+        ? "Season numbers (Last 10 does not apply here) · our five against their five, sorted by their USG%. Change the lineups in the Lineups tab."
+        : "Our five against their five, sorted by their USG%. Change the lineups in the Lineups tab." })),
     box));
   drawMatchupBox(box, ctx);
   if (!editor.result && !editor.loading) fetchMatchups(ctx);

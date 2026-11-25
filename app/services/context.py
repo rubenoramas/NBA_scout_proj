@@ -259,12 +259,35 @@ TEAM_STATS = [
 ]
 
 
-def team_stats_with_ranks(team_id):
-    """Each team stat with its league rank (1 = best, or fastest for pace)."""
+def team_stats_with_ranks(team_id, form="season"):
+    """Each team stat with its league rank (1 = best, or fastest for pace).
+    Season: the NBA's official numbers. Last 10: computed from every team's
+    last 10 box scores, ranked among those, with this team's season computed
+    the same way beside each value (the box scores have no team turnovers or
+    team rebounds, so they run lower than the official TOV% and OREB%)."""
+    if form != "season":
+        from app.services.form import all_team_stats, form_games
+        window = all_team_stats(form)
+        same_method_season = all_team_stats("season").get(team_id)
+        all_stats = [{"team_id": t, **s} for t, s in window.items()]
+        mine = next((t for t in all_stats if t["team_id"] == team_id), None)
+        if not mine:
+            return None
+        out = _ranked(mine, all_stats)
+        for row in out:
+            row["season_same_method"] = (same_method_season or {}).get(row["key"])
+        games = form_games(team_id, form)
+        dates = sorted(db.game_logs.distinct("game_date", {"game_id": {"$in": games}, "team_id": team_id}))
+        return {"gp": mine.get("gp"), "stats": out, "form": form, "source": "box scores",
+                "first_date": dates[0] if dates else None, "last_date": dates[-1] if dates else None}
     all_stats = list(db.team_stats.find({}, {"_id": 0}))
     mine = next((t for t in all_stats if t["team_id"] == team_id), None)
     if not mine:
         return None
+    return {"gp": mine.get("gp"), "stats": _ranked(mine, all_stats), "form": "season", "source": "official"}
+
+
+def _ranked(mine, all_stats):
     out = []
     for key, label, help_text, higher_better in TEAM_STATS:
         values = [t.get(key) for t in all_stats if t.get(key) is not None]
@@ -275,14 +298,15 @@ def team_stats_with_ranks(team_id):
             rank = len(better) + 1
         out.append({"key": key, "label": label, "help": help_text, "value": value,
                     "rank": rank, "of": len(values)})
-    return {"gp": mine.get("gp"), "stats": out}
+    return out
 
 
-def team_overview(team_id):
+def team_overview(team_id, form="season"):
     return {
         "team": get_team(team_id),
         "standing": standing(team_id),
         "season": current_season(),
         "data_as_of": data_as_of(),
-        "team_stats": team_stats_with_ranks(team_id),
+        "form": form,
+        "team_stats": team_stats_with_ranks(team_id, form),
     }

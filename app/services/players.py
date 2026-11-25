@@ -96,11 +96,32 @@ def badge_summary(attr):
     return [{k: b.get(k) for k in ("key", "name", "short", "meaning", "rule", "detail")} for b in attr.get("badges", [])]
 
 
-def roster(team_id):
+def window_usage(pid, window_usage_table, last_usage):
+    """usage_for, but over a recent-form window (see app/services/form.py)."""
+    from app.services.form import FORM_USG_MINUTES
+    u = window_usage_table.get(pid)
+    last = last_usage.get(pid)
+    return {
+        "usg_pct": u["usg_pct"] if u else None,
+        "rank": u["rank"] if u else None,
+        "ranked_of": u["ranked_of"] if u else None,
+        "minutes": round(u["min"]) if u else 0,
+        "small_sample": (u["min"] if u else 0) < FORM_USG_MINUTES,
+        "last_season_usg_pct": last["usg_pct"] if last else None,
+    }
+
+
+def roster(team_id, form="season"):
+    """The team's players. form "last10": per-game stats, TS% and USG% over
+    the team's last 10 games; badges and on/off stay season numbers."""
+    from app.services.form import league_window_usage, per_game_from_sums, player_window_lines
     from app.services.onoff import by_player, compact
     this_season = current_season()
     meta = db.meta.find_one({"_id": "seed"}) or {}
     onoff_this, onoff_last = by_player(this_season), by_player(meta.get("last_season"))
+    if form != "season":
+        sums, _games = player_window_lines(team_id, form, this_season)
+        win_usage = league_window_usage(form, this_season)
     this_usage = usage_table(this_season)
     last_usage = usage_table(meta.get("last_season"))
     injuries = {d["_id"]: d for d in db.injuries.find({"team_id": team_id})}
@@ -113,10 +134,12 @@ def roster(team_id):
             "player_name": doc.get("player_name"),
             "position": doc.get("position"),
             "has_stats": bool(doc.get("has_stats")) and bool(doc.get("gp")),
-            "season": per_game(doc),
+            "season": per_game(doc) if form == "season" else (
+                per_game_from_sums(sums[doc["_id"]]) if doc["_id"] in sums else None),
             "injury": {"status": inj.get("status"), "reason": inj.get("reason")} if inj else None,
             "badges": badge_summary(attrs.get(doc["_id"])),
-            "usage": usage_for(doc["_id"], this_usage, last_usage),
+            "usage": usage_for(doc["_id"], this_usage, last_usage) if form == "season"
+            else window_usage(doc["_id"], win_usage, last_usage),
             "onoff": {"this_season": compact(onoff_this.get(doc["_id"])),
                       "last_season": compact(onoff_last.get(doc["_id"]))},
         })
@@ -151,9 +174,21 @@ def zone_counts(match):
     return {d["_id"]: d for d in db.shots.aggregate(pipeline)}
 
 
-def zone_table(player_id):
-    """This season by zone, with league FG% and last season's totals."""
-    mine = zone_counts({"player_id": player_id})
+def shot_filter(player_id, form="season"):
+    """MongoDB filter for his shots in the window: the whole season, or his
+    team's last 10 games."""
+    match = {"player_id": player_id}
+    if form != "season":
+        from app.services.form import form_games
+        doc = db.players.find_one({"_id": player_id}, {"team_id": 1}) or {}
+        match["game_id"] = {"$in": form_games(doc.get("team_id"), form) or []}
+    return match
+
+
+def zone_table(player_id, form="season"):
+    """This season (or the window) by zone, with league FG% (season) and
+    last season's totals."""
+    mine = zone_counts(shot_filter(player_id, form))
     league = zone_counts({})
     last = {d["zone"]: d for d in db.shot_zones_last.find({"player_id": player_id})}
     total_fga = sum(z["fga"] for z in mine.values())
@@ -180,10 +215,10 @@ def zone_table(player_id):
     return rows, total_fga
 
 
-def top_shot_types(player_id, per_level=3):
-    """His three most common shot types at each level, this season."""
+def top_shot_types(player_id, per_level=3, form="season"):
+    """His three most common shot types at each level, this season (or the window)."""
     pipeline = [
-        {"$match": {"player_id": player_id}},
+        {"$match": shot_filter(player_id, form)},
         {"$group": {"_id": {"zone": "$zone", "type": "$shot_type"},
                     "fga": {"$sum": 1}, "fgm": {"$sum": {"$cond": ["$made", 1, 0]}}}},
     ]
@@ -208,19 +243,31 @@ def top_shot_types(player_id, per_level=3):
     return out
 
 
-def player_card(player_id):
+def player_card(player_id, form="season"):
+    """form "last10": the season line, USG% and shots over his team's last 10
+    games; ratings, badges and on/off stay season numbers."""
+    from app.services.form import LAST_N, form_games, league_window_usage, per_game_from_sums, player_window_lines
     doc = db.players.find_one({"_id": player_id})
     if not doc:
         return None
     season = current_season()
     team = db.teams.find_one({"_id": doc.get("team_id")}, {"_id": 0})
-    zones, total_fga = zone_table(player_id)
+    zones, total_fga = zone_table(player_id, form)
     bio_keys = ["player_id", "player_name", "team_id", "team_abbr", "position", "position_source", "age",
                 "height", "height_inches", "weight_lbs", "wingspan_inches", "standing_reach_inches",
                 "college", "country", "draft_year", "draft_round", "draft_number", "headshot_url"]
     attr = db.attributes.find_one({"_id": player_id}, {"_id": 0}) or None
     meta = db.meta.find_one({"_id": "seed"}) or {}
     usage = usage_for(player_id, usage_table(season), usage_table(meta.get("last_season")))
+    line = per_game(doc)
+    form_info = {"form": form, "label": "Season"}
+    if form != "season":
+        sums, _ = player_window_lines(doc.get("team_id"), form, season)
+        line = per_game_from_sums(sums[player_id]) if player_id in sums else None
+        usage = window_usage(player_id, league_window_usage(form, season), usage_table(meta.get("last_season")))
+        games = form_games(doc.get("team_id"), form, season) or []
+        form_info = {"form": form, "label": f"Last {LAST_N} games", "team_games": len(games),
+                     "played": line["gp"] if line else 0}
     from app.services.onoff import player_onoff
     return {
         "usage": usage,
@@ -230,13 +277,14 @@ def player_card(player_id):
         "team": team,
         "has_stats": bool(doc.get("has_stats")) and bool(doc.get("gp")),
         "season_label": season,
-        "season": per_game(doc),
+        "season": line,
+        "form": form_info,
         "injury": injury_for(player_id),
         "last_games": last_games(player_id, season),
         "shots": {
             "total_fga": total_fga,
             "zones": zones,
-            "top_types": top_shot_types(player_id),
+            "top_types": top_shot_types(player_id, form=form),
             "small_sample_fga": SMALL_SAMPLE_FGA,
         },
     }
@@ -246,8 +294,8 @@ def shot_types_for(player_id):
     return sorted(db.shots.distinct("shot_type", {"player_id": player_id}))
 
 
-def player_shots(player_id, shot_type=None, zone=None):
-    query = {"player_id": player_id}
+def player_shots(player_id, shot_type=None, zone=None, form="season"):
+    query = shot_filter(player_id, form)
     if shot_type:
         query["shot_type"] = shot_type
     if zone:

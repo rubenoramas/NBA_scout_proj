@@ -433,6 +433,22 @@ Questions:
 - Why does the screen show "average miss 11 points" when the win probability uses 14.6?
 - Why are saved projections and the backtest shown separately?
 
+## Recent form: Season / Last 10
+
+What it does: a Season / Last 10 switch on the scouting page, the team page and the player card. Last 10 recomputes team stats with league ranks among every team's last 10, the roster's per-game stats, TS% and USG%, "Who runs the offense", the player's shot chart and zone table, and "Where they give up shots". The choice is in the address, so a refresh or bookmark keeps it.
+
+How it works, in plain words:
+- **One function, any window.** Team stats are computed from the box scores of a set of games: points per 100 possessions both ways, pace and the four factors. The season and the last 10 games go through the same code, so last 10 ranks compare like with like.
+- **What stays season.** Ratings, badges, the matchup model, on/off and the game preview have their own sample rules, so the switch does not touch them and labels them "season" while Last 10 is on.
+- **Fast enough.** The per-game team totals are computed once and kept in memory until the data changes, so switching takes a fraction of a second.
+
+Design decision worth mentioning: the consistency check found a real gap. Our season TOV% and OREB% run 2.5 and 4.5 points below the NBA's, because box scores leave out team turnovers and team rebounds. Instead of mixing official season numbers with our last 10, the Last 10 table puts our own season number ("Season*") beside each value.
+
+Questions:
+- Which numbers change with Last 10, and which stay season, and why?
+- How does the page remember the choice after a refresh?
+- Why does the Last 10 table compare with "Season*" and not the official season numbers?
+
 ## AI in the project
 
 AI shows up in three places:

@@ -6,6 +6,7 @@ import {
 } from "./api.js";
 import { chartLegend, drawShotChart } from "./shotchart.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
+import { currentForm, formControl, withForm } from "./form.js";
 
 const band = document.getElementById("band-player");
 const root = document.getElementById("player");
@@ -49,7 +50,7 @@ async function load() {
     if (card) renderBand();
   }).catch(() => {});
   try {
-    card = await getJSON(`/api/players/${encodeURIComponent(playerId)}`);
+    card = await getJSON(withForm(`/api/players/${encodeURIComponent(playerId)}`));
   } catch (err) {
     const permanent = /must be a number|No player has/.test(err.message);
     showProblem(err.message, permanent ? null : load);
@@ -109,6 +110,7 @@ function renderBand() {
           injuryTag(card.injury)),
         badgesRow())),
     el("div", { class: "measures" },
+      formControl(() => load()),
       onepagerLink(),
       measure("Height", height, "–"),
       measure("Weight", p.weight_lbs ? `${p.weight_lbs} lb` : null, "–"),
@@ -124,8 +126,10 @@ const d1 = (v) => (v === null || v === undefined ? "–" : Number(v).toFixed(1))
 function usageLine() {
   const u = card.usage;
   if (!u || u.usg_pct === null) return null;
-  const rank = u.rank ? `${rankText(u.rank)} of ${u.ranked_of} players with 200+ minutes`
-    : `not ranked (${u.minutes} minutes, ranks start at 200)`;
+  const last10 = card.form && card.form.form === "last10";
+  const rank = last10
+    ? (u.rank ? `${rankText(u.rank)} of ${u.ranked_of} players with 100+ minutes in their team's last 10` : `not ranked (${u.minutes} minutes in the last 10, ranks start at 100)`)
+    : (u.rank ? `${rankText(u.rank)} of ${u.ranked_of} players with 200+ minutes` : `not ranked (${u.minutes} minutes, ranks start at 200)`);
   return el("div", { class: "usage-line" },
     el("span", { class: "label", text: "USG%" }),
     el("span", { class: "usage-value", text: u.usg_pct.toFixed(1) }),
@@ -137,13 +141,18 @@ function usageLine() {
 
 function seasonPanel() {
   const s = card.season;
+  const last10 = card.form && card.form.form === "last10";
+  const title = last10 ? "Last 10 games" : "Season";
   if (!s) {
-    return panel("span-12", "Season", card.season_label,
-      emptyLine(card.injury ? `No games played yet this season (${card.injury.status}).` : "No games played yet this season."));
+    return panel("span-12", title, card.season_label,
+      emptyLine(last10 ? "He has not played in his team's last 10 games."
+        : card.injury ? `No games played yet this season (${card.injury.status}).` : "No games played yet this season."));
   }
   const tile = (label, value) => el("div", { class: "tile" },
     el("div", { class: "label", text: label }), el("div", { class: "tile-value", text: value }));
-  return panel("span-12", "Season", `${card.season_label} · per game`,
+  return panel("span-12", title, last10
+    ? `Per game · played ${card.form.played} of his team's last ${card.form.team_games} games`
+    : `${card.season_label} · per game`,
     usageLine(),
     el("div", { class: "tiles tiles-wide" },
       tile("GP", s.gp), tile("MIN", d1(s.min)), tile("PTS", d1(s.pts)), tile("REB", d1(s.reb)), tile("AST", d1(s.ast)),
@@ -198,6 +207,7 @@ async function loadShots(body, count, typeSelect) {
   fill(body, skeletonRows(6, [300]));
   count.textContent = "";
   const query = new URLSearchParams();
+  if (currentForm() === "last10") query.set("form", "last10");
   if (filters.type) query.set("type", filters.type);
   if (filters.zone) query.set("zone", filters.zone);
   let data;
@@ -222,14 +232,15 @@ async function loadShots(body, count, typeSelect) {
 
 function zonePanel() {
   const z = card.shots;
-  if (!z.total_fga) return panel("span-7", "Shots by zone", "This season", emptyLine("No shots this season."));
+  const last10 = card.form && card.form.form === "last10";
+  if (!z.total_fga) return panel("span-7", "Shots by zone", last10 ? "Last 10 games" : "This season", emptyLine(last10 ? "No shots in his team's last 10 games." : "No shots this season."));
   const gap = (v) => {
     if (v === null || v === undefined) return el("span", { class: "muted", text: "–" });
     const pts = v * 100;
     const text = `${pts > 0 ? "+" : ""}${pts.toFixed(1)}`;
     return el("span", { class: `strong ${pts > 0 ? "win" : pts < 0 ? "loss" : ""}`, text });
   };
-  return panel("span-7", "Shots by zone", `This season · ${z.total_fga} shots`,
+  return panel("span-7", "Shots by zone", `${last10 ? "Last 10 games" : "This season"} · ${z.total_fga} shots`,
     el("div", { class: "table-scroll" }, el("div", { style: "min-width: 640px" },
       el("div", { class: "trow thead short-head cols-zones" },
         el("span", { text: "Zone" }),
@@ -252,7 +263,7 @@ function topTypesPanel() {
   const levels = [["rim", "At the rim"], ["midrange", "Midrange"], ["three", "Three"]];
   const t = card.shots.top_types;
   if (!card.shots.total_fga) return null;
-  return panel("span-12", "Favorite shots", "Top three shot types at each level, this season",
+  return panel("span-12", "Favorite shots", `Top three shot types at each level, ${card.form && card.form.form === "last10" ? "last 10 games" : "this season"}`,
     el("div", { class: "levels" }, levels.map(([key, label]) => {
       const lvl = t[key];
       return el("div", { class: "level" },
@@ -308,7 +319,9 @@ function fmtComponent(c) {
 
 function ratingsPanel() {
   const a = card.attributes;
-  const note = "0 to 99, percentile among qualified players";
+  const note = card.form && card.form.form === "last10"
+    ? "Season ratings (Last 10 does not apply) · 0 to 99, percentile among qualified players"
+    : "0 to 99, percentile among qualified players";
   if (!a || !a.qualified) {
     return panel("span-12", "Ratings", note,
       emptyLine("Not enough minutes for ratings yet. A player needs 200 minutes this season or 500 last season."));

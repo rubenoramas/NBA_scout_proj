@@ -200,6 +200,16 @@ margin = 2.0 home court + 0.92 x (home net - away net) - 0.05 x (home rest - awa
 - **Wording:** "Projected: BOS by 5.1 · 64% win probability · average miss 11 points", always with the note that it is a projection, not a certainty. No wagering language.
 - **Limits:** neutral-site regular-season games are not flagged in the schedule, so the listed home team gets home court. Only regular-season games are projected.
 
+## Recent form (Season / Last 10)
+
+Built Nov 25 in `app/services/form.py`. A segmented control on the scouting page, the team page and the player card, kept in the address as `?form=last10`.
+
+- **Last 10** is each team's last 10 played regular-season games. On a player card it is his team's last 10 games (he may have played fewer).
+- **Changes with the toggle:** team stats (offensive, defensive and net rating, pace, four factors) with ranks among every team's last 10; roster per-game stats, TS% and USG% (ranked among players with 100+ minutes in their team's last 10); "Who runs the offense"; the player's season line, shot chart, zone table and favorite shots; "Where they give up shots". League comparisons in the shot tables stay whole-season.
+- **Does not change:** ratings, badges, the matchup model, on/off, lineups, the AI report and the game preview. While Last 10 is on they are labeled season.
+- **Method:** team stats come from the box scores with one function for any window; possessions are the box-score estimate (FGA + 0.44 x FTA - OREB + TOV) averaged over both teams. The Season view keeps the NBA's official numbers. The Last 10 table shows "Season*", the team's season computed the same way, beside each value, so comparisons are like with like.
+- **Consistency check** (`docker compose exec web python -m app.services.form`, Nov 25, 30 teams, ours minus official): net rating mean |gap| 0.25 (max 0.78); eFG% and FT rate within 0.05 points; offensive and defensive rating about 1.4 lower and pace about 1.2 higher (the estimate counts a few more possessions than the NBA); TOV% 2.5 and OREB% 4.5 points lower for both sides. Rank agreement 0.94 to 0.999. The TOV% and OREB% gap is team turnovers (such as shot clock violations) and team rebounds: the player box scores do not have them, and neither does the team game logs file (`load_nba_stats_team_game_logs`), whose rows match the player sums exactly. Only the play-by-play has them.
+
 ## Rotation scouting
 
 This view shows the opponent's most-used lineups, tags each one, and suggests a counter lineup from our roster.

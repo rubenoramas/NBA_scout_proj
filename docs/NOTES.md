@@ -181,3 +181,8 @@ What I learned: (yours to fill in)
 What happened: a projection must use only what was known before tip-off. The easy loop (add each game, then compute the next) lets games on the same day see each other's results, and upcoming games first showed 3 days of rest for everyone because only played games counted toward "last game".
 What fixed it: features are built one date at a time: every game on a date gets its inputs, and only then are that date's results added. Rest uses the schedule (known in advance), results count only once played. A test changes a game's own result, a same-day game and a later game and checks the inputs do not move; it fails on a deliberately leaky version.
 What I learned: (yours to fill in)
+
+## 2026-11-25: our team stats against the official ones
+What happened: season team stats computed from the box scores matched the NBA's net rating (within 0.25 on average) and eFG% exactly, but TOV% ran 2.5 points and OREB% 4.5 points low for every team. The team game logs file was no help: its rows equal the player sums.
+What fixed it: the gap is team turnovers and team rebounds, which only the play-by-play records. The Season view keeps the official numbers; Last 10 ranks every team's last 10 the same way, and shows our own season number ("Season*") beside each value, so nothing compares box scores with official numbers.
+What I learned: (yours to fill in)

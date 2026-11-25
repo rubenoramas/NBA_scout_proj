@@ -283,6 +283,9 @@ button, input { font: inherit; color: inherit; }
 .usage-team { min-width: 0; border-right: 1px solid var(--row-border); }
 .usage-team:last-child { border-right: 0; }
 .cols-teamstats { grid-template-columns: 150px 72px 88px minmax(0, 1fr); }
+.cols-teamstats-l10 { grid-template-columns: 150px 72px 88px 72px minmax(0, 1fr); }
+.form-seg { align-self: center; }
+.form-note { padding: 0 0 8px; font-size: 12px; }
 .cols-matchups { grid-template-columns: minmax(160px, 1.1fr) 56px minmax(160px, 1.1fr) minmax(210px, 1.2fr) minmax(190px, 1.3fr) 72px 180px; }
 .matchup-block { border-bottom: 1px solid var(--border); }
 .matchup-block .trow { border-bottom: 0; }

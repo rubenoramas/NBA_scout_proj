@@ -1,10 +1,11 @@
 """Team endpoints: the team list and one team's schedule."""
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 
 from app.db import db
 from app.routes.errors import error, parse_team_id
 from app.services.defense import defense_shot_profile
+from app.services.form import parse_form
 from app.services.context import current_season, data_as_of, get_team, pulled_at, team_overview, team_schedule
 
 teams_bp = Blueprint("teams", __name__)
@@ -42,7 +43,10 @@ def defense_shots(team_id):
         return err
     if not get_team(tid):
         return error(f"No team has the id {tid}.", 404)
-    return jsonify(defense_shot_profile(tid))
+    form, message = parse_form(request.args.get("form"))
+    if message:
+        return error(message, 400)
+    return jsonify(defense_shot_profile(tid, form))
 
 
 @teams_bp.get("/api/teams/<team_id>")
@@ -52,4 +56,7 @@ def team(team_id):
         return err
     if not get_team(tid):
         return error(f"No team has the id {tid}.", 404)
-    return jsonify(team_overview(tid))
+    form, message = parse_form(request.args.get("form"))
+    if message:
+        return error(message, 400)
+    return jsonify(team_overview(tid, form))

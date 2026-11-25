@@ -167,6 +167,10 @@ def client_app():
     db.schedule.insert_many(SCHEDULE)
     db.game_logs.insert_many(build_logs())
     db.meta.insert_one({"_id": "seed", "season": SEASON, "data_as_of": "2026-11-10", "pulled_at": "2026-11-11T14:02:00Z"})
+    # In-memory caches are keyed on the seed data, which the tests do not
+    # change between tests while the documents do: start each test clean.
+    import app.services.form as form_svc
+    form_svc._cache.clear()
     app = create_app()
     app.config["TESTING"] = True
     yield app.test_client()

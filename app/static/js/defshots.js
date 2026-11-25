@@ -53,12 +53,12 @@ function zoneTable(d) {
         el("span", {}, fgGap(z.fg_vs_league)))))),
     el("p", { class: "panel-foot", text: `Opponents' shots in this team's games, ${d.season}. Share is the part of all opponent attempts from that zone. `
       + "Gaps are in percentage points. FG% below league (green) means opponents shoot worse there than the league does; above league (red), better. Zones under "
-      + `${d.small_sample_fga} attempts are a small sample.` }),
+      + `${d.small_sample_fga} attempts are a small sample.${d.form === "last10" ? " Last 10 uses the team's last 10 games; the league numbers are the whole season." : ""}` }),
   ];
 }
 
 // Returns two panels (zone table, chart) that fill themselves.
-export function defenseShotPanels(team, { title = "Where they give up shots" } = {}) {
+export function defenseShotPanels(team, { title = "Where they give up shots", form = "season" } = {}) {
   const tableBody = el("div", {}, skeletonRows(5, [140, 40, 40, 40, 40, 120, 50, 50, 120]));
   const chartBody = el("div", { class: "chart-body" }, skeletonRows(6, [260]));
   const tableNote = el("span", { class: "panel-note" });
@@ -72,7 +72,7 @@ export function defenseShotPanels(team, { title = "Where they give up shots" } =
     fill(chartBody, skeletonRows(6, [260]));
     let d;
     try {
-      d = await getJSON(`/api/teams/${team.team_id}/defense-shots`);
+      d = await getJSON(`/api/teams/${team.team_id}/defense-shots${form === "season" ? "" : `?form=${form}`}`);
     } catch (err) {
       fill(tableBody, errorLine(err.message, load));
       fill(chartBody, emptyLine("No chart until the shots load."));
@@ -83,7 +83,7 @@ export function defenseShotPanels(team, { title = "Where they give up shots" } =
       fill(chartBody, emptyLine("No opponent shots yet this season."));
       return;
     }
-    tableNote.textContent = `${d.games} games · ${d.total_fga} attempts · opponents ${pct1(d.fg_pct)}% FG (league ${pct1(d.league_fg_pct)}%)`;
+    tableNote.textContent = `${d.form === "last10" ? "Last " : ""}${d.games} games · ${d.total_fga} attempts · opponents ${pct1(d.fg_pct)}% FG (league ${pct1(d.league_fg_pct)}%)`;
     fill(tableBody, zoneTable(d));
     const made = d.shots.filter((s) => s.made).length;
     fill(chartBody,

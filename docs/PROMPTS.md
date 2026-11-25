@@ -669,3 +669,17 @@ Prompt (approval):
 > Then commit and push.
 
 Result: method and validation reported before any screen (app/model/preview.py, python -m app.model.validate_preview): trained on 2025-26 (1,230 games, K = 5), test on 2026-27 so far (261 games): average miss 11.36 points and 67.0% of winners, against net rating alone 11.46 and 66.7%, better record 64.4%, home team 51.3%; calibration table in bands; leakage test (and a check that it fails on a leaky version); new seed file team_priors.jsonl (final net rating per team, 2024-25 and 2025-26); "Projected: BOS by 5.1 · 64% win probability · average miss 11 points" in the scouting band and the Next game panel; each load saves projections for upcoming games in a projections collection and freezes them with the result once played; Projection record panel (saved record, the team's graded games, the backtest labeled "Not saved live"); saved projection beside the result on the box score page; upcoming games' rest now uses the schedule; shared player name lookup (rosters, then player stats, then game logs) so players no longer on a roster show by name; 13 new tests (175 total); checked in the browser
+
+## 2026-11-25: Recent form toggle
+
+Prompt:
+> Plan, then build a recent form toggle. Follow docs/DESIGN.md.
+>
+> - A "Season / Last 10" segmented control on the scouting page and the team page, kept in the URL so it survives a refresh or bookmark.
+> - Last 10 changes: team stats (offensive, defensive and net rating, pace, four factors) computed from the last 10 games' box scores, with league ranks among every team's last 10; roster per-game stats, TS% and USG%; "Who runs the offense"; the player shot profile and zone table; and "Where they give up shots".
+> - Last 10 does not change the ratings, badges, matchup model, on/off or game preview, since those have their own sample rules. Label them "season" so it is clear.
+> - Consistency check: compute the team stats over all games with the same code, compare with the official season numbers, and report the gap.
+>
+> Add tests, check it in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Result: app/services/form.py (one function for team stats from box scores over any window, last 10 = each team's last 10 regular-season games, ranks among every team's last 10, windowed per-game lines, TS% and USG%, cached until the data changes, consistency check with python -m app.services.form); ?form=last10 on the team, roster, player card, shots and defense shots endpoints; Season / Last 10 segmented control on the scouting page, team page and player card, kept in the address and carried by tab and player links; Last 10 team stats show "Season*" (the season computed the same way) beside each value; ratings, badges, on/off, matchups, lineups and the AI report labeled season while Last 10 is on; consistency check: net rating within 0.25 per 100 on average, eFG% and FT rate exact, ratings 1.4 lower, TOV% 2.5 and OREB% 4.5 points lower (box scores have no team turnovers or team rebounds; the team game logs file matches the player sums, so no verified box-score file has them); 12 new tests (187 total); checked in the browser

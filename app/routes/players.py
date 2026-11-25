@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 from app.db import db
 from app.routes.errors import error, parse_team_id
 from app.services.context import get_team
+from app.services.form import parse_form
 from app.services.players import ZONE_LABELS, ZONES, player_card, player_shots, roster, shot_types_for
 
 players_bp = Blueprint("players", __name__)
@@ -25,7 +26,10 @@ def team_roster(team_id):
     team = get_team(tid)
     if not team:
         return error(f"No team has the id {tid}.", 404)
-    return jsonify({"team": team, "players": roster(tid)})
+    form, message = parse_form(request.args.get("form"))
+    if message:
+        return error(message, 400)
+    return jsonify({"team": team, "form": form, "players": roster(tid, form)})
 
 
 @players_bp.get("/api/players/<player_id>")
@@ -33,7 +37,10 @@ def card(player_id):
     pid, err = parse_player_id(player_id)
     if err:
         return err
-    data = player_card(pid)
+    form, message = parse_form(request.args.get("form"))
+    if message:
+        return error(message, 400)
+    data = player_card(pid, form)
     if not data:
         return error(f"No player has the id {pid}.", 404)
     return jsonify(data)
@@ -46,6 +53,9 @@ def shots(player_id):
         return err
     if not db.players.find_one({"_id": pid}, {"_id": 1}):
         return error(f"No player has the id {pid}.", 404)
+    form, message = parse_form(request.args.get("form"))
+    if message:
+        return error(message, 400)
     zone = request.args.get("zone") or None
     shot_type = request.args.get("type") or None
     if zone and zone not in ZONES:
@@ -53,10 +63,10 @@ def shots(player_id):
     types = shot_types_for(pid)
     if shot_type and shot_type not in types:
         return error(f"He has no shots of type \"{shot_type}\" this season.", 400)
-    found = player_shots(pid, shot_type, zone)
+    found = player_shots(pid, shot_type, zone, form)
     return jsonify({
         "player_id": pid,
-        "filters": {"type": shot_type, "zone": zone},
+        "filters": {"type": shot_type, "zone": zone, "form": form},
         "shot_types": types,
         "zones": [{"zone": z, "label": ZONE_LABELS[z]} for z in ZONES],
         "count": len(found),

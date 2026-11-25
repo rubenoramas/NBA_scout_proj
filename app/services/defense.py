@@ -10,9 +10,12 @@ from app.services.context import current_season, involves
 from app.services.players import SMALL_SAMPLE_FGA, ZONE_LABELS, ZONES, safe_div, zone_counts
 
 
-def defense_shot_profile(team_id):
+def defense_shot_profile(team_id, form="season"):
+    from app.services.form import form_games
     season = current_season()
-    game_ids = db.schedule.distinct("game_id", {**involves(team_id), "season": season, "played": True})
+    game_ids = form_games(team_id, form, season)
+    if game_ids is None:
+        game_ids = db.schedule.distinct("game_id", {**involves(team_id), "season": season, "played": True})
     match = {"game_id": {"$in": game_ids}, "team_id": {"$ne": team_id}}
     allowed = zone_counts(match)
     league = zone_counts({})
@@ -35,7 +38,7 @@ def defense_shot_profile(team_id):
             "small_sample": a["fga"] < SMALL_SAMPLE_FGA,
         })
     shots = list(db.shots.find(match, {"_id": 0, "x": 1, "y": 1, "made": 1}))
-    return {"season": season, "games": games_with_shots, "total_fga": total,
+    return {"season": season, "form": form, "games": games_with_shots, "total_fga": total,
             "fg_pct": safe_div(sum(z["fgm"] for z in allowed.values()), total),
             "league_fg_pct": safe_div(sum(z["fgm"] for z in league.values()), league_total),
             "zones": zones, "shots": shots, "small_sample_fga": SMALL_SAMPLE_FGA}
