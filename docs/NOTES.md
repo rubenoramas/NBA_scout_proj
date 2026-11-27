@@ -186,3 +186,13 @@ What I learned: (yours to fill in)
 What happened: season team stats computed from the box scores matched the NBA's net rating (within 0.25 on average) and eFG% exactly, but TOV% ran 2.5 points and OREB% 4.5 points low for every team. The team game logs file was no help: its rows equal the player sums.
 What fixed it: the gap is team turnovers and team rebounds, which only the play-by-play records. The Season view keeps the official numbers; Last 10 ranks every team's last 10 the same way, and shows our own season number ("Season*") beside each value, so nothing compares box scores with official numbers.
 What I learned: (yours to fill in)
+
+## 2026-11-27: tag rules that tag everything
+What happened: the first Defensive rule (lineup average of 60+ in each player's better defense rating) tagged 208 of the league's 300 most-used lineups, and the first counters picked five guards, because guards top the perimeter defense and shooting ratings.
+What fixed it: checking the rules on every team's top 10 lineups before shipping. Ratings are percentiles, so 60 is ordinary for a rotation player; Defensive now needs 75 (59 lineups). Counters have at most three guards and one center, and at least one guard.
+What I learned: (yours to fill in)
+
+## 2026-11-27: "Use this lineup" left their five empty
+What happened: loading a counter before any matchups had been computed showed "0 of 5 selected" for the opponent. Their default five arrives with the first matchup answer, but a second request started right after made the app drop that first answer.
+What fixed it: when there is no earlier answer, only the Lineups tab's own request runs, with our counter already set; when there is one, their five is taken from it first.
+What I learned: (yours to fill in)

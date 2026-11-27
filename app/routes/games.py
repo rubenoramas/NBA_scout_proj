@@ -68,6 +68,25 @@ def guarded(game_id):
     return error(*problem) if problem else jsonify(result)
 
 
+@games_bp.get("/api/rotations")
+def rotation_scouting():
+    """Their most-used five-man lineups with tags, and our counters.
+    us_status / them_status: statuses set in the lineup editor, as
+    <pid>:<status>,... (otherwise the official injury report)."""
+    from app.services.onepager import parse_status_param
+    from app.services.rotations import rotations
+    us_id, them_id, err = two_teams(request.args)
+    if err:
+        return err
+    us_over, message = parse_status_param(request.args.get("us_status"))
+    if message:
+        return error(message, 400)
+    them_over, message = parse_status_param(request.args.get("them_status"))
+    if message:
+        return error(message, 400)
+    return jsonify(rotations(us_id, them_id, us_over, them_over))
+
+
 @games_bp.get("/api/games/<game_id>/projection")
 def projection(game_id):
     """The saved projection (with the result once played), or for an upcoming

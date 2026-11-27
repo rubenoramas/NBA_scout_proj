@@ -20,6 +20,8 @@
 #     combine_drills.jsonl   max vertical leap
 #     player_onoff.jsonl     possessions and points with each player on and
 #                            off the floor, per season and team
+#     lineups5.jsonl         five-man lineups this season (minutes, games,
+#                            plus-minus), for rotation scouting
 #     team_priors.jsonl      final net rating per team, the two seasons before
 #                            this one (for the game preview)
 #     matchup_top.jsonl.gz   each scorer's top defender in every game, both
@@ -464,6 +466,20 @@ team_priors <- bind_rows(lapply(c(this_start - 2, this_start - 1), function(star
               net_rating, off_rating, def_rating)
 })) %>% mutate(`_id` = paste(team_id, season, sep = "_")) %>% relocate(`_id`)
 
+# 6f. Five-man lineups this season ------------------------------------------
+# For rotation scouting. leaguedash table lineups_base holds 2,000 groups of
+# each size (2 to 5 players) league-wide, the ones with the most minutes;
+# this season every five-man lineup with about 3 minutes or more is in it.
+# group_id lists the five NBA ids, as in "-1628369-1630202-...-".
+lineups5 <- regular(suppressMessages(load_nba_stats_leaguedash(seasons = this_start, table = "lineups_base"))) %>%
+  filter(group_quantity == 5) %>%
+  transmute(team_id = as.integer(team_id), team_abbr = team_abbreviation,
+            player_ids = gsub("^-|-$", "", as.character(group_id)) %>% gsub("-", ",", .),
+            group_name, gp = as.integer(gp), min = as.numeric(min), plus_minus = as.numeric(plus_minus),
+            pts = as.numeric(pts), season = make_label(this_start)) %>%
+  mutate(`_id` = paste(team_id, player_ids, sep = "_")) %>%
+  relocate(`_id`)
+
 # 7. Combine drills: max vertical --------------------------------------------
 drills <- bind_rows(lapply(2000:(this_start - 1), function(cl) {
   tryCatch(suppressMessages(load_nba_stats_draft_combine_drills(seasons = cl)), error = function(e) NULL)
@@ -490,5 +506,6 @@ write_jsonl(matchup_games, "matchup_games", gz = TRUE)
 write_jsonl(matchup_top, "matchup_top", gz = TRUE)
 write_jsonl(player_onoff, "player_onoff")
 write_jsonl(team_priors, "team_priors")
+write_jsonl(lineups5, "lineups5")
 files <- list.files(seed_dir, full.names = TRUE)
 cat(sprintf("Total size of %s: %.2f MB\n", seed_dir, sum(file.size(files)) / 1024^2))

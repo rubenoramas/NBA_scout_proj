@@ -499,6 +499,14 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
 .spots-cell { grid-column: 3 / 7; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; white-space: normal !important; padding: 4px 0; }
 .lm-cell { display: inline-flex; gap: 6px; align-items: center; }
 
+/* ---- Rotations -------------------------------------------------------- */
+.cols-rotations { grid-template-columns: minmax(420px, 1fr) 64px 44px 56px 64px minmax(220px, 0.6fr); }
+.cols-counters { grid-template-columns: 150px minmax(380px, 1fr) minmax(240px, 0.7fr) 140px; padding-top: 6px; padding-bottom: 6px; }
+.counter-tag { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.cols-tagrules { grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr); align-items: start; padding-top: 8px; padding-bottom: 8px; }
+.rot-players, .counter-reason, .cols-tagrules .wrap { white-space: normal !important; line-height: 1.45; }
+.cols-rotations .tag-cell, .cols-counters .num { overflow: visible; }
+
 /* ---- Game preview ----------------------------------------------------- */
 .proj-line { margin-top: 4px; color: var(--text-2); font-size: 12px; }
 .proj-band { font-weight: 600; color: var(--text); }

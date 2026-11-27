@@ -226,6 +226,34 @@ Tags come from the attributes of the five players, not from how the lineup has p
 
 Counters start as simple rules, for example answering a small ball lineup with our best switching five. If the schedule gets tight, counters are the first thing to simplify.
 
+### Rotation scouting as built (Nov 27)
+
+Source: `lineups5.jsonl` from leaguedash `lineups_base` (five-man groups, this season). The table holds the 2,000 five-man lineups with the most minutes league-wide, which on Nov 27 is every lineup with about 3 minutes or more (45 to 85 per team). The tab shows the opponent's 10 lineups with the most minutes together: minutes, games, plus-minus and plus-minus per 48. Under 50 minutes together is a small sample. Lineups with a player who is Out (official report or the lineup editor) are flagged. The numbers are season numbers; the Last 10 toggle does not apply and the tab says so.
+
+Tag rules (positions G, F, C from the matchup data; season ratings; a player without ratings never counts as a shooter or defender):
+
+| Tag | Rule | Top 10 lineups of all 30 teams with the tag (Nov 27) |
+| --- | --- | --- |
+| Starters | Exactly the team's most common starting five this season | 30 of 300 (one per team) |
+| Small ball | No player listed at center | 46 |
+| 3pt | 4 or more players rated 60+ in Three-point shooting | 30 (LAL 10, NYK 5, HOU 4, LAC 4) |
+| Defensive | Average of each player's better defense rating (Perimeter or Interior) 75+, with ratings for at least four | 59 (DET 9, DAL 7, OKC 7, LAL 6) |
+| Big | 2 or more players listed at center | 5 (TOR 3, LAL 1, MEM 1) |
+
+The first Defensive threshold (60) tagged 208 of 300, because ratings are percentiles and a regular's better defense rating is usually high; 75 is the top fifth.
+
+Counter rules (our pool: not Out after the lineup editor's statuses, 100+ minutes this season or 500+ last season; every counter has at most one center unless the rule says otherwise, and one to three guards):
+
+| Their tag | Our counter | Reason shown |
+| --- | --- | --- |
+| Starters | Our most common starting five, Out and Doubtful players replaced by the healthy players with the most minutes | Meet their usual starters with ours |
+| Small ball | Five best by Perimeter defense | They play without a center, so our best perimeter defenders can switch and stay in front |
+| 3pt | Five best by the average of Perimeter defense and Speed | Four or more shooters: our quickest perimeter defenders, to contest threes and close out |
+| Defensive | Five best by the average of Three-point shooting, Pull-up shooting, Playmaking and Finishing | A strong defensive five: our best shooting and shot creation, to stretch it and score |
+| Big | Two best centers or forwards by the average of Rebounding and Interior defense, plus three best non-centers by Perimeter defense | Two centers: our best rebounding and rim-protecting bigs on the glass, with three perimeter defenders |
+
+"Use this lineup" loads the counter as our five in the Lineups tab and reruns the matchups.
+
 ## Matchup model
 
 Built Nov 18 in `app/model/matchups.py`. Units are points per 100 partial possessions (the time a defender spends guarding a scorer). The league averages about 24, because a scorer finishes only a small share of the possessions he is on the floor.
@@ -348,6 +376,7 @@ Seed data covers all 30 teams. This season is stored shot by shot (about 35,000 
 | GET | `/api/games/<id>/guarded?us=<id>` | Who guarded whom in one game, both directions |
 | GET | `/api/teams/<id>/defense-shots` | Opponents' shots against the team this season, by zone, with the league average |
 | GET | `/api/games/<id>/projection` | Saved projection (with the result once played) and the current one for an upcoming game |
+| GET | `/api/rotations?us=<id>&them=<id>` | Their most-used five-man lineups with tags, and our counter per tag (optional us_status, them_status from the lineup editor) |
 | GET | `/api/projections/record?team=<id>` | Running record of saved projections, the team's graded games, and the backtest |
 | POST | `/api/lineups` | Save a lineup with injury tags |
 | GET | `/api/lineups/<id>` | Read a lineup |

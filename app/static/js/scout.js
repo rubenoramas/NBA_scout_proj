@@ -28,7 +28,7 @@ const themAbbr = (params.get("them") || "").trim().toUpperCase();
 // changes made in the Lineups tab carry over to Matchups and Report. The
 // address still changes (?tab=...), so a refresh or bookmark lands on the
 // same tab.
-const TABS = ["overview", "players", "matchups", "lineups", "report"];
+const TABS = ["overview", "players", "matchups", "lineups", "rotations", "report"];
 let activeTab = TABS.includes(params.get("tab")) ? params.get("tab") : "overview";
 let currentCtx = null;
 function tabUrl(tab) {
@@ -75,9 +75,9 @@ const formNote = el("p", { class: "form-note muted", role: "note", hidden: true 
 document.querySelector(".band-inner").append(formNote);
 // While Last 10 is on, say plainly which tabs stay on season numbers.
 function showFormNote() {
-  const seasonTab = ["matchups", "lineups", "report"].includes(activeTab);
+  const seasonTab = ["matchups", "lineups", "rotations", "report"].includes(activeTab);
   formNote.hidden = !(currentForm() === "last10" && seasonTab);
-  formNote.textContent = "Season numbers on this tab: Last 10 does not apply to the matchup model, lineups or the AI report.";
+  formNote.textContent = "Season numbers on this tab: Last 10 does not apply to the matchup model, lineups, rotations or the AI report.";
 }
 
 // "Generate report" in the band: switch to the Report tab and start a draft.
@@ -121,7 +121,7 @@ function showProblem(message, retry) {
 function showLoading() {
   fill(band, el("div", { class: "band-side" }, skeletonRows(2, [60, 160])));
   if (activeTab !== "overview") {
-    const titles = { players: "Roster", matchups: "Suggested matchups", lineups: "Lineups", report: "Report" };
+    const titles = { players: "Roster", matchups: "Suggested matchups", lineups: "Lineups", rotations: "Rotations", report: "Report" };
     fill(root, panel("span-12", titles[activeTab], null, skeletonRows(10, [180, 30, 30, 40, 40, 40, 40, 50, 50])));
     return;
   }
@@ -336,6 +336,10 @@ function render(ctx) {
   }
   if (activeTab === "report") {
     renderReport(ctx);
+    return;
+  }
+  if (activeTab === "rotations") {
+    renderRotations(ctx);
     return;
   }
   const usagePanel = el("section", { class: "panel span-12", "aria-label": "Who runs the offense" },
@@ -1096,3 +1100,126 @@ function renderReport(ctx) {
   drawMatchupBox(box, ctx);
   if (!editor.result && !editor.loading) fetchMatchups(ctx);
 }
+
+
+// ---- Rotations tab --------------------------------------------------------
+
+function statusParam(side) {
+  return overridesPayload(side).map((o) => `${o.player_id}:${o.status}`).join(",");
+}
+
+async function renderRotations(ctx) {
+  const lineupsBox = el("div", {}, skeletonRows(8, [320, 50, 40, 50, 160]));
+  const countersBox = el("div", {}, skeletonRows(5, [90, 360, 240, 120]));
+  const rulesBox = el("div");
+  const season = currentForm() === "last10" ? " · season (Last 10 does not apply)" : "";
+  fill(root,
+    el("section", { class: "panel span-12", "aria-label": "Most-used lineups" },
+      el("div", { class: "panel-head", style: "justify-content: space-between" },
+        el("h2", { class: "panel-title", text: `${ctx.them.team.abbreviation} most-used lineups` }),
+        el("span", { class: "panel-note", text: `Five-man lineups by minutes together, ${ctx.season}${season}` })),
+      lineupsBox),
+    el("section", { class: "panel span-12", "aria-label": "Counters" },
+      el("div", { class: "panel-head", style: "justify-content: space-between" },
+        el("h2", { class: "panel-title", text: `Our counters (${ctx.us.team.abbreviation})` }),
+        el("span", { class: "panel-note", text: "One suggested five per tag, from our healthy roster" })),
+      countersBox),
+    el("section", { class: "panel span-12", "aria-label": "How tags work" },
+      el("div", { class: "panel-head" }, el("h2", { class: "panel-title", text: "How tags work" })),
+      rulesBox));
+  const q = new URLSearchParams({ us: ctx.us.team.team_id, them: ctx.them.team.team_id });
+  if (statusParam("us")) q.set("us_status", statusParam("us"));
+  if (statusParam("them")) q.set("them_status", statusParam("them"));
+  let d;
+  try {
+    d = await getJSON(`/api/rotations?${q}`);
+  } catch (err) {
+    fill(lineupsBox, errorLine(err.message, () => renderRotations(ctx)));
+    fill(countersBox, emptyLine("Counters appear once the lineups load."));
+    return;
+  }
+  if (activeTab !== "rotations") return;
+  drawLineups(lineupsBox, d);
+  drawCounters(countersBox, d, ctx);
+  drawTagRules(rulesBox, d);
+}
+
+const playerList = (players) => el("span", { class: "lineup-names" }, players.map((p, i) => [
+  i ? ", " : "",
+  el("a", { class: "name-link", href: `/player/${p.player_id}`, text: p.player_name }),
+  p.position ? el("span", { class: "muted", text: ` ${p.position}` }) : null,
+  p.status && p.status !== "Available" ? [" ", tag(p.status, p.status === "Out" ? "loss" : "gold")] : null,
+]));
+
+function drawLineups(box, d) {
+  if (!d.lineups.length) { fill(box, emptyLine("No five-man lineups for this team yet.")); return; }
+  const signed = (v, digits = 0) => `${v > 0 ? "+" : ""}${Number(v).toFixed(digits)}`;
+  fill(box,
+    el("div", { class: "table-scroll" }, el("div", { style: "min-width: 1000px" },
+      el("div", { class: "trow thead short-head cols-rotations" },
+        el("span", { text: "Lineup" }), ["MIN", "GP", "+/-", "Per 48"].map((t) => el("span", { class: "num", text: t })),
+        el("span", { text: "Tags" })),
+      d.lineups.map((ln) => el("div", { class: "trow cols-rotations tall" },
+        el("span", { class: "rot-players" }, playerList(ln.players)),
+        el("span", { class: "num strong", text: ln.minutes.toFixed(1) }),
+        el("span", { class: "num text-2", text: ln.games }),
+        el("span", { class: `num strong ${ln.plus_minus > 0 ? "win" : ln.plus_minus < 0 ? "loss" : ""}`, text: signed(ln.plus_minus) }),
+        el("span", { class: "num text-2", text: ln.plus_minus_per48 === null ? "–" : signed(ln.plus_minus_per48, 1) }),
+        el("span", { class: "tag-cell" },
+          ln.tags.map((t) => el("span", { class: "tag tag-accent", title: t.why, text: t.label })),
+          ln.small_sample ? tag("Small sample", "gold") : null,
+          ln.includes_out.length ? tag("Has an Out player", "loss") : null))))),
+    el("p", { class: "panel-foot", text: `The ${d.rules.shown} lineups with the most minutes together this season, from the NBA's lineup data. Under ${d.rules.small_sample_min} minutes together is a small sample: plus-minus over a few games swings a lot. Hover a tag for the numbers behind it.` }));
+}
+
+function drawCounters(box, d, ctx) {
+  const rows = d.rules.order.map((key) => {
+    const c = d.counters[key];
+    const n = d.tag_counts[key];
+    const use = el("button", { type: "button", class: "btn", text: "Use this lineup", disabled: !c.complete });
+    use.addEventListener("click", () => useCounter(ctx, c));
+    return el("div", { class: "trow cols-counters tall" },
+      el("span", { class: "counter-tag" }, el("span", { class: "tag tag-accent", text: c.label }),
+        el("span", { class: "muted", text: `${n} of their top ${d.lineups.length}` })),
+      el("span", { class: "rot-players" }, c.complete ? playerList(c.players) : el("span", { class: "muted", text: "Not enough healthy players with minutes for this rule." })),
+      el("span", { class: "counter-reason", title: c.rule, text: c.reason }),
+      el("span", { class: "num" }, use));
+  });
+  const source = d.status_source === "lineup"
+    ? "Uses the statuses set in the Lineups tab; Out players are left out."
+    : "Uses the official injury report; Out players are left out. Change a status in the Lineups tab to update these.";
+  fill(box,
+    el("div", { class: "table-scroll" }, el("div", { style: "min-width: 1000px" },
+      el("div", { class: "trow thead short-head cols-counters" },
+        el("span", { text: "Their tag" }), el("span", { text: "Our counter" }), el("span", { text: "Why" }), el("span")),
+      rows)),
+    el("p", { class: "panel-foot", text: `Simple rules on our season ratings, not a model. ${source} "Use this lineup" loads the five into the Lineups tab and reruns the matchups.` }));
+}
+
+function drawTagRules(box, d) {
+  fill(box,
+    el("div", { class: "trow thead short-head cols-tagrules" },
+      el("span", { text: "Tag" }), el("span", { text: "Rule for their lineup" }), el("span", { text: "Rule for our counter" })),
+    d.rules.order.map((key) => el("div", { class: "trow cols-tagrules" },
+      el("span", { class: "tag tag-accent", text: d.rules.tag_labels[key] }),
+      el("span", { class: "text-2 wrap", text: d.rules.tags[key] }),
+      el("span", { class: "text-2 wrap", text: d.rules.counters[key] }))),
+    el("p", { class: "panel-foot", text: "Positions are G, F or C from the matchup data. Ratings are season ratings (0 to 99, percentile among qualified players); a player without enough minutes for ratings never counts as a shooter or defender. Tags describe who is on the floor, not how the lineup has played." }));
+}
+
+// "Use this lineup": load the counter as our five, switch to the Lineups
+// tab, and rerun the matchups.
+function useCounter(ctx, counter) {
+  editor.us.ids = [...counter.player_ids];
+  editor.us.loaded = null;
+  const hadResult = Boolean(editor.result);
+  // Keep their current five; without an earlier answer, the Lineups tab's
+  // own first request fills it (with our counter already in place).
+  if (hadResult && !editor.them.ids) editor.them.ids = editor.result.them_lineup.map((p) => p.player_id);
+  activeTab = "lineups";
+  window.history.pushState({ tab: "lineups" }, "", tabUrl("lineups"));
+  markTabs();
+  render(ctx);
+  if (hadResult) scheduleMatchups(ctx);
+}
+

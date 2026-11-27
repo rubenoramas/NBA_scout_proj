@@ -449,6 +449,22 @@ Questions:
 - How does the page remember the choice after a refresh?
 - Why does the Last 10 table compare with "Season*" and not the official season numbers?
 
+## Rotation scouting
+
+What it does: the Rotations tab shows the opponent's 10 most-used five-man lineups this season with minutes, games and plus-minus, tags each one (Starters, Small ball, 3pt, Defensive, Big), and suggests a counter five from our healthy roster for each tag, with a one-line reason. "Use this lineup" loads a counter into the Lineups tab and reruns the matchups.
+
+How it works, in plain words:
+- **Lineup data.** The NBA's lineup table lists every five-man group with real minutes this season. Under 50 minutes together is tagged as a small sample.
+- **Tags are rules on who is on the floor.** No center is Small ball, two centers is Big, four players rated 60+ in Three-point shooting is 3pt, and so on. The "How tags work" table on the page lists each rule.
+- **Counters are rules too.** For Small ball, our five best perimeter defenders with at most one center; for Big, our two best rebounding bigs plus three perimeter defenders. Every counter respects the statuses set in the Lineups tab, so an Out player never appears.
+
+Design decision worth mentioning: the first run of the rules was checked against every team's top 10 lineups before shipping. Defensive at a 60 rating tagged 208 of 300 lineups, which says nothing, so the bar moved to 75 (59 lineups). The first counters were all guards, so each counter now has at most three guards and at least one.
+
+Questions:
+- How is a lineup tagged Small ball, Big or Defensive?
+- How does a counter respect injuries and the statuses set in the Lineups tab?
+- Why are tags based on the players, not on how the lineup has played?
+
 ## AI in the project
 
 AI shows up in three places:
@@ -477,4 +493,4 @@ Full notes are in `docs/NOTES.md`. Write the README answers in your own words.
 
 ## Still to come
 
-Sections for these get added as they are built: rotation scouting, and tests.
+Sections for these get added as they are built: tests.

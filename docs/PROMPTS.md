@@ -683,3 +683,17 @@ Prompt:
 > Add tests, check it in the browser, then commit and push and add the VIDEO_NOTES section.
 
 Result: app/services/form.py (one function for team stats from box scores over any window, last 10 = each team's last 10 regular-season games, ranks among every team's last 10, windowed per-game lines, TS% and USG%, cached until the data changes, consistency check with python -m app.services.form); ?form=last10 on the team, roster, player card, shots and defense shots endpoints; Season / Last 10 segmented control on the scouting page, team page and player card, kept in the address and carried by tab and player links; Last 10 team stats show "Season*" (the season computed the same way) beside each value; ratings, badges, on/off, matchups, lineups and the AI report labeled season while Last 10 is on; consistency check: net rating within 0.25 per 100 on average, eFG% and FT rate exact, ratings 1.4 lower, TOV% 2.5 and OREB% 4.5 points lower (box scores have no team turnovers or team rebounds; the team game logs file matches the player sums, so no verified box-score file has them); 12 new tests (187 total); checked in the browser
+
+## 2026-11-27: Rotation scouting
+
+Prompt:
+> Plan, then build rotation scouting from docs/SPEC.md. Follow docs/DESIGN.md and reuse existing data and components. Turn on the Rotations tab of the scouting page.
+>
+> - The opponent's most-used five-man lineups this season from the lineup data, with minutes, games and plus-minus. Set a minimum-minutes rule and tag lineups under it as small samples. Label the tab "season" when the Last 10 toggle is on.
+> - Tags from the five players' positions and ratings: Starters, Small ball, 3pt, Defensive, Big. Propose the exact rule for each, show it in a "How tags work" note, and show me which lineups get each tag.
+> - A suggested counter for each tag, built by simple rules from our healthy roster, using the lineup editor's current status overrides. For example, answer Small ball with our best perimeter defenders and at most one center. Propose each rule and give each counter a one-line reason.
+> - A "Use this lineup" button on each counter that loads it into the Lineups tab and reruns the matchups.
+>
+> Add tests for the tag rules and counters, check it in the browser, then commit and push and add the VIDEO_NOTES section.
+
+Result: new seed file lineups5.jsonl from pulls/pull_stats.R (five-man lineups this season from leaguedash lineups_base: 2,000 league-wide, every lineup with about 3+ minutes, 45 to 85 per team); app/services/rotations.py with the five tag rules and five counter rules (at most one center and three guards, at least one guard); GET /api/rotations with the lineup editor's statuses for both teams; Rotations tab turned on: the opponent's 10 most-used lineups (minutes, games, plus-minus, per 48, tags with their numbers, small sample under 50 minutes, Out players flagged), our counter per tag with a one-line reason and "Use this lineup" (loads it into the Lineups tab and reruns the matchups), and a "How tags work" table; Defensive threshold raised from 60 to 75 after the first run tagged 208 of the league's 300 top lineups; counters capped at three guards after the first run picked all-guard fives; 10 new tests (196 total); checked in the browser, including a race where their five was not filled after "Use this lineup"
