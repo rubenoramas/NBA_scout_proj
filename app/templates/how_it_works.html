@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}How it works | Opponent Scout{% endblock %}
+{% block page %}how{% endblock %}
+{% block content %}
+<div class="twocol how">
+  <nav class="twocol-side how-toc" aria-label="Sections">
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">How it works</h2></div>
+      <ol class="toc-list">
+        <li><a href="#data">Data</a></li>
+        <li><a href="#zones">Shot zones</a></li>
+        <li><a href="#ratings">Ratings and badges</a></li>
+        <li><a href="#matchups">Matchup model</a></li>
+        <li><a href="#onoff">On/off</a></li>
+        <li><a href="#preview">Game preview</a></li>
+        <li><a href="#form">Recent form</a></li>
+        <li><a href="#ai">The AI</a></li>
+        <li><a href="#limits">Known limits</a></li>
+      </ol>
+      <p class="panel-foot">Every number from a validation run carries the date it was measured. Numbers marked "live" are read from the app when this page opens.</p>
+    </section>
+  </nav>
+
+  <div class="twocol-main stack how-main">
+
+    <!-- 1. Data ------------------------------------------------------------ -->
+    <section class="panel" id="data" aria-labelledby="h-data">
+      <div class="panel-head"><h2 class="panel-title" id="h-data">1. Data</h2><span class="panel-note" id="live-freshness">Loading the data date...</span></div>
+      <div class="panel-body prose">
+        <p>The running app reads only MongoDB. It never calls the NBA site, ESPN or hoopR. R scripts on a laptop pull the data into seed files in <code>data/seed/</code>, and a loader fills MongoDB from them when Docker starts. Loading twice changes nothing.</p>
+      </div>
+      <div class="trow thead short-head cols-how3"><span>Route</span><span>What it gives</span><span>Network</span></div>
+      <div class="trow cols-how3"><span class="strong">1. hoopR pre-pulled NBA stats files (<code>load_nba_stats_*</code>)</span><span class="wrap">Main route: schedule, box scores, shots, player and team stats, tracking tables, play types, play-by-play, game lineups, per-game matchups, five-man lineups, combine measurements</span><span class="wrap">Any network. Each file holds a season and loads in about a second.</span></div>
+      <div class="trow cols-how3"><span class="strong">2. ESPN (<code>load_nba_*</code>)</span><span class="wrap">Only steals: ESPN's play-by-play names the stealer; the NBA's does not. Stealers are matched to NBA ids by name, with team as a tie-breaker.</span><span class="wrap">Any network.</span></div>
+      <div class="trow cols-how3"><span class="strong">3. The live NBA stats site (<code>nba_*</code>)</span><span class="wrap">Optional extras only (see Known limits). The app works without them.</span><span class="wrap">No answer from campus Wi-Fi, so it is pulled only from a phone hotspot.</span></div>
+      <div class="panel-body prose">
+        <p><strong>Season arguments differ.</strong> <code>load_nba_stats_*</code> takes the season's start year (2026 for 2026-27), ESPN takes the end year (2027), and live functions take "2026-27". Without the arrow package most files load empty.</p>
+        <p><strong>Refresh.</strong> <code>./refresh.sh</code> runs every pull script in order, reloads MongoDB and prints the row count change per seed file. The Refresh data button does the same through an optional container: <code>docker compose --profile refresh up --build</code>.</p>
+        <p><strong>Freshness.</strong> The top bar shows the latest game in the data and the pull time. The dot turns amber when the pull is more than 2 days old.</p>
+        <p><strong>Checks run on the data</strong> are listed with each feature below, for example points summing to every final score (On/off) and passer names matching a teammate on the floor (97.4% of 13,732 named passers, Nov 25).</p>
+      </div>
+    </section>
+
+    <!-- 2. Shot zones --------------------------------------------------------- -->
+    <section class="panel" id="zones" aria-labelledby="h-zones">
+      <div class="panel-head"><h2 class="panel-title" id="h-zones">2. Shot zones</h2><span class="panel-note">Rule in <code>pulls/pull_shots.R</code></span></div>
+      <div class="panel-body prose"><p>The files give each shot's x and y (tenths of a foot, basket at 0, 0; baseline at y = -47.5) and whether it was a 2 or a 3. The zone is derived:</p></div>
+      <div class="trow thead short-head cols-how2"><span>Zone</span><span>Rule</span></div>
+      <div class="trow cols-how2"><span class="strong">Restricted area</span><span class="formula">2-pointer and sqrt(x^2 + y^2) &lt;= 40</span></div>
+      <div class="trow cols-how2"><span class="strong">Paint (non-RA)</span><span class="formula">other 2-pointer and |x| &lt;= 80 and y &lt;= 142.5</span></div>
+      <div class="trow cols-how2"><span class="strong">Midrange</span><span class="formula">every other 2-pointer</span></div>
+      <div class="trow cols-how2"><span class="strong">Corner three</span><span class="formula">3-pointer and y &lt;= 92.5</span></div>
+      <div class="trow cols-how2"><span class="strong">Above the break</span><span class="formula">every other 3-pointer</span></div>
+      <div class="panel-body prose"><p><strong>Validation, Nov 18, 36,829 shots:</strong> the distance from x and y was within 1 ft of the distance written in the description for all 33,520 shots that state one; "3PT" in the description agreed with the 2-or-3 field on every shot; the nearest corner three was 22.1 ft out. Side of the floor (left or right) is not shown: see Known limits.</p></div>
+    </section>
+
+    <!-- 3. Ratings and badges -------------------------------------------------- -->
+    <section class="panel" id="ratings" aria-labelledby="h-ratings">
+      <div class="panel-head"><h2 class="panel-title" id="h-ratings">3. Ratings and badges</h2><span class="panel-note">Computed in <code>app/model/ratings.py</code> at load time</span></div>
+      <div class="panel-body prose"><p>Twelve 0 to 99 ratings, regular season only, this season blended with last season.</p></div>
+      <div class="trow thead short-head cols-how2"><span>Step</span><span>Formula</span></div>
+      <div class="trow cols-how2"><span class="strong">1. Blend</span><span class="formula wrap">w = MIN_this / (MIN_this + 600); blended rate = w x rate_this + (1 - w) x rate_last (the sample and the league rate blend the same way)</span></div>
+      <div class="trow cols-how2"><span class="strong">2. Shrink once</span><span class="formula wrap">value = (rate x sample + k x league) / (sample + k); k = 50 for field goal types, 30 for free throws, 25 possessions for post-ups</span></div>
+      <div class="trow cols-how2"><span class="strong">Per 36 rates</span><span class="formula wrap">shrunk per 36 = (count + league rate per minute x 400) / (minutes + 400) x 36</span></div>
+      <div class="trow cols-how2"><span class="strong">3. Qualify</span><span class="formula wrap">200+ minutes this season, or 500+ last season</span></div>
+      <div class="trow cols-how2"><span class="strong">4. Percentiles</span><span class="formula wrap">each component ranked among qualified players, 0 to 1 (flipped where lower is better)</span></div>
+      <div class="trow cols-how2"><span class="strong">5. Rating</span><span class="formula wrap">rating = round(99 x percentile rank of the weighted average of component percentiles)</span></div>
+      <div class="panel-body prose"><p>Tooltips show the player's real rate beside the adjusted one. A rating is tagged as a small sample below a threshold per attribute (for example 40 restricted-area attempts for Finishing, 50 threes for Three-point shooting, 300 minutes for Playmaking). USG% is shown as a stat with a league rank, not a rating, because it describes role, not skill.</p></div>
+      <div class="trow thead short-head cols-how2"><span>Badge</span><span>Rule (both seasons pooled, 500+ minutes)</span></div>
+      <div class="trow cols-how2"><span class="strong">Deep Range</span><span class="wrap">40+ threes from 28 to 39 ft (heaves of 40+ ft left out), 20%+ of his threes from 28+ ft, and a deep 3P% at or above the league's overall 3P%.</span></div>
+      <div class="trow cols-how2"><span class="strong">Streaky Shooter</span><span class="wrap">300+ shots that followed another shot in the same game. A one-sided two-proportion z-test that his make rate after a make beats his rate after a miss, with p below 0.05 divided by the number of players tested (Bonferroni).</span></div>
+      <div class="trow cols-how2"><span class="strong">On-Ball Pest</span><span class="wrap">15+ lost-ball steals (ESPN play-by-play), top 10% of qualified players in lost-ball steals per 36, and deflections per 36 above the median.</span></div>
+      <div class="trow cols-how2"><span class="strong">Poster Maker</span><span class="wrap">Driving, running and cutting dunks only (alley-oops and putbacks left out): 25+ of them and top 10% in those dunks per 36.</span></div>
+      <div class="panel-body prose">
+        <p><strong>The Streaky Shooter test:</strong></p>
+        <p class="formula">z = (p_after_make - p_after_miss) / sqrt(p (1 - p) (1/n_make + 1/n_miss)), with p the pooled make rate</p>
+        <p>With about 270 players tested, a plain 0.05 threshold would hand out about 13 badges by luck alone, so the threshold is split across all of them. Comparing make rates after makes and misses within the same games is slightly biased against finding streakiness (Miller and Sanjurjo, 2018), so the test is conservative. Players who were tested and did not pass show "Tested: not streaky".</p>
+        <p>Badge names and art are our own, not NBA 2K's. Every name lives in <code>app/model/badge_config.py</code>.</p>
+      </div>
+    </section>
+
+    <!-- 4. Matchup model -------------------------------------------------------- -->
+    <section class="panel" id="matchups" aria-labelledby="h-matchups">
+      <div class="panel-head"><h2 class="panel-title" id="h-matchups">4. Matchup model</h2><span class="panel-note"><code>app/model/matchups.py</code> · validation Nov 19</span></div>
+      <div class="panel-body prose"><p>Units are points per 100 partial possessions, the time a defender spends guarding a scorer. The league averages about 24. Seasons blend like the ratings.</p></div>
+      <div class="trow thead short-head cols-how2"><span>Part</span><span>Formula</span></div>
+      <div class="trow cols-how2"><span class="strong">League rate</span><span class="formula">L = total points / total partial possessions</span></div>
+      <div class="trow cols-how2"><span class="strong">Scorer's norm</span><span class="formula">B = (pts + 200 x L) / (poss + 200)</span></div>
+      <div class="trow cols-how2"><span class="strong">Defender effect</span><span class="formula wrap">D = (points allowed - expected - his poss x P) / (his poss + 300); expected = sum of poss x B of each scorer he guarded; P = average (actual - expected) per possession at his position</span></div>
+      <div class="trow cols-how2"><span class="strong">Size fit</span><span class="formula wrap">S = b_h x height gap + b_w x weight gap / 10 lb + b_ws x wingspan gap (explains 0.1% of what is left, Nov 18)</span></div>
+      <div class="trow cols-how2"><span class="strong">Pair estimate</span><span class="formula wrap">E = (pair pts + 200 x mu) / (pair poss + 200), mu = B + D + S</span></div>
+      <div class="trow cols-how2"><span class="strong">Assignment</span><span class="wrap">All 120 orderings of our five against theirs; the lowest sum of USG% x E wins. A guard may not guard a center (or the reverse) without 20+ possessions of history.</span></div>
+      <div class="panel-body prose"><p><strong>Validation:</strong> trained on last season plus this season before Nov 1, tested on the 21,605 pairs and 105,863 partial possessions since. Correlation with actual points per 100, weighted by possessions:</p></div>
+      <div class="table-scroll"><div style="min-width: 640px">
+        <div class="trow thead short-head cols-how4"><span>Model</span><span class="num">All pairs</span><span class="num">10+ poss</span><span class="num">Picks top defender</span></div>
+        <div class="trow cols-how4"><span>Scorer's norm only (B)</span><span class="num">0.162</span><span class="num">0.330</span><span class="num">–</span></div>
+        <div class="trow cols-how4"><span>Before the position fix (k = 50)</span><span class="num">0.181</span><span class="num">0.323</span><span class="num">36.7%</span></div>
+        <div class="trow cols-how4"><span>Position-relative, k = 50</span><span class="num">0.170</span><span class="num">0.315</span><span class="num">36.2%</span></div>
+        <div class="trow cols-how4"><span>Position-relative, k = 100</span><span class="num">0.177</span><span class="num">0.334</span><span class="num">36.2%</span></div>
+        <div class="trow cols-how4 highlight"><span class="strong">Position-relative, k = 200 (used)</span><span class="num strong">0.178</span><span class="num strong">0.342</span><span class="num strong">36.4%</span></div>
+      </div></div>
+      <div class="panel-body prose">
+        <p>A same-position guess matches the top defender 43.3% of the time, and a random pick 20%. Calibration by fifths, predicted against actual: 15.2 / 16.1, 20.4 / 20.2, 23.8 / 23.1, 27.7 / 25.6, 35.2 / 36.5. k was picked on the same test window, so the result for k = 200 is slightly optimistic.</p>
+        <p><strong>The position problem.</strong> Without P, centers averaged +5.3 per 100 and guards -1.5, because bigs are matched to scorers near the rim, so every guard looked like a better defender. Measuring each defender against his position (P on Nov 19: C +6.4, F -1.2, G -1.7) moved the averages to C -0.2, F -0.0, G -0.1. It costs a little raw prediction (0.181 to 0.178): the center offset is real in the data, but it reflects when bigs are matched, not how well they defend.</p>
+        <p><strong>Known limits.</strong> Switches and help defense split every scorer across several defenders. A rim protector logged as the matched defender when he helps can rate poorly. "Who guarded him most" also measures coaches' choices, not what is best.</p>
+      </div>
+    </section>
+
+    <!-- 5. On/off --------------------------------------------------------------- -->
+    <section class="panel" id="onoff" aria-labelledby="h-onoff">
+      <div class="panel-head"><h2 class="panel-title" id="h-onoff">5. On/off</h2><span class="panel-note">Section 6d of <code>pulls/pull_stats.R</code> · checks Nov 25</span></div>
+      <div class="panel-body prose">
+        <p>The play-by-play and the game lineups file line up row for row (all 842,527 rows over both seasons), so every play has the ten players on the floor. Regular season only.</p>
+        <p class="formula">ORtg = 100 x team points / team possessions; DRtg = 100 x opponent points / opponent possessions; net = ORtg - DRtg; on-off = net on - net off</p>
+        <ul class="how-list">
+          <li><strong>Points:</strong> the running score is carried forward and each change goes to the ten players on the floor.</li>
+          <li><strong>Free throws</strong> go to the ten players on the floor at the foul that caused them, not when they are shot. Last season's feed lists most substitutions during free throws before or between the shots, this season's after them, so crediting "when shot" treated the seasons differently. The foul rule moved 11,412 of 45,220 free throw points last season and 394 of 9,852 this season.</li>
+          <li><strong>Possessions are counted,</strong> from the play-by-play's possession numbers (an offensive rebound keeps the number), and credited to the players on the floor when each one ends, with the same free throw rule.</li>
+          <li><strong>"Off" counts only games he played,</strong> so an injury absence does not count as time off the floor.</li>
+          <li>Not shown under 250 possessions on the floor; a small sample under 1,000 on or off.</li>
+        </ul>
+      </div>
+      <div class="trow thead short-head cols-how2"><span>Check</span><span>Result (Nov 25)</span></div>
+      <div class="trow cols-how2"><span class="strong">Points equal the final score</span><span class="wrap">All 1,230 games last season and all 261 this season</span></div>
+      <div class="trow cols-how2"><span class="strong">Possessions against pace</span><span class="wrap">Counted possessions per 48 correlate 0.998 with each team's pace in the team stats and run 0.86 lower on average (at most 1.09). The NBA's pace is an estimate; on the same games the box-score estimate gives 101.2 possessions per team per game against 99.1 counted.</span></div>
+    </section>
+
+    <!-- 6. Game preview ---------------------------------------------------------- -->
+    <section class="panel" id="preview" aria-labelledby="h-preview">
+      <div class="panel-head"><h2 class="panel-title" id="h-preview">6. Game preview</h2><span class="panel-note"><code>app/model/preview.py</code> · validation Nov 25</span></div>
+      <div class="panel-body prose">
+        <p class="formula" id="live-formula">margin = 2.0 + 0.92 x (home net - away net) - 0.05 x (home rest - away rest) - 2.6 x home back-to-back + 1.1 x away back-to-back</p>
+        <ul class="how-list">
+          <li><strong>Net rating before the game</strong> comes only from games on earlier dates, blended with last season's final net rating: (g x current + 5 x last) / (g + 5), g = games played.</li>
+          <li><strong>Rest</strong> is days since the previous scheduled game, capped at 3. Its effect is about zero once back-to-backs are known.</li>
+          <li><strong>Fitted</strong> by least squares on last season's 1,230 regular-season games. A test changes a game's own result, a same-day game and a later game, and checks that the inputs do not move.</li>
+          <li><strong>Two error numbers.</strong> The screen shows the average miss (11 points). The win probability uses the standard deviation of the misses: <span class="formula">P(home wins) = Phi(margin / 14.6)</span>.</li>
+        </ul>
+        <p><strong>Validation:</strong> trained on 2025-26, tested on 2026-27 through Nov 24 (261 games).</p>
+      </div>
+      <div class="trow thead short-head cols-how3n"><span>Method</span><span class="num">Average miss</span><span class="num">Winners picked</span></div>
+      <div class="trow cols-how3n highlight"><span class="strong">Model</span><span class="num strong">11.36</span><span class="num strong">67.0%</span></div>
+      <div class="trow cols-how3n"><span>Net rating difference alone</span><span class="num">11.46</span><span class="num">66.7%</span></div>
+      <div class="trow cols-how3n"><span>Better record wins</span><span class="num">–</span><span class="num">64.4%</span></div>
+      <div class="trow cols-how3n"><span>Home team always wins</span><span class="num">12.97</span><span class="num">51.3%</span></div>
+      <div class="panel-body prose"><p><strong>Calibration of the home win probability, test games (Nov 25):</strong></p></div>
+      <div class="trow thead short-head cols-how4"><span>Band</span><span class="num">Games</span><span class="num">Predicted</span><span class="num">Actual</span></div>
+      <div class="trow cols-how4"><span>0-30%</span><span class="num">47</span><span class="num">21.8%</span><span class="num">21.3%</span></div>
+      <div class="trow cols-how4"><span>30-40%</span><span class="num">32</span><span class="num">34.9%</span><span class="num">28.1%</span></div>
+      <div class="trow cols-how4"><span>40-50%</span><span class="num">38</span><span class="num">44.5%</span><span class="num">50.0%</span></div>
+      <div class="trow cols-how4"><span>50-60%</span><span class="num">38</span><span class="num">55.0%</span><span class="num">57.9%</span></div>
+      <div class="trow cols-how4"><span>60-70%</span><span class="num">36</span><span class="num">64.6%</span><span class="num">61.1%</span></div>
+      <div class="trow cols-how4"><span>70-100%</span><span class="num">70</span><span class="num">79.6%</span><span class="num">74.3%</span></div>
+      <div class="panel-body prose">
+        <p><strong>Live record</strong> <span class="tag">Live</span></p>
+        <div id="live-record" class="live-record">Loading the projection record...</div>
+        <p class="muted">Every data pull saves the projection for each upcoming game and freezes it with the result once played. Only frozen projections count. The backtest runs the model on this season's played games with pre-game data; it was not saved ahead of time.</p>
+      </div>
+    </section>
+
+    <!-- 7. Recent form ------------------------------------------------------------ -->
+    <section class="panel" id="form" aria-labelledby="h-form">
+      <div class="panel-head"><h2 class="panel-title" id="h-form">7. Recent form</h2><span class="panel-note"><code>app/services/form.py</code> · check Nov 25</span></div>
+      <div class="panel-body prose">
+        <p>Last 10 is each team's last 10 played regular-season games. Team stats are computed from the box scores with one function for any window, with possessions estimated as <span class="formula">FGA + 0.44 x FTA - OREB + TOV</span>, averaged over both teams. The Season view keeps the NBA's official numbers.</p>
+        <p><strong>Consistency check:</strong> the same code over the whole season, against the official numbers, 30 teams, ours minus official:</p>
+      </div>
+      <div class="table-scroll"><div style="min-width: 640px">
+        <div class="trow thead short-head cols-how5"><span>Stat</span><span class="num">Average gap</span><span class="num">Average size</span><span class="num">Largest</span><span class="num">Rank agreement</span></div>
+        <div class="trow cols-how5"><span>Net rating</span><span class="num">0.00</span><span class="num">0.25</span><span class="num">0.78</span><span class="num">0.999</span></div>
+        <div class="trow cols-how5"><span>Offensive / defensive rating</span><span class="num">-1.4</span><span class="num">1.4</span><span class="num">2.2</span><span class="num">0.99</span></div>
+        <div class="trow cols-how5"><span>Pace</span><span class="num">+1.2</span><span class="num">1.2</span><span class="num">2.1</span><span class="num">0.96</span></div>
+        <div class="trow cols-how5"><span>eFG%, FT rate (both sides)</span><span class="num">0.00</span><span class="num">0.03 pts</span><span class="num">0.05</span><span class="num">0.998+</span></div>
+        <div class="trow cols-how5"><span>TOV%, opponent TOV%</span><span class="num">-2.5 pts</span><span class="num">2.5</span><span class="num">3.9</span><span class="num">0.98</span></div>
+        <div class="trow cols-how5"><span>OREB%, opponent OREB%</span><span class="num">-4.5 pts</span><span class="num">4.5</span><span class="num">6.3</span><span class="num">0.94-0.96</span></div>
+      </div></div>
+      <div class="panel-body prose"><p>Box scores have no team turnovers (such as shot clock violations) or team rebounds, and the NBA's team game logs file matches the player sums exactly, so only the play-by-play has them. Last 10 therefore ranks every team's last 10 the same way, and shows "Season*", the team's season computed the same way, beside each value. Ratings, badges, matchups, on/off, rotations and the preview stay season numbers.</p></div>
+    </section>
+
+    <!-- 8. The AI ------------------------------------------------------------------ -->
+    <section class="panel" id="ai" aria-labelledby="h-ai">
+      <div class="panel-head"><h2 class="panel-title" id="h-ai">8. The AI</h2><span class="panel-note"><code>app/report/</code></span></div>
+      <div class="panel-body prose">
+        <p><strong>Facts in, text out.</strong> The app builds one facts object from numbers it already computed, rounds every number once, and sends only that to Claude with a system prompt. The reply is constrained to JSON. The page shows the same facts beside the text, so every claim can be traced.</p>
+        <ul class="how-list">
+          <li>Use only the facts; every number must appear in them exactly as given; no outside knowledge.</li>
+          <li>Call out anything marked small sample, small history or last season only.</li>
+          <li>Describe where shots come from and how possessions end. Never which way a player drives, and never named set plays.</li>
+          <li>Plain sentences for coaches. No hype, no em dashes.</li>
+        </ul>
+      </div>
+      <div class="trow thead short-head cols-how2"><span>Item</span><span>Value</span></div>
+      <div class="trow cols-how2"><span class="strong">Model</span><span class="wrap"><code>claude-sonnet-5-5</code> (Anthropic Messages API, effort medium, JSON schema output, server-side refusal fallback). <code>REPORT_MODEL=claude-haiku-5-5</code> switches to Haiku 5.5.</span></div>
+      <div class="trow cols-how2"><span class="strong">Prompt versions</span><span class="wrap"><code>report-v2</code> (team report, <code>app/report/system_prompt.md</code>), <code>onepager-v1</code> ("How to guard him", <code>app/report/onepager_prompt.md</code>)</span></div>
+      <div class="trow cols-how2"><span class="strong">Cost and time</span><span class="wrap">Team report: about 3.3 cents, about 9,000 input and 1,450 output tokens, about 10 seconds (Nov 20). "How to guard him": about 3,650 input and 150 output tokens on average over 7 texts (Nov 25), cached so each page is written once per data date.</span></div>
+      <div class="trow cols-how2"><span class="strong">No API key</span><span class="wrap">The app starts and every non-AI page works. AI panels say to add <code>ANTHROPIC_API_KEY</code> to <code>.env</code>.</span></div>
+      <div class="panel-body prose">
+        <p><strong>The number check</strong> (<code>app/report/check.py</code>) finds every number in the text and looks for it in the facts. Dates and seasons from the facts, counts from 1 to 5 and "per 100" are allowed; anything else is flagged on the page.</p>
+        <p><strong>Measured limits (Nov 20):</strong> in 20 real reports (about 710 numbers per 10 reports) it fired 0 times. A test with made-up numbers showed why that is not proof: the facts hold about 66 of the 100 whole numbers from 0 to 99 (mostly ratings), so a random wrong whole number slips through about two times in three. A random wrong decimal like 38.2% is caught about 8 times in 10. That is why the facts stay visible beside the text.</p>
+      </div>
+    </section>
+
+    <!-- 9. Known limits ------------------------------------------------------------- -->
+    <section class="panel" id="limits" aria-labelledby="h-limits">
+      <div class="panel-head"><h2 class="panel-title" id="h-limits">9. Known limits</h2></div>
+      <div class="trow thead short-head cols-how2"><span>Limit</span><span>What it means</span></div>
+      <div class="trow cols-how2"><span class="strong">No user accounts</span><span class="wrap">Saved lineups and reports are shared by everyone using one copy of the app. Anyone can edit or delete them.</span></div>
+      <div class="trow cols-how2"><span class="strong">Live-only items</span><span class="wrap">Shots by dribbles and by defender distance, defended FG%, passes between teammates, dunk score, clutch stats, and NBA Cup standings and labels exist only on the live NBA site. They are optional and not in the app, so Tough Shot Maker and Closer badges are skipped.</span></div>
+      <div class="trow cols-how2"><span class="strong">Left and right not confirmed</span><span class="wrap">Nothing in the files says whether positive x is the shooter's left or right. <code>pulls/check_sides.R</code> checks it against the live shot chart and must run from a network that reaches the NBA site, so sides stay off the screens.</span></div>
+      <div class="trow cols-how2"><span class="strong">No drive direction or set plays</span><span class="wrap">Public data has neither. The app shows where shots were taken and how possessions end (play types), never which way a player drives.</span></div>
+      <div class="trow cols-how2"><span class="strong">Small samples early in a season</span><span class="wrap">Ratings blend with last season, and ratings, matchups, on/off, lineups and Last 10 tag small samples. Nearly every on/off number this season is tagged.</span></div>
+      <div class="trow cols-how2"><span class="strong">Coverage gaps</span><span class="wrap">Wingspan exists only for combine-measured players (309 of 519, Nov 18). Positions cover 503 of 519 (97%). Play-in games and the NBA Cup final have no box score in the files.</span></div>
+      <div class="trow cols-how2"><span class="strong">Team turnovers and rebounds</span><span class="wrap">Not in box scores, so computed TOV% and OREB% run below the official numbers (Recent form).</span></div>
+      <div class="trow cols-how2"><span class="strong">Neutral sites</span><span class="wrap">The schedule does not flag neutral-site games, so the game preview gives home court to the listed home team.</span></div>
+      <div class="trow cols-how2"><span class="strong">Name matching</span><span class="wrap">ESPN stealers are matched to NBA ids by name, with team as a tie-breaker and a small manual override table for names that never match. Play-by-play passers are matched by name to the four teammates on the floor (97.4% on Nov 25); the rest are left out.</span></div>
+      <div class="trow cols-how2"><span class="strong">Rotations</span><span class="wrap">The lineup table keeps only the 2,000 five-man lineups with the most minutes league-wide (about 3+ minutes this season). Tags describe who is on the floor, not how the lineup played.</span></div>
+      <div class="trow cols-how2"><span class="strong">Data is a snapshot</span><span class="wrap">Everything reflects the last pull. The top bar shows the latest game in the data and when it was pulled.</span></div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/howitworks.js') }}"></script>
+{% endblock %}

@@ -1,7 +1,7 @@
 // Player card: /player/<player_id>
 
 import {
-  MY_TEAM_KEY, ONOFF_NOTE, signed1, badgeTip, badgeWithTip, chevron, chip, el, emptyLine, errorLine, feetInches, fill, formatDay, getJSON,
+  MY_TEAM_KEY, ONOFF_NOTE, howLink, signed1, badgeTip, badgeWithTip, chevron, chip, el, emptyLine, errorLine, feetInches, fill, formatDay, getJSON,
   injuryTag, pct1, rankText, resultChip, skeletonRows, store, tag,
 } from "./api.js";
 import { chartLegend, drawShotChart } from "./shotchart.js";
@@ -256,7 +256,7 @@ function zonePanel() {
         el("span", { class: "num text-2", text: r.last_season ? r.last_season.fga : "–" }),
         el("span", { class: "num text-2", text: r.last_season ? pct1(r.last_season.fg_pct) : "–" }),
         el("span", { class: "num" }, r.small_sample && r.fga > 0 ? tag("Small sample", "gold") : null))))),
-    el("p", { class: "panel-foot", text: `vs Lg is his FG% minus the league FG% in that zone, in percentage points. Zones under ${z.small_sample_fga} attempts are a small sample. Last FGA and Last FG% are last season.` }));
+    el("p", { class: "panel-foot", text: `vs Lg is his FG% minus the league FG% in that zone, in percentage points. Zones under ${z.small_sample_fga} attempts are a small sample. Last FGA and Last FG% are last season. ` }, howLink("zones", "How zones are drawn")));
 }
 
 function topTypesPanel() {
@@ -350,7 +350,8 @@ function ratingsPanel() {
     el("div", { class: "ratings-grid" }, rows),
     el("p", { class: "panel-foot",
       text: `This season counts ${w}% and last season ${100 - w}% (${Math.round(a.min_this)} minutes this season; last season fades as minutes grow). `
-        + "Players are ranked on adjusted values: rates are pulled toward the league average until the sample is large. Hover or focus a rating to see his real rates and the adjusted ones." }));
+        + "Players are ranked on adjusted values: rates are pulled toward the league average until the sample is large. Hover or focus a rating to see his real rates and the adjusted ones. " },
+      howLink("ratings", "How ratings and badges work")));
 }
 let tipCount = 0;
 
@@ -381,7 +382,8 @@ function onoffPanel() {
         el("span"), el("span")),
       rows)),
     el("p", { class: "panel-foot", text: `ORtg is points his team scores per 100 possessions, DRtg points it allows, net the difference. On-off is the net with him on minus the net with him off. `
-      + `Free throws count for the players on the floor at the foul. Small sample: under ${o.rules.small_poss.toLocaleString("en-US")} possessions on or off. ${ONOFF_NOTE}` }));
+      + `Free throws count for the players on the floor at the foul. Small sample: under ${o.rules.small_poss.toLocaleString("en-US")} possessions on or off. ${ONOFF_NOTE} ` },
+      howLink("onoff", "How on/off is counted")));
 }
 
 function render() {

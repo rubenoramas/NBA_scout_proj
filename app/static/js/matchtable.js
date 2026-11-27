@@ -1,7 +1,7 @@
 // The suggested matchups table, shared by the scouting page (live) and the
 // saved report page (from its snapshot).
 
-import { el, tag } from "./api.js";
+import { el, howLink, tag } from "./api.js";
 
 // Lead with the effect against the scorer's norm: negative is good for us.
 export function normEffect(m) {
@@ -90,5 +90,6 @@ export function matchupNotes(data) {
     el("p", { text: data.notes.unit }),
     el("p", { text: `Effect vs his norm is the expected points minus his norm, per 100. Green means our defender holds him below what he usually scores. Guards and centers are not matched against each other without ${data.position_guard.min_history}+ possessions of history.` }),
     el("p", { text: `Size (height, weight, wingspan gaps) explains ${(size.share_of_leftover_explained * 100).toFixed(1)}% of what is left after his norm and the defender's effect, so it barely moves the numbers.` }),
-    el("p", { class: "strong", text: data.notes.noise }));
+    el("p", { class: "strong", text: data.notes.noise }),
+    el("p", {}, howLink("matchups", "How the matchup model works")));
 }

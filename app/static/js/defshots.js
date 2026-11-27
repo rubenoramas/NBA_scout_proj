@@ -2,7 +2,7 @@
 // zone table against the league and a shot chart. Shared by the team page
 // (Team stats tab) and the scouting Overview.
 
-import { el, emptyLine, errorLine, fill, getJSON, pct1, skeletonRows, tag } from "./api.js";
+import { el, emptyLine, errorLine, fill, getJSON, howLink, pct1, skeletonRows, tag } from "./api.js";
 import { chartLegend, drawShotChart } from "./shotchart.js";
 
 function panel(span, title, note, ...body) {
@@ -53,7 +53,8 @@ function zoneTable(d) {
         el("span", {}, fgGap(z.fg_vs_league)))))),
     el("p", { class: "panel-foot", text: `Opponents' shots in this team's games, ${d.season}. Share is the part of all opponent attempts from that zone. `
       + "Gaps are in percentage points. FG% below league (green) means opponents shoot worse there than the league does; above league (red), better. Zones under "
-      + `${d.small_sample_fga} attempts are a small sample.${d.form === "last10" ? " Last 10 uses the team's last 10 games; the league numbers are the whole season." : ""}` }),
+      + `${d.small_sample_fga} attempts are a small sample.${d.form === "last10" ? " Last 10 uses the team's last 10 games; the league numbers are the whole season." : ""} ` },
+      howLink("zones", "How zones are drawn")),
   ];
 }
 

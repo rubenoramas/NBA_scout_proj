@@ -465,6 +465,22 @@ Questions:
 - How does a counter respect injuries and the statuses set in the Lineups tab?
 - Why are tags based on the players, not on how the lineup has played?
 
+## How it works page
+
+What it does: one page at /how-it-works, linked from the top bar and from every method note, explains how each number in the app is made: the data routes, shot zones, ratings and badges, the matchup model, on/off, the game preview, recent form, the AI and the known limits. Formulas are in monospace, results are in tables, and every validation number shows the date it was measured.
+
+How it works, in plain words:
+- **Written from the project docs.** The page restates what SPEC.md, DATA_SOURCES.md and NOTES.md record, so the docs and the page say the same thing.
+- **Live where it changes.** The data date, the projection record and the preview's coefficients are read from the API when the page opens. Everything else is a dated snapshot of a validation run.
+- **Linked from the notes.** Each "how this is calculated" note under a table links to its section, so a reader can go from a number to its method in one click.
+
+Design decision worth mentioning: the page lists what the app cannot do as plainly as what it can: no left or right until it is confirmed, no drive direction or set plays, team turnovers missing from box scores, and the number check letting about two in three wrong whole numbers through.
+
+Questions:
+- Which numbers on the page are live, and which are dated results?
+- What does the number check catch, and what can it miss?
+- Name two known limits and why the app cannot fix them with its data.
+
 ## AI in the project
 
 AI shows up in three places:

@@ -236,6 +236,11 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// Link to a section of the How it works page, for method notes.
+export function howLink(section, text = "How it works") {
+  return el("a", { class: "how-link", href: `/how-it-works#${section}`, text: `${text} ›` });
+}
+
 // On/off: signed per-100 value, and the note shown wherever it appears.
 export const ONOFF_NOTE = "On/off is noisy and depends on who a player shares the floor with, so read it alongside the other numbers.";
 export function signed1(v) {

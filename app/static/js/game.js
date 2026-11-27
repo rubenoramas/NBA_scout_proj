@@ -1,7 +1,7 @@
 // Box score page: /game/<game_id>
 
 import { savedVersusResult } from "./projection.js";
-import { MY_TEAM_KEY, SEASON_TYPE_LABEL, chip, el, emptyLine, errorLine, fill, formatDay, getJSON, skeletonRows, store, tag } from "./api.js";
+import { MY_TEAM_KEY, SEASON_TYPE_LABEL, chip, el, emptyLine, errorLine, fill, formatDay, getJSON, howLink, skeletonRows, store, tag } from "./api.js";
 import { defaultState, nextSort, renderBoxTable } from "./boxtable.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
 
@@ -18,7 +18,7 @@ function panel(span, title, note, ...body) {
   return el("section", { class: `panel ${span}`, "aria-label": title },
     el("div", { class: "panel-head", style: "justify-content: space-between" },
       el("h2", { class: "panel-title", text: title }),
-      note ? el("span", { class: "panel-note", text: note }) : null),
+      note ? (note instanceof Node ? note : el("span", { class: "panel-note", text: note })) : null),
     body);
 }
 
@@ -157,7 +157,7 @@ function howPanel() {
     data.starters_known ? "Starters (S) are the five players on the floor at the first play of the game."
       : "Starters could not be identified for this game.",
   ];
-  return panel("span-7", "How these are calculated", null,
+  return panel("span-7", "How these are calculated", howLink("data", "All methods"),
     formulas.map(([name, f]) => el("div", { class: "trow cols-formula", style: "min-height: 32px" },
       el("span", { class: "strong", text: name }),
       el("code", { class: "formula", text: f }))),

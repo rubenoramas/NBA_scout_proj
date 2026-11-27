@@ -2,7 +2,7 @@
 
 import { defenseShotPanels } from "./defshots.js";
 import {
-  MY_TEAM_KEY, chip, el, emptyLine, errorLine, fill, formatDay, getJSON, rankText, scoutUrl, seedText,
+  MY_TEAM_KEY, chip, el, emptyLine, errorLine, fill, formatDay, getJSON, howLink, rankText, scoutUrl, seedText,
   shortStreak, skeletonRows, store, streakClass,
 } from "./api.js";
 import { newRosterState, renderRoster } from "./roster.js";
@@ -172,7 +172,8 @@ function renderStats(o) {
     el("p", { class: "muted span-12", text: last10
       ? "Last 10 is computed from the box scores, for every team the same way, so the ranks compare like with like. Season* is this team's whole season computed the same way, for comparison. "
         + "Box scores have no team turnovers or team rebounds, so TOV% and OREB% run about 2.5 and 4.5 points below the NBA's official numbers, and ratings about 1.4 points lower. Top five ranks in green, bottom five in red."
-      : "From the NBA's team stats files, regular season. Top five ranks in green, bottom five in red." }),
+      : "From the NBA's team stats files, regular season. Top five ranks in green, bottom five in red. " },
+      howLink(last10 ? "form" : "data", last10 ? "How Last 10 is computed" : "Where the data comes from")),
     defenseShotPanels(o.team, { form: currentForm() }));
 }
 

@@ -3,7 +3,7 @@
 // GET /api/players/<id>/onepager; the "How to guard him" box loads its text
 // separately, because writing it can take a few seconds.
 
-import { ONOFF_NOTE, el, feetInches, fill, formatDay, injuryTag, pct1, postJSON, rankText, signed1, tag } from "./api.js";
+import { ONOFF_NOTE, el, feetInches, fill, formatDay, howLink, injuryTag, pct1, postJSON, rankText, signed1, tag } from "./api.js";
 import { flagLine, modelLine } from "./aireport.js";
 import { normEffect } from "./matchtable.js";
 import { drawShotChart } from "./shotchart.js";
@@ -123,7 +123,8 @@ function guardBox(page) {
 function showNote(body, note) {
   fill(body,
     el("p", { class: "guard-text", text: note.text }),
-    el("div", { class: "guard-meta no-print-flags" }, flagLine(note.flags, "text"), modelLine(note)));
+    el("div", { class: "guard-meta no-print-flags" }, flagLine(note.flags, "text"), modelLine(note),
+      el("span", { class: "no-print" }, howLink("ai", "How the AI is checked"))));
   // Flags still print when there are any: the reader must know.
   if (note.flags && note.flags.length) body.querySelector(".guard-meta").classList.remove("no-print-flags");
 }

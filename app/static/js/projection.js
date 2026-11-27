@@ -2,7 +2,7 @@
 // record of saved projections. A projection, not a promise: no wagering
 // language, and the average miss is always shown beside it.
 
-import { el, formatDay, getJSON, tag } from "./api.js";
+import { el, formatDay, getJSON, howLink, tag } from "./api.js";
 
 export const PROJECTION_NOTE = "A projection from net ratings, home court and rest, not a certainty: "
   + "single games swing a lot, and the model misses the final margin by about 11 points on average.";
@@ -60,6 +60,7 @@ export async function fillRecord(body, teamId) {
       el("span", { class: "muted" }, "Backtest ", tag("Not saved live")),
       el("span", { text: `${b.games} games this season · average miss ${b.avg_miss} · winner picked ${pct0(b.picked)}` })));
   }
-  rows.push(el("p", { class: "panel-foot", text: `The backtest runs the model on this season's played games using only data from before each game; it was not saved ahead of time. ${PROJECTION_NOTE}` }));
+  rows.push(el("p", { class: "panel-foot", text: `The backtest runs the model on this season's played games using only data from before each game; it was not saved ahead of time. ${PROJECTION_NOTE} ` },
+    howLink("preview", "How the preview works")));
   body.replaceChildren(...rows);
 }

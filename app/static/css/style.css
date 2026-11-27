@@ -499,6 +499,26 @@ a.mini-day:hover { background: var(--active); color: var(--text); }
 .spots-cell { grid-column: 3 / 7; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; white-space: normal !important; padding: 4px 0; }
 .lm-cell { display: inline-flex; gap: 6px; align-items: center; }
 
+/* ---- How it works ----------------------------------------------------- */
+.how { align-items: flex-start; }
+.how-toc { position: sticky; top: 16px; order: 2; }
+.how-main { order: 1; }
+.toc-list { margin: 0; padding: 8px 16px 8px 32px; line-height: 2; }
+.how .panel { scroll-margin-top: 16px; }
+.prose { display: flex; flex-direction: column; gap: 8px; line-height: 1.55; max-width: 1100px; }
+.prose code, .how code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--text-2); }
+.how-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.how .trow > span { white-space: normal; line-height: 1.45; }
+.how .trow > .wrap, .how .trow > .formula { padding: 6px 0; }
+.how .panel-head { justify-content: space-between; }
+.cols-how2 { grid-template-columns: 200px minmax(0, 1fr); }
+.cols-how3 { grid-template-columns: 260px minmax(0, 1.4fr) minmax(0, 1fr); }
+.cols-how3n { grid-template-columns: minmax(0, 1fr) 120px 120px; }
+.cols-how4 { grid-template-columns: minmax(0, 1fr) 100px 110px 140px; }
+.cols-how5 { grid-template-columns: minmax(0, 1fr) 100px 100px 90px 120px; }
+.live-record { border: 1px solid var(--border); border-radius: 4px; }
+.how-link { font-weight: 500; }
+
 /* ---- Rotations -------------------------------------------------------- */
 .cols-rotations { grid-template-columns: minmax(420px, 1fr) 64px 44px 56px 64px minmax(220px, 0.6fr); }
 .cols-counters { grid-template-columns: 150px minmax(380px, 1fr) minmax(240px, 0.7fr) 140px; padding-top: 6px; padding-bottom: 6px; }

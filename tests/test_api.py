@@ -221,3 +221,14 @@ def test_team_overview_without_stats_and_errors(client_app):
     assert body["team"]["abbreviation"] == "CCC" and body["team_stats"] is None
     assert client_app.get("/api/teams/999").status_code == 404
     assert client_app.get("/api/teams/abc").status_code == 400
+
+
+def test_how_it_works_page(client_app):
+    res = client_app.get("/how-it-works")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    for section in ("data", "zones", "ratings", "matchups", "onoff", "preview", "form", "ai", "limits"):
+        assert f'id="{section}"' in html, section
+    # Linked from the top bar on every page.
+    assert 'href="/how-it-works"' in client_app.get("/").get_data(as_text=True)
+    assert "—" not in html  # plain sentences, no em dashes

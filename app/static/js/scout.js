@@ -1204,7 +1204,8 @@ function drawTagRules(box, d) {
       el("span", { class: "tag tag-accent", text: d.rules.tag_labels[key] }),
       el("span", { class: "text-2 wrap", text: d.rules.tags[key] }),
       el("span", { class: "text-2 wrap", text: d.rules.counters[key] }))),
-    el("p", { class: "panel-foot", text: "Positions are G, F or C from the matchup data. Ratings are season ratings (0 to 99, percentile among qualified players); a player without enough minutes for ratings never counts as a shooter or defender. Tags describe who is on the floor, not how the lineup has played." }));
+    el("p", { class: "panel-foot", text: "Positions are G, F or C from the matchup data. Ratings are season ratings (0 to 99, percentile among qualified players); a player without enough minutes for ratings never counts as a shooter or defender. Tags describe who is on the floor, not how the lineup has played. " },
+      howLink("ratings", "How ratings work")));
 }
 
 // "Use this lineup": load the counter as our five, switch to the Lineups

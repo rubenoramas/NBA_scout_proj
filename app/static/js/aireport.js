@@ -2,7 +2,7 @@
 // editable sections, the number-check flags, the model line and the
 // collapsible "Facts used" panel.
 
-import { el, fill } from "./api.js";
+import { el, fill, howLink } from "./api.js";
 
 export const SECTION_TITLES = {
   opponent_identity: "Opponent identity",
@@ -121,7 +121,7 @@ export function factsPanel(facts) {
   });
   return el("details", { class: "facts-panel", open: true },
     el("summary", {}, el("span", { class: "panel-title", text: "Facts used" }),
-      el("span", { class: "panel-note", text: " The only numbers the model was given" })),
+      el("span", { class: "panel-note", text: " The only numbers the model was given · " }), howLink("ai", "How the AI is checked")),
     el("div", { class: "facts-body" }, groups));
 }
 

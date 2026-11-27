@@ -58,6 +58,10 @@ def create_app():
     def onepagers_page():
         return render_template("onepagers.html")
 
+    @app.get("/how-it-works")
+    def how_it_works():
+        return render_template("how_it_works.html")
+
     @app.get("/reports")
     def reports_page():
         return render_template("reports.html")

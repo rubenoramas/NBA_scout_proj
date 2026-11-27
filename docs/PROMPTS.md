@@ -697,3 +697,23 @@ Prompt:
 > Add tests for the tag rules and counters, check it in the browser, then commit and push and add the VIDEO_NOTES section.
 
 Result: new seed file lineups5.jsonl from pulls/pull_stats.R (five-man lineups this season from leaguedash lineups_base: 2,000 league-wide, every lineup with about 3+ minutes, 45 to 85 per team); app/services/rotations.py with the five tag rules and five counter rules (at most one center and three guards, at least one guard); GET /api/rotations with the lineup editor's statuses for both teams; Rotations tab turned on: the opponent's 10 most-used lineups (minutes, games, plus-minus, per 48, tags with their numbers, small sample under 50 minutes, Out players flagged), our counter per tag with a one-line reason and "Use this lineup" (loads it into the Lineups tab and reruns the matchups), and a "How tags work" table; Defensive threshold raised from 60 to 75 after the first run tagged 208 of the league's 300 top lineups; counters capped at three guards after the first run picked all-guard fives; 10 new tests (196 total); checked in the browser, including a race where their five was not filled after "Use this lineup"
+
+## 2026-11-27: How it works page
+
+Prompt:
+> Plan, then build a "How it works" page at /how-it-works, linked from the top bar and from every "How these are calculated" note. Follow docs/DESIGN.md: a dense documentation page with tables, formulas in monospace, and short plain sentences. Sources are docs/SPEC.md, docs/DATA_SOURCES.md and docs/NOTES.md.
+>
+> Sections:
+> 1. Data: the three routes, what is pulled and from where, refresh and freshness, and why the live NBA site is optional.
+> 2. Shot zones: the rule and its validation.
+> 3. Ratings and badges: the blend, shrinkage and qualification formulas, each badge's rule, and the Streaky Shooter test with the Miller and Sanjurjo note.
+> 4. Matchup model: the formula, the validation table, the position problem and its fix, and known limits.
+> 5. On/off: the method, free throws credited at the foul, and both checks.
+> 6. Game preview: the model and its coefficients, the validation and calibration tables, and the live record.
+> 7. Recent form: the box-score versus official gap.
+> 8. The AI: facts in, text out, the honesty rules, the number check with its measured limits, the model name, prompt versions, and cost per report.
+> 9. Known limits: no user accounts, the live-only items, the unconfirmed left and right, and anything else recorded in the docs.
+>
+> Where a number comes from a validation run, show its date. Where it is live (the projection record), read it from the API. Check it in the browser, then commit and push.
+
+Result: /how-it-works (app/templates/how_it_works.html, app/static/js/howitworks.js) with the nine sections as tables and monospace formulas, written from SPEC.md, DATA_SOURCES.md and NOTES.md, every validation number dated; live parts read from the API (data date and pull time, the projection record with the labeled backtest, and the preview coefficients as the app uses them); "How it works" in the top bar; links from the box score's "How these are calculated" panel and from the method notes on ratings, zones, on/off, matchups, the projection record, team stats, "Where they give up shots", rotations, the AI facts panel and the one-pager; "How to guard him" token use measured from the 7 stored texts (about 3,650 in, 150 out); 1 new test (197 total); checked in the browser
