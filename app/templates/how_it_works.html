@@ -16,6 +16,7 @@
         <li><a href="#form">Recent form</a></li>
         <li><a href="#ai">The AI</a></li>
         <li><a href="#limits">Known limits</a></li>
+        <li><a href="#rotations">Rotation scouting</a></li>
       </ol>
       <p class="panel-foot">Every number from a validation run carries the date it was measured. Numbers marked "live" are read from the app when this page opens.</p>
     </section>
@@ -215,6 +216,31 @@
       <div class="trow cols-how2"><span class="strong">Name matching</span><span class="wrap">ESPN stealers are matched to NBA ids by name, with team as a tie-breaker and a small manual override table for names that never match. Play-by-play passers are matched by name to the four teammates on the floor (97.4% on Nov 25); the rest are left out.</span></div>
       <div class="trow cols-how2"><span class="strong">Rotations</span><span class="wrap">The lineup table keeps only the 2,000 five-man lineups with the most minutes league-wide (about 3+ minutes this season). Tags describe who is on the floor, not how the lineup played.</span></div>
       <div class="trow cols-how2"><span class="strong">Data is a snapshot</span><span class="wrap">Everything reflects the last pull. The top bar shows the latest game in the data and when it was pulled.</span></div>
+    </section>
+
+    <!-- 10. Rotation scouting -------------------------------------------------------- -->
+    <section class="panel" id="rotations" aria-labelledby="h-rotations">
+      <div class="panel-head"><h2 class="panel-title" id="h-rotations">10. Rotation scouting</h2><span class="panel-note"><code>app/services/rotations.py</code> · tag counts Nov 27</span></div>
+      <div class="panel-body prose">
+        <p><strong>Lineup data.</strong> The NBA's lineup table (<code>lineups_base</code>, this season) keeps only the 2,000 five-man lineups with the most minutes league-wide. On Nov 27 that is every lineup with about 3 minutes or more, 45 to 85 per team. Rarely used lineups are not in it. The Rotations tab shows the opponent's 10 lineups with the most minutes together: minutes, games, plus-minus and plus-minus per 48. Under 50 minutes together is a small sample, and a lineup with a player who is Out (official report or the lineup editor) is flagged. These are season numbers; the Last 10 toggle does not apply.</p>
+        <p><strong>Tags</strong> use positions (G, F or C from the matchup data) and season ratings. A player without enough minutes for ratings never counts as a shooter or defender. Tags describe who is on the floor, not how the lineup has played.</p>
+      </div>
+      <div class="table-scroll"><div style="min-width: 720px">
+        <div class="trow thead short-head cols-how3"><span>Tag</span><span>Rule</span><span>Top 10 lineups of all 30 teams with it (Nov 27)</span></div>
+        <div class="trow cols-how3"><span class="strong">Starters</span><span class="wrap">Exactly the team's most common starting five this season</span><span class="wrap">30 of 300 (one per team)</span></div>
+        <div class="trow cols-how3"><span class="strong">Small ball</span><span class="wrap">No player listed at center</span><span class="wrap">46</span></div>
+        <div class="trow cols-how3"><span class="strong">3pt</span><span class="wrap">4 or more players rated 60+ in Three-point shooting</span><span class="wrap">30</span></div>
+        <div class="trow cols-how3"><span class="strong">Defensive</span><span class="formula wrap">average over the five of max(Perimeter defense, Interior defense) &gt;= 75, with ratings for at least four</span><span class="wrap">59 (a first try at 60 tagged 208 of 300)</span></div>
+        <div class="trow cols-how3"><span class="strong">Big</span><span class="wrap">2 or more players listed at center</span><span class="wrap">5</span></div>
+      </div></div>
+      <div class="panel-body prose"><p><strong>Counters</strong> come from our healthy roster: players not Out under the lineup editor's statuses, with 100+ minutes this season or 500+ last season. Each counter has at most one center (the Big counter allows two) and one to three guards.</p></div>
+      <div class="trow thead short-head cols-how2"><span>Their tag</span><span>Our counter</span></div>
+      <div class="trow cols-how2"><span class="strong">Starters</span><span class="wrap">Our most common starting five, with Out and Doubtful players replaced by the healthy players with the most minutes</span></div>
+      <div class="trow cols-how2"><span class="strong">Small ball</span><span class="wrap">Our five best by Perimeter defense</span></div>
+      <div class="trow cols-how2"><span class="strong">3pt</span><span class="formula wrap">our five best by (Perimeter defense + Speed) / 2</span></div>
+      <div class="trow cols-how2"><span class="strong">Defensive</span><span class="formula wrap">our five best by (Three-point shooting + Pull-up shooting + Playmaking + Finishing) / 4</span></div>
+      <div class="trow cols-how2"><span class="strong">Big</span><span class="formula wrap">two best centers or forwards by (Rebounding + Interior defense) / 2, plus three best non-centers by Perimeter defense</span></div>
+      <div class="panel-body prose"><p><strong>Limits.</strong> Counters are simple rules on season ratings, not a model, and they do not look at how our lineups have played together. A first version picked five-guard counters, which is why guards are capped at three. "Use this lineup" loads a counter into the Lineups tab, where the matchup model judges it.</p></div>
     </section>
   </div>
 </div>

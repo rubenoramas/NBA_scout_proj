@@ -196,3 +196,8 @@ What I learned: (yours to fill in)
 What happened: loading a counter before any matchups had been computed showed "0 of 5 selected" for the opponent. Their default five arrives with the first matchup answer, but a second request started right after made the app drop that first answer.
 What fixed it: when there is no earlier answer, only the Lineups tab's own request runs, with our counter already set; when there is one, their five is taken from it first.
 What I learned: (yours to fill in)
+
+## 2026-11-27: a missing import hid the "How tags work" table
+What happened: the previous change added a "How it works" link to the Rotations tab's rule table, but scout.js never imported the link helper. The error happened inside an async function, so nothing showed in the console and the table simply stayed empty.
+What fixed it: adding the import, and a scan of every JavaScript file for functions used from another module without an import (none left). The browser check now looks for the table's rows, not just the panel.
+What I learned: (yours to fill in)

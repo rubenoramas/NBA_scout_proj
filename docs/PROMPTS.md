@@ -717,3 +717,25 @@ Prompt:
 > Where a number comes from a validation run, show its date. Where it is live (the projection record), read it from the API. Check it in the browser, then commit and push.
 
 Result: /how-it-works (app/templates/how_it_works.html, app/static/js/howitworks.js) with the nine sections as tables and monospace formulas, written from SPEC.md, DATA_SOURCES.md and NOTES.md, every validation number dated; live parts read from the API (data date and pull time, the projection record with the labeled backtest, and the preview coefficients as the app uses them); "How it works" in the top bar; links from the box score's "How these are calculated" panel and from the method notes on ratings, zones, on/off, matchups, the projection record, team stats, "Where they give up shots", rotations, the AI facts panel and the one-pager; "How to guard him" token use measured from the 7 stored texts (about 3,650 in, 150 out); 1 new test (197 total); checked in the browser
+
+## 2026-11-27: Feature freeze; rotation scouting on How it works; README draft
+
+Prompt:
+> Feature freeze is on: only fixes and docs from now on.
+>
+> 1. Add a tenth section to the How it works page for rotation scouting: the lineup data and its 2,000-lineup cap, the tag rules, the counter rules and their limits. Point the Rotations tab's link at it.
+>
+> 2. Draft README.md at the repo root, in this order, as the class requires:
+>    - The GitHub repo URL at the top
+>    - Project title and a one-sentence summary
+>    - Tech stack with exact versions: Docker, Python, Flask, gunicorn, pymongo, MongoDB, the anthropic package, R and hoopR, Inter, and any JS libraries (or "no JS libraries")
+>    - How to run locally: the exact commands and ports, the optional .env setup with .env.sample, the refresh profile, and ./refresh.sh
+>    - How to run tests: the exact command
+>    - Canvas video link: a placeholder I will fill in
+>    - The four questions as headings. Under "What is cool" and "What AI tools did you use", write factual bullet notes from docs/NOTES.md and docs/PROMPTS.md, including the exact model, the system prompt files, and that I used Claude chat for planning and Claude Code for building. Under "What did you learn" and "What were the main technical challenges", put only bullet reminders from docs/NOTES.md, marked "Ruben: rewrite in your own words".
+>    - A Known limits section and a link to the How it works page.
+>    Plain sentences, no em dashes.
+>
+> Commit and push, then tell me if anything in the README could not be verified.
+
+Result: section 10 "Rotation scouting" on /how-it-works (lineup data and the 2,000-lineup cap, tag rules with Nov 27 counts, counter rules and limits), linked from the Rotations tab; README.md draft in the class order with versions read from requirements.txt, the Dockerfile, docker-compose.yml, the local Docker and R installs; fixed a missing howLink import in scout.js that had stopped the Rotations tab's "How tags work" table from rendering since the previous commit
