@@ -2,7 +2,7 @@
 
 import {
   MY_TEAM_KEY, ONOFF_NOTE, howLink, signed1, badgeTip, badgeWithTip, chevron, chip, el, emptyLine, errorLine, feetInches, fill, formatDay, getJSON,
-  injuryTag, pct1, rankText, resultChip, skeletonRows, store, tag,
+  injuryTag, pct1, rankText, resultChip, skeletonRows, store, tag, logError
 } from "./api.js";
 import { chartLegend, drawShotChart } from "./shotchart.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
@@ -48,7 +48,7 @@ async function load() {
     myTeam = teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null;
     setSwitcher(myTeam);
     if (card) renderBand();
-  }).catch(() => {});
+  }).catch((err) => logError("Top bar team list", err));
   try {
     card = await getJSON(withForm(`/api/players/${encodeURIComponent(playerId)}`));
   } catch (err) {

@@ -1,6 +1,11 @@
 // Shared helpers: fetch JSON with plain-language errors, build DOM nodes,
 // and the small components from docs/DESIGN.md.
 
+// Log an error that the page does not show, so it is never lost silently.
+export function logError(where, err) {
+  console.error(`[Opponent Scout] ${where}:`, err);
+}
+
 // Fetch JSON from our API. Throws an Error whose message is safe to show.
 export async function getJSON(url) {
   let response;
@@ -154,13 +159,13 @@ export const SEASON_TYPE_LABEL = {
 // localStorage can throw in private windows. These never throw.
 export const store = {
   get(key) {
-    try { return localStorage.getItem(key); } catch { return null; }
+    try { return localStorage.getItem(key); } catch (err) { logError(`Reading ${key} from browser storage`, err); return null; }
   },
   set(key, value) {
-    try { localStorage.setItem(key, value); } catch { /* ignore */ }
+    try { localStorage.setItem(key, value); } catch (err) { logError(`Saving ${key} to browser storage`, err); }
   },
   remove(key) {
-    try { localStorage.removeItem(key); } catch { /* ignore */ }
+    try { localStorage.removeItem(key); } catch (err) { logError(`Removing ${key} from browser storage`, err); }
   },
 };
 

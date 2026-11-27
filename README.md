@@ -18,7 +18,7 @@ Opponent Scout builds a pregame scouting report on any NBA opponent: how the tea
 | pytest | 9.2.0 |
 | R | 4.6.2, for the data pulls only (on the laptop, or in the optional refresher container) |
 | hoopR | 3.2.0, with arrow 26.0.1, dplyr 1.2.1 and jsonlite 2.0.0 |
-| Font | Inter 4.1, self-hosted in `app/static/fonts/` (SIL Open Font License) |
+| Font | Inter (SIL Open Font License), self-hosted in `app/static/fonts/` |
 | JavaScript | No JS libraries. The frontend is vanilla JavaScript calling the API with `fetch`; shot charts are hand-drawn SVG. |
 
 Python package versions are pinned in `requirements.txt`. The refresher container uses `rocker/r2u:24.04`, pinned by digest in `refresher/Dockerfile`.

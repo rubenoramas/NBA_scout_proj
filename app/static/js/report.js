@@ -2,7 +2,7 @@
 // even if the data has changed since. Title and notes can be edited; the
 // lineups and matchups are locked.
 
-import { MY_TEAM_KEY, chip, el, errorLine, fill, formatDay, getJSON, sendJSON, skeletonRows, store } from "./api.js";
+import { MY_TEAM_KEY, chip, el, errorLine, fill, formatDay, getJSON, sendJSON, skeletonRows, store, logError } from "./api.js";
 import { aiSections, factsPanel, modelLine } from "./aireport.js";
 import { lineupLine, matchupNotes, matchupTable } from "./matchtable.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
@@ -24,7 +24,7 @@ function panel(title, note, ...body) {
 }
 
 async function load() {
-  loadTeams().then(({ teams }) => setSwitcher(teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null)).catch(() => {});
+  loadTeams().then(({ teams }) => setSwitcher(teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null)).catch((err) => logError("Top bar team list", err));
   fill(root, panel("Saved report", null, skeletonRows(8, [220, 120, 160, 200])));
   let report;
   try {

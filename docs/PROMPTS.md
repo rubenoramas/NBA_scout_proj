@@ -739,3 +739,14 @@ Prompt:
 > Commit and push, then tell me if anything in the README could not be verified.
 
 Result: section 10 "Rotation scouting" on /how-it-works (lineup data and the 2,000-lineup cap, tag rules with Nov 27 counts, counter rules and limits), linked from the Rotations tab; README.md draft in the class order with versions read from requirements.txt, the Dockerfile, docker-compose.yml, the local Docker and R installs; fixed a missing howLink import in scout.js that had stopped the Rotations tab's "How tags work" table from rendering since the previous commit
+
+## 2026-11-27: Freeze-time fixes (font line, pull_live.R references, silent errors)
+
+Prompt:
+> Small freeze-time fixes:
+> 1. README: list the font as "Inter (SIL Open Font License)" without a version.
+> 2. Remove the references to pulls/pull_live.R from CLAUDE.md and docs/NOTES.md, since it was never written. Leave pulls/check_sides.R as the one optional live script.
+> 3. Audit every catch block in the JS for errors that are swallowed silently. Each one should either show the page's error state or log with console.error. Report what you changed.
+> Then commit and push.
+
+Result: README font line without a version; pull_live.R references replaced with pulls/check_sides.R in CLAUDE.md, docs/NOTES.md and the refresh.sh comment (docs/KICKOFF_PROMPTS.md left as a historical record); a logError helper in api.js (console.error with an "[Opponent Scout]" prefix) used by the 13 handlers that dropped errors silently: the top bar team list on five pages, the saved projection on the box score page, the API key check on the scouting page, three refresh status checks in the top bar, and three browser storage calls; every other catch block already showed the page's error state

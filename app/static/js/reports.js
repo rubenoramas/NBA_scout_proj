@@ -1,7 +1,7 @@
 // Saved reports list: /reports. Newest first, with open and delete.
 // Delete asks for confirmation inline, not with a browser pop-up.
 
-import { MY_TEAM_KEY, chip, el, emptyLine, errorLine, fill, formatDay, getJSON, sendJSON, skeletonRows, store } from "./api.js";
+import { MY_TEAM_KEY, chip, el, emptyLine, errorLine, fill, formatDay, getJSON, sendJSON, skeletonRows, store, logError } from "./api.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
 
 const body = document.getElementById("reports-body");
@@ -12,7 +12,7 @@ function when(iso) {
 }
 
 async function load() {
-  loadTeams().then(({ teams }) => setSwitcher(teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null)).catch(() => {});
+  loadTeams().then(({ teams }) => setSwitcher(teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null)).catch((err) => logError("Top bar team list", err));
   fill(body, skeletonRows(5, [220, 90, 80, 120, 120]));
   let data;
   try {

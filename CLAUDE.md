@@ -28,7 +28,7 @@ Changing any item in this list breaks the assignment. If a task seems to need a 
 
 - Pull scripts are written in R with the hoopR package and live in `pulls/`. They run on the developer's laptop, never inside Docker.
 - The main route is hoopR's pre-pulled files (`load_nba_stats_*`), then ESPN (`load_nba_*`, `espn_nba_*`). Both work on any network.
-- The live NBA stats site (`nba_*` functions) gives no answer from the developer's campus Wi-Fi. Live pulls go in a separate script, `pulls/pull_live.R`, that the developer runs from a phone hotspot. Everything it produces is optional, and the app works without it.
+- The live NBA stats site (`nba_*` functions) gives no answer from the developer's campus Wi-Fi. The app does not use it. The one optional live script is `pulls/check_sides.R`, run from a phone hotspot to confirm which way is left on the shot chart; the app works without it.
 - Season arguments differ by function family. `load_nba_stats_*` takes the START year (2026 for 2026-27). ESPN `load_nba_*` takes the END year (2027). Live `nba_*` functions take "2026-27" and default to last season, so `season` is always passed.
 - The arrow package is required. Without it most `load_nba_stats_*` calls return an empty table.
 - Pull scripts write seed files to `data/seed/`. Seed files are committed to the repo.

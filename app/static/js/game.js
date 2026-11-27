@@ -1,7 +1,7 @@
 // Box score page: /game/<game_id>
 
 import { savedVersusResult } from "./projection.js";
-import { MY_TEAM_KEY, SEASON_TYPE_LABEL, chip, el, emptyLine, errorLine, fill, formatDay, getJSON, howLink, skeletonRows, store, tag } from "./api.js";
+import { MY_TEAM_KEY, SEASON_TYPE_LABEL, chip, el, emptyLine, errorLine, fill, formatDay, getJSON, howLink, skeletonRows, store, tag, logError } from "./api.js";
 import { defaultState, nextSort, renderBoxTable } from "./boxtable.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
 
@@ -43,7 +43,7 @@ async function load() {
   // The top bar team switcher does not depend on this game.
   loadTeams().then(({ teams }) => {
     setSwitcher(teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null);
-  }).catch(() => {});
+  }).catch((err) => logError("Top bar team list", err));
   try {
     data = await getJSON(`/api/games/${encodeURIComponent(gameId)}/boxscore`);
   } catch (err) {
@@ -61,7 +61,7 @@ async function load() {
   getJSON(`/api/games/${encodeURIComponent(gameId)}/projection`).then((p) => {
     const line = savedVersusResult(p.saved);
     if (line) document.querySelector(".band-mid").append(line);
-  }).catch(() => {});
+  }).catch((err) => logError("Saved projection for this game", err));
 }
 
 // ---- Band -------------------------------------------------------------

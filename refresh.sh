@@ -9,8 +9,8 @@
 #   ./refresh.sh
 #
 # Needs R with hoopR, arrow, dplyr and jsonlite (see pulls/), and Docker.
-# The live NBA stats script (pulls/pull_live.R) is not run here, because it
-# only works from a phone hotspot. Run it by hand when you want it.
+# The one optional live script, pulls/check_sides.R, is not run here, because
+# it only works from a phone hotspot. Run it by hand when you want it.
 # ---------------------------------------------------------------------------
 
 set -euo pipefail

@@ -66,7 +66,7 @@ Run this from the repo root on your laptop, with Docker running:
 ./refresh.sh
 ```
 
-It runs every R pull script in `pulls/` in order (today only `pull_core.R`), stops with a plain message if one fails, reloads MongoDB with the loader, and prints the row count of each seed file before and after. It needs R with hoopR, arrow, dplyr and jsonlite. The optional live pull (`pulls/pull_live.R`, hotspot only) is not part of it. The top bar then shows "Games through <latest game> · pulled <time>", with an amber dot if the pull is more than 2 days old.
+It runs every R pull script in `pulls/` in order (`pull_core.R`, `pull_shots.R` and `pull_stats.R`), stops with a plain message if one fails, reloads MongoDB with the loader, and prints the row count of each seed file before and after. It needs R with hoopR, arrow, dplyr and jsonlite. The one optional live script, `pulls/check_sides.R` (hotspot only), is not part of it. The top bar then shows "Games through <latest game> · pulled <time>", with an amber dot if the pull is more than 2 days old.
 
 ## 2026-11-18: which way is left on the shot chart?
 What happened: the shots file gives x and y for every shot, but nothing in the pre-pulled files says whether positive x is the shooter's left or right. Every zone could be checked against the written distance, but the side could not.

@@ -3,7 +3,7 @@
 
 import {
   MY_TEAM_KEY, SEASON_TYPE_LABEL, badgeTip, howLink, chevron, chip, el, injuryTag, pct1, postJSON, rankText, sendJSON, emptyLine, errorLine, fill, formatDay, getJSON,
-  resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag,
+  resultChip, seedText, shortStreak, skeletonRows, store, streakClass, tag, logError
 } from "./api.js";
 import { aiLoading, aiSections, factsPanel, modelLine } from "./aireport.js";
 import { lineupLine, matchupNotes, matchupTable } from "./matchtable.js";
@@ -88,7 +88,12 @@ getJSON("/api/health").then((h) => {
   generateButton.disabled = false;
   if (!editor.ai.keySet) generateButton.title = NO_KEY_TEXT;
   if (currentCtx && activeTab === "report") render(currentCtx);
-}).catch(() => { editor.ai.keySet = null; generateButton.disabled = false; });
+}).catch((err) => {
+  // Unknown key state: let the button try, and the draft request explains any problem.
+  logError("Checking whether an API key is set", err);
+  editor.ai.keySet = null;
+  generateButton.disabled = false;
+});
 generateButton.addEventListener("click", () => {
   if (!currentCtx) return;
   if (activeTab !== "report") {

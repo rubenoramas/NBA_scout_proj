@@ -1,7 +1,7 @@
 // Top bar shared by every page: team switcher, main navigation, team
 // search and the "data as of" date.
 
-import { MY_TEAM_KEY, chip, el, fill, formatDay, getJSON, postJSON, scoutUrl, store } from "./api.js";
+import { MY_TEAM_KEY, chip, el, fill, formatDay, getJSON, postJSON, scoutUrl, store, logError } from "./api.js";
 
 let teamsPromise = null;
 let teams = [];
@@ -14,6 +14,8 @@ export function loadTeams() {
       showFreshness(data.data_as_of, data.pulled_at);
       return data;
     });
+    // Forget a failed request so the next call retries. The rejection still
+    // reaches every caller, which shows or logs it.
     teamsPromise.catch(() => { teamsPromise = null; });
   }
   return teamsPromise;
@@ -252,6 +254,7 @@ async function poll(jobId) {
     job = await getJSON(`/api/refresh/${jobId}`);
   } catch (err) {
     // A slow answer is not a failed refresh: keep polling, say so quietly.
+    logError("Checking the refresh job", err);
     runningState("Checking...");
     pollTimer = setTimeout(() => poll(jobId), POLL_MS * 2);
     return;
@@ -270,7 +273,10 @@ async function startRefresh() {
     poll(job.job_id);
   } catch (err) {
     // Already running, for example from another tab: follow that job.
-    const status = await getJSON("/api/refresh/status").catch(() => null);
+    const status = await getJSON("/api/refresh/status").catch((statusErr) => {
+      logError("Checking for a refresh already running", statusErr);
+      return null;
+    });
     if (status && status.job) { poll(status.job.job_id); return; }
     showFailed(err.message);
   }
@@ -282,7 +288,8 @@ async function initRefresh() {
   let status;
   try {
     status = await getJSON("/api/refresh/status");
-  } catch {
+  } catch (err) {
+    logError("Checking whether the refresher is running", err);
     setRefreshHelp("Could not check whether the refresher is running.");
     return;
   }

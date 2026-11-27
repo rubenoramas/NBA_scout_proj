@@ -2,7 +2,7 @@
 // Opened by "Print one-pagers" on the scouting page with their five plus
 // anyone at 25% USG or higher. Each sheet prints on its own page.
 
-import { MY_TEAM_KEY, el, errorLine, fill, getJSON, store } from "./api.js";
+import { MY_TEAM_KEY, el, errorLine, fill, getJSON, store, logError } from "./api.js";
 import { loadNote, renderSheet, sheetSkeleton } from "./onepagerview.js";
 import { loadTeams, setSwitcher } from "./topbar.js";
 
@@ -43,7 +43,7 @@ async function runLimited(tasks, limit) {
 
 async function load() {
   drawToolbar();
-  loadTeams().then(({ teams }) => setSwitcher(teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null)).catch(() => {});
+  loadTeams().then(({ teams }) => setSwitcher(teams.find((t) => t.abbreviation === store.get(MY_TEAM_KEY)) || null)).catch((err) => logError("Top bar team list", err));
   if (!/^\d+$/.test(vs)) { problem("This link is missing our team. Open Print one-pagers from a scouting page."); return; }
   if (!ids.length) { problem("This link names no players. Open Print one-pagers from a scouting page."); return; }
   if (ids.some((id) => !/^\d+$/.test(id))) { problem("A player id in this link is not a number."); return; }
